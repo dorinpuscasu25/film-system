@@ -1,14 +1,19 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
-Route::inertia('/', 'welcome', [
-    'canRegister' => Features::enabled(Features::registration()),
-])->name('home');
+Route::get('/', function () {
+    return response()->json([
+        'name' => config('app.name', 'film.md API'),
+        'status' => 'ok',
+        'message' => 'This service is running in API-only mode.',
+        'api_prefix' => '/api/v1',
+        'health' => '/up',
+    ]);
+})->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+Route::fallback(function () {
+    return response()->json([
+        'message' => 'Web frontend is disabled on this service. Use the API endpoints instead.',
+    ], 404);
 });
-
-require __DIR__.'/settings.php';
