@@ -29,7 +29,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
             <div className="min-w-0">
               <div className="text-sm font-medium">
-                {breadcrumbs[breadcrumbs.length - 1] ?? "Dashboard"}
+                {breadcrumbs[breadcrumbs.length - 1] ?? "Panou"}
               </div>
               <div className="hidden text-xs text-muted-foreground md:block">
                 {breadcrumbs.join(" / ")}
@@ -41,7 +41,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="h-9 w-[240px] pl-9"
-                  placeholder="Search users, roles, content..."
+                  placeholder="Caută utilizatori, roluri, conținut..."
                 />
               </div>
 
@@ -52,17 +52,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 size="sm"
                 className="hidden sm:inline-flex"
-                onClick={() => navigate("account", null, ["Account Settings"])}
+                onClick={() => navigate("account", null, ["Setări cont"])}
               >
                 <SettingsIcon className="mr-2 h-4 w-4" />
-                Settings
+                Setări
               </Button>
 
               <div className="hidden items-center gap-3 rounded-md border px-3 py-1.5 md:flex">
                 <UserCircle2Icon className="h-5 w-5 text-muted-foreground" />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {currentUser?.name ?? "Admin user"}
+                    {currentUser?.name ?? "Utilizator admin"}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
                 </div>
@@ -70,7 +70,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
               <Button variant="outline" size="sm" onClick={() => void logout()}>
                 <LogOutIcon className="mr-2 h-4 w-4" />
-                Logout
+                Ieșire
               </Button>
             </div>
           </div>

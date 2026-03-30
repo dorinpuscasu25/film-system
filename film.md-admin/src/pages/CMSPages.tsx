@@ -8,43 +8,43 @@ export function CMSPages() {
   const [pages, setPages] = useState([
   {
     id: 1,
-    title: 'Terms of Service',
+    title: 'Termeni și condiții',
     slug: '/terms',
     updated: '2023-10-01',
-    status: 'Published',
-    content: 'Terms of service content...'
+    status: 'Publicată',
+    content: 'Conținut termeni și condiții...'
   },
   {
     id: 2,
-    title: 'Privacy Policy',
+    title: 'Politica de confidențialitate',
     slug: '/privacy',
     updated: '2023-10-01',
-    status: 'Published',
-    content: 'Privacy policy content...'
+    status: 'Publicată',
+    content: 'Conținut politică de confidențialitate...'
   },
   {
     id: 3,
-    title: 'About Us',
+    title: 'Despre noi',
     slug: '/about',
     updated: '2023-08-15',
-    status: 'Published',
-    content: 'About us content...'
+    status: 'Publicată',
+    content: 'Conținut despre noi...'
   },
   {
     id: 4,
-    title: 'Help & FAQ',
+    title: 'Ajutor și întrebări frecvente',
     slug: '/help',
     updated: '2023-10-20',
-    status: 'Published',
-    content: 'Help content...'
+    status: 'Publicată',
+    content: 'Conținut ajutor...'
   },
   {
     id: 5,
     title: 'Contact',
     slug: '/contact',
     updated: '2023-05-10',
-    status: 'Published',
-    content: 'Contact info...'
+    status: 'Publicată',
+    content: 'Informații de contact...'
   }]
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,7 +52,7 @@ export function CMSPages() {
   const [formData, setFormData] = useState({
     title: '',
     slug: '',
-    status: 'Draft',
+    status: 'Ciornă',
     content: ''
   });
   const handleOpenModal = (page?: any) => {
@@ -69,7 +69,7 @@ export function CMSPages() {
       setFormData({
         title: '',
         slug: '/',
-        status: 'Draft',
+        status: 'Ciornă',
         content: ''
       });
     }
@@ -103,21 +103,21 @@ export function CMSPages() {
     setIsModalOpen(false);
   };
   const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to delete this page?')) {
+    if (confirm('Sigur vrei să ștergi această pagină?')) {
       setPages(pages.filter((p) => p.id !== id));
     }
   };
   return (
     <div className="w-full space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">CMS Pages</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Pagini CMS</h1>
         {can('cms.create') &&
         <button
           onClick={() => handleOpenModal()}
           className="inline-flex items-center px-4 py-2 border border-indigo-600 text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700">
           
             <PlusIcon className="w-4 h-4 mr-2" />
-            Create Page
+            Creează pagină
           </button>
         }
       </div>
@@ -127,19 +127,19 @@ export function CMSPages() {
           <thead className="bg-slate-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Page Title
+                Titlu pagină
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Slug
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Last Updated
+                Ultima actualizare
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Status
+                Stare
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
-                Actions
+                Acțiuni
               </th>
             </tr>
           </thead>
@@ -161,7 +161,7 @@ export function CMSPages() {
                   {page.updated}
                 </td>
                 <td
-                className={`px-2 py-1 rounded-full text-xs font-medium ${page.status === 'Published' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
+                className={`px-2 py-1 rounded-full text-xs font-medium ${page.status === 'Publicată' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
                 
                   {page.status}
                 </td>
@@ -194,7 +194,7 @@ export function CMSPages() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingPage ? 'Edit Page' : 'Create Page'}
+        title={editingPage ? 'Editează pagina' : 'Creează pagină'}
         size="lg"
         footer={
         <>
@@ -203,12 +203,13 @@ export function CMSPages() {
             className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
             
               Cancel
+              Anulează
             </button>
             <button
             onClick={handleSave}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
             
-              Save Page
+              Salvează pagina
             </button>
           </>
         }>
@@ -216,7 +217,7 @@ export function CMSPages() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <FormField
-              label="Page Title"
+              label="Titlu pagină"
               value={formData.title}
               onChange={(e) => {
                 const title = e.target.value;
@@ -230,7 +231,7 @@ export function CMSPages() {
               }} />
             
             <FormField
-              label="URL Slug"
+              label="Slug URL"
               value={formData.slug}
               onChange={(e) =>
               setFormData({
@@ -241,7 +242,7 @@ export function CMSPages() {
             
           </div>
           <FormField
-            label="Status"
+            label="Stare"
             type="select"
             value={formData.status}
             onChange={(e) =>
@@ -252,17 +253,17 @@ export function CMSPages() {
             }
             options={[
             {
-              label: 'Draft',
-              value: 'Draft'
+              label: 'Ciornă',
+              value: 'Ciornă'
             },
             {
-              label: 'Published',
-              value: 'Published'
+              label: 'Publicată',
+              value: 'Publicată'
             }]
             } />
           
           <FormField
-            label="Page Content (HTML/Markdown)"
+            label="Conținut pagină (HTML/Markdown)"
             type="textarea"
             rows={10}
             value={formData.content}

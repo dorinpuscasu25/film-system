@@ -24,7 +24,7 @@ type RangeValue = "7days" | "30days" | "3months";
 const EMPTY_DASHBOARD: DashboardResponse = {
   range: {
     value: "30days",
-    label: "Last 30 days",
+    label: "Ultimele 30 de zile",
     days: 30,
     from: "",
     to: "",
@@ -69,7 +69,7 @@ function formatCurrency(amount: number, currency = "USD") {
 
 function formatDate(value: string | null) {
   if (!value) {
-    return "No timestamp";
+    return "Fără dată";
   }
 
   return new Date(value).toLocaleString();
@@ -114,81 +114,81 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Dashboard</h1>
+          <h1 className="page-title">Panou</h1>
           <p className="page-description">
-            Revenue, transaction history și performanța catalogului pentru intervalul selectat.
+            Venituri, istoric de tranzacții și performanța catalogului pentru intervalul selectat.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => navigate("billing", null, ["Billing"])}>
-            Billing
+          <Button variant="outline" onClick={() => navigate("billing", null, ["Facturare"])}>
+            Facturare
           </Button>
-          <Button onClick={() => navigate("editor", "new", ["Catalog", "Add Film"])}>
+          <Button onClick={() => navigate("editor", "new", ["Catalog", "Adaugă titlu"])}>
             <PlusIcon className="mr-2 h-4 w-4" />
-            Quick Create
+            Adăugare rapidă
           </Button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard
-          title={`Revenue ${dashboard.range.label}`}
+          title={`Venit ${dashboard.range.label}`}
           value={formatCurrency(dashboard.stats.period_revenue_amount)}
           icon={DollarSignIcon}
-          trendLabel={`${dashboard.stats.paid_orders_count} paid orders`}
+          trendLabel={`${dashboard.stats.paid_orders_count} comenzi plătite`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Orders"
+          title="Comenzi"
           value={dashboard.stats.period_orders_count}
           icon={ShoppingCartIcon}
-          trendLabel={`${dashboard.stats.free_claims_count} free claims`}
+          trendLabel={`${dashboard.stats.free_claims_count} accesări gratuite`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Unique Buyers"
+          title="Cumpărători unici"
           value={dashboard.stats.unique_buyers_count}
           icon={UsersIcon}
-          trendLabel={`${formatCurrency(dashboard.stats.average_order_value)} avg order`}
+          trendLabel={`${formatCurrency(dashboard.stats.average_order_value)} medie per comandă`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Wallet Balance Exposure"
+          title="Expunere sold wallet"
           value={formatCurrency(dashboard.stats.wallet_balance_total)}
           icon={WalletIcon}
-          trendLabel={`${dashboard.stats.active_entitlements_count} active access`}
+          trendLabel={`${dashboard.stats.active_entitlements_count} accesări active`}
           colorClass="bg-muted"
         />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard
-          title="Published Titles"
+          title="Titluri publicate"
           value={dashboard.summary.published_titles_total}
           icon={FilmIcon}
-          trendLabel={`${dashboard.summary.catalog_titles_total} total catalog`}
+          trendLabel={`${dashboard.summary.catalog_titles_total} în catalog`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Buyers Total"
+          title="Total cumpărători"
           value={dashboard.summary.buyers_total}
           icon={CreditCardIcon}
-          trendLabel={`${formatCurrency(dashboard.stats.total_revenue_amount)} all-time`}
+          trendLabel={`${formatCurrency(dashboard.stats.total_revenue_amount)} total`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Admin Accounts"
+          title="Conturi admin"
           value={dashboard.stats.admins_total}
           icon={UsersIcon}
-          trendLabel={`${dashboard.stats.roles_total} configured roles`}
+          trendLabel={`${dashboard.stats.roles_total} roluri configurate`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Pending Invites"
+          title="Invitații în așteptare"
           value={dashboard.stats.pending_invitations}
           icon={AlertCircleIcon}
-          trendLabel={`${dashboard.stats.users_total} users total`}
+          trendLabel={`${dashboard.stats.users_total} utilizatori total`}
           colorClass="bg-muted"
         />
       </div>
@@ -196,16 +196,16 @@ export function Dashboard() {
       <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <CardTitle>Sales Performance</CardTitle>
+            <CardTitle>Performanță vânzări</CardTitle>
             <CardDescription>
-              Orders and revenue from {dashboard.range.from || "the selected range"} to {dashboard.range.to || "today"}.
+              Comenzi și venituri din {dashboard.range.from || "intervalul selectat"} până în {dashboard.range.to || "astăzi"}.
             </CardDescription>
           </div>
           <Tabs
             tabs={[
-              { id: "3months", label: "Last 3 months" },
-              { id: "30days", label: "Last 30 days" },
-              { id: "7days", label: "Last 7 days" },
+              { id: "3months", label: "Ultimele 3 luni" },
+              { id: "30days", label: "Ultimele 30 de zile" },
+              { id: "7days", label: "Ultimele 7 zile" },
             ]}
             activeTab={range}
             onChange={(value) => setRange(value as RangeValue)}
@@ -217,37 +217,37 @@ export function Dashboard() {
               <SalesTimeline points={dashboard.sales_timeline} metric="revenue" />
             ) : (
               <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                {isLoading ? "Loading sales timeline..." : "No transaction data in this range yet."}
+                {isLoading ? "Se încarcă evoluția vânzărilor..." : "Nu există încă tranzacții în acest interval."}
               </div>
             )}
           </div>
 
           <div className="space-y-4">
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Rental Revenue</p>
+              <p className="text-sm text-muted-foreground">Venit din închirieri</p>
               <p className="mt-2 text-2xl font-semibold">
                 {formatCurrency(dashboard.breakdown.rental_revenue_amount)}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {dashboard.breakdown.rental_orders_count} rental orders
+                {dashboard.breakdown.rental_orders_count} comenzi de închiriere
               </p>
             </div>
 
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Lifetime Revenue</p>
+              <p className="text-sm text-muted-foreground">Venit din acces permanent</p>
               <p className="mt-2 text-2xl font-semibold">
                 {formatCurrency(dashboard.breakdown.lifetime_revenue_amount)}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {dashboard.breakdown.lifetime_orders_count} forever purchases
+                {dashboard.breakdown.lifetime_orders_count} cumpărări permanente
               </p>
             </div>
 
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Free Claims</p>
+              <p className="text-sm text-muted-foreground">Accesări gratuite</p>
               <p className="mt-2 text-2xl font-semibold">{dashboard.breakdown.free_orders_count}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Titles unlocked with free access or zero-cost offers
+                Titluri deblocate prin acces gratuit sau oferte cu preț zero
               </p>
             </div>
           </div>
@@ -257,8 +257,8 @@ export function Dashboard() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>Latest wallet and purchase events from the storefront.</CardDescription>
+            <CardTitle>Tranzacții recente</CardTitle>
+            <CardDescription>Ultimele evenimente de wallet și cumpărare din storefront.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {dashboard.recent_sales.length > 0 ? (
@@ -271,10 +271,10 @@ export function Dashboard() {
                         amount={transaction.amount}
                         label={transaction.type_label}
                       />
-                      <span className="text-sm font-medium">{transaction.user.name ?? "Unknown user"}</span>
+                      <span className="text-sm font-medium">{transaction.user.name ?? "Utilizator necunoscut"}</span>
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
-                      {transaction.content?.title ?? transaction.description ?? "Platform transaction"}
+                      {transaction.content?.title ?? transaction.description ?? "Tranzacție platformă"}
                       {transaction.offer.name ? ` • ${transaction.offer.name}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">{formatDate(transaction.processed_at)}</p>
@@ -285,14 +285,14 @@ export function Dashboard() {
                       {formatCurrency(transaction.amount_absolute, transaction.currency)}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Balance after {formatCurrency(transaction.balance_after, transaction.currency)}
+                      Sold după {formatCurrency(transaction.balance_after, transaction.currency)}
                     </p>
                   </div>
                 </div>
               ))
             ) : (
               <div className="flex h-48 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
-                No purchases recorded in this range yet.
+                Nu există cumpărări înregistrate în acest interval.
               </div>
             )}
           </CardContent>
@@ -300,8 +300,8 @@ export function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Top Titles</CardTitle>
-            <CardDescription>Best performing content in the selected range.</CardDescription>
+            <CardTitle>Top titluri</CardTitle>
+            <CardDescription>Conținutul cu cea mai bună performanță în intervalul selectat.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {dashboard.top_titles.length > 0 ? (
@@ -313,28 +313,28 @@ export function Dashboard() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{title.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {title.orders_count} orders • {title.unique_buyers_count} buyers
+                      {title.orders_count} comenzi • {title.unique_buyers_count} cumpărători
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">{formatCurrency(title.revenue_amount)}</p>
-                    <p className="text-xs text-muted-foreground">{title.free_claims_count} free</p>
+                    <p className="text-xs text-muted-foreground">{title.free_claims_count} gratuite</p>
                   </div>
                 </div>
               ))
             ) : (
               <div className="flex h-48 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
-                No title performance data yet.
+                Nu există încă date de performanță pentru titluri.
               </div>
             )}
 
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Need more detail?</p>
+              <p className="text-sm text-muted-foreground">Ai nevoie de mai mult detaliu?</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Open billing to inspect the full transaction history and filter the latest commerce activity.
+                Deschide facturarea ca să vezi istoricul complet de tranzacții și cele mai noi activități comerciale.
               </p>
-              <Button variant="outline" className="mt-4 w-full" onClick={() => navigate("billing", null, ["Billing"])}>
-                Open Billing
+              <Button variant="outline" className="mt-4 w-full" onClick={() => navigate("billing", null, ["Facturare"])}>
+                Deschide facturarea
               </Button>
             </div>
           </CardContent>

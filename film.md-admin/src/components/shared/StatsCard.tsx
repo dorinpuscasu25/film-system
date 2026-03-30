@@ -45,7 +45,7 @@ export function StatsCard({
             {trendLabel ? <span>{trendLabel}</span> : null}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Live operational snapshot</p>
+          <p className="text-sm text-muted-foreground">Instantaneu operațional live</p>
         )}
       </CardContent>
     </Card>

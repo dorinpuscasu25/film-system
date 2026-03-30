@@ -100,7 +100,7 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
   const [selectedContentId, setSelectedContentId] = useState<string | null>(
     null
   );
-  const [breadcrumbs, setBreadcrumbs] = useState<string[]>(['Dashboard']);
+  const [breadcrumbs, setBreadcrumbs] = useState<string[]>(['Panou']);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [isBooting, setIsBooting] = useState(true);
@@ -184,7 +184,7 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
       setAccessToken(response.token);
       setCurrentUser(response.user);
       setCurrentPage(firstAvailablePage(response.user));
-      setBreadcrumbs(['Dashboard']);
+      setBreadcrumbs(['Panou']);
     } catch (error) {
       setAuthError(
         error instanceof Error ? error.message : 'Autentificarea a eșuat.',
@@ -206,7 +206,7 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
     setAccessToken(null);
     setCurrentUser(null);
     setCurrentPage('dashboard');
-    setBreadcrumbs(['Dashboard']);
+    setBreadcrumbs(['Panou']);
   }
 
   return (

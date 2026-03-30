@@ -25,41 +25,41 @@ export function Sidebar() {
 
   const menuGroups = [
     {
-      title: "Explore",
+      title: "Explorare",
       items: [
-        { id: "dashboard", label: "Dashboard", icon: HomeIcon, show: true },
+        { id: "dashboard", label: "Panou", icon: HomeIcon, show: true },
         { id: "catalog", label: "Catalog", icon: FilmIcon, show: can("content.view") },
-        { id: "media", label: "Media Library", icon: ImageIcon, show: can("media.view") },
-        { id: "taxonomies", label: "Taxonomies", icon: TagsIcon, show: can("taxonomies.view") },
-        { id: "collections", label: "Collections", icon: FolderTreeIcon, show: can("taxonomies.view") },
+        { id: "media", label: "Bibliotecă media", icon: ImageIcon, show: can("media.view") },
+        { id: "taxonomies", label: "Taxonomii", icon: TagsIcon, show: can("taxonomies.view") },
+        { id: "collections", label: "Colecții", icon: FolderTreeIcon, show: can("taxonomies.view") },
       ],
     },
     {
-      title: "Operations",
+      title: "Operațiuni",
       items: [
-        { id: "billing", label: "Billing", icon: CreditCardIcon, show: can("commerce.view_billing") },
+        { id: "billing", label: "Facturare", icon: CreditCardIcon, show: can("commerce.view_billing") },
         {
           id: "home-curation",
-          label: "Home Curation",
+          label: "Homepage",
           icon: LayoutTemplateIcon,
           show: can("settings.edit_home_curation"),
         },
         {
           id: "discovery",
-          label: "Search & Discovery",
+          label: "Căutare și descoperire",
           icon: SearchIcon,
           show: can("settings.edit_search_config"),
         },
-        { id: "cms", label: "CMS Pages", icon: FileTextIcon, show: can("cms.view") },
-        { id: "playback", label: "Playback Ops", icon: PlayCircleIcon, show: can("playback.view_sessions") },
-        { id: "users", label: "Users & Access", icon: UsersIcon, show: can("users.view") },
+        { id: "cms", label: "Pagini CMS", icon: FileTextIcon, show: can("cms.view") },
+        { id: "playback", label: "Operațiuni playback", icon: PlayCircleIcon, show: can("playback.view_sessions") },
+        { id: "users", label: "Utilizatori și acces", icon: UsersIcon, show: can("users.view") },
         {
           id: "roles",
-          label: "Roles & Permissions",
+          label: "Roluri și permisiuni",
           icon: KeyIcon,
           show: can("settings.manage_roles") || can("users.view"),
         },
-        { id: "moderation", label: "Moderation", icon: ShieldAlertIcon, show: can("moderation.view_queue") },
+        { id: "moderation", label: "Moderare", icon: ShieldAlertIcon, show: can("moderation.view_queue") },
       ],
     },
   ];
@@ -81,7 +81,7 @@ export function Sidebar() {
           {!sidebarCollapsed ? (
             <div>
               <div className="text-sm font-semibold">film.md</div>
-              <div className="text-xs text-white/60">Admin workspace</div>
+              <div className="text-xs text-white/60">Workspace administrare</div>
             </div>
           ) : null}
         </div>
@@ -90,8 +90,8 @@ export function Sidebar() {
       <div className="px-3 py-4">
         {!sidebarCollapsed ? (
           <div className="rounded-lg border border-sidebar-border bg-sidebar-accent px-3 py-3">
-            <div className="text-[11px] uppercase tracking-wide text-white/50">Team</div>
-            <div className="mt-1 text-sm font-medium">Personal team</div>
+            <div className="text-[11px] uppercase tracking-wide text-white/50">Echipă</div>
+            <div className="mt-1 text-sm font-medium">Echipă personală</div>
           </div>
         ) : null}
       </div>
@@ -144,7 +144,7 @@ export function Sidebar() {
           onClick={toggleSidebar}
         >
           {sidebarCollapsed ? <ChevronRightIcon className="h-4 w-4" /> : <ChevronLeftIcon className="h-4 w-4" />}
-          {!sidebarCollapsed ? <span>Collapse</span> : null}
+          {!sidebarCollapsed ? <span>Restrânge</span> : null}
         </Button>
       </div>
     </aside>

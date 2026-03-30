@@ -130,7 +130,7 @@ export function RolesPermissions() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Roles & Permissions</h1>
+          <h1 className="page-title">Roluri și permisiuni</h1>
           <p className="page-description">
             Rolurile de bază pornesc de la <code>Admin</code> și <code>Viewer</code>.
           </p>
@@ -138,7 +138,7 @@ export function RolesPermissions() {
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
-            Signed in as{" "}
+            Autentificat ca{" "}
             <span className="font-medium text-foreground">
               {currentUser?.roles.map((role) => role.name).join(", ")}
             </span>
@@ -146,7 +146,7 @@ export function RolesPermissions() {
           {can("settings.manage_roles") ? (
             <Button onClick={() => setIsCreateModalOpen(true)}>
               <PlusIcon className="mr-2 h-4 w-4" />
-              Add role
+              Adaugă rol
             </Button>
           ) : null}
         </div>
@@ -182,10 +182,10 @@ export function RolesPermissions() {
                   <span className="font-medium">{role.name}</span>
                   {role.admin_panel_access ? <ShieldIcon className="h-4 w-4 text-muted-foreground" /> : null}
                 </div>
-                <p className="text-sm text-muted-foreground">{role.description || "No description"}</p>
+                <p className="text-sm text-muted-foreground">{role.description || "Fără descriere"}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {role.is_system ? <Badge variant="ready">system</Badge> : null}
-                  {role.is_default ? <Badge variant="published">default</Badge> : null}
+                  {role.is_system ? <Badge variant="ready">sistem</Badge> : null}
+                  {role.is_default ? <Badge variant="published">implicit</Badge> : null}
                 </div>
               </button>
             ))}
@@ -194,14 +194,14 @@ export function RolesPermissions() {
           <Card>
             <CardHeader className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <CardTitle>{selectedRole?.name ?? "Select a role"}</CardTitle>
+                <CardTitle>{selectedRole?.name ?? "Selectează un rol"}</CardTitle>
                 <CardDescription>
-                  {selectedRole?.description ?? "Choose a role from the left to inspect permissions."}
+                  {selectedRole?.description ?? "Alege un rol din stânga pentru a-i vedea permisiunile."}
                 </CardDescription>
               </div>
               {can("settings.manage_roles") && selectedRole ? (
                 <Button onClick={() => void handleSaveRole()} disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save changes"}
+                  {isSaving ? "Se salvează..." : "Salvează modificările"}
                 </Button>
               ) : null}
             </CardHeader>
@@ -263,27 +263,27 @@ export function RolesPermissions() {
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Create role"
+        title="Creează rol"
         size="lg"
         footer={
           <>
             <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-              Cancel
+              Anulează
             </Button>
             <Button onClick={() => void handleCreateRole()} disabled={isSaving || roleForm.permission_ids.length === 0}>
-              {isSaving ? "Creating..." : "Create role"}
+              {isSaving ? "Se creează..." : "Creează rolul"}
             </Button>
           </>
         }
       >
         <div className="form-grid">
           <FormField
-            label="Role name"
+            label="Nume rol"
             value={roleForm.name}
             onChange={(event) => setRoleForm((current) => ({ ...current, name: event.target.value }))}
           />
           <FormField
-            label="Description"
+            label="Descriere"
             type="textarea"
             value={roleForm.description}
             onChange={(event) =>
@@ -291,7 +291,7 @@ export function RolesPermissions() {
             }
           />
           <FormField
-            label="Admin panel access"
+            label="Acces în panoul admin"
             type="toggle"
             helperText="Permite rolului să intre în dashboard-ul administrativ."
             checked={roleForm.admin_panel_access}
@@ -304,7 +304,7 @@ export function RolesPermissions() {
           />
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Permissions</p>
+            <p className="text-sm font-medium">Permisiuni</p>
             <div className="admin-scrollbar max-h-80 space-y-4 overflow-y-auto rounded-md border p-4">
               {Object.entries(groupedPermissions).map(([group, groupPermissions]) => (
                 <div key={group}>

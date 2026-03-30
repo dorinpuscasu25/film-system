@@ -84,7 +84,7 @@ export function AccountSettings() {
   return (
     <div className="space-y-6">
       <div className="page-header">
-        <h1 className="page-title">Account Settings</h1>
+        <h1 className="page-title">Setări cont</h1>
         <p className="page-description">
           Editează profilul și securitatea contului care folosește dashboard-ul.
         </p>
@@ -93,7 +93,7 @@ export function AccountSettings() {
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Profile</CardTitle>
+            <CardTitle>Profil</CardTitle>
             <CardDescription>Datele publice și setările personale ale contului.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -114,7 +114,7 @@ export function AccountSettings() {
                 }
               />
               <FormField
-                label="Locale"
+                label="Limbă"
                 type="select"
                 value={profileState.preferred_locale}
                 onChange={(event) =>
@@ -125,12 +125,12 @@ export function AccountSettings() {
                 }
                 options={[
                   { label: "Română", value: "ro" },
-                  { label: "English", value: "en" },
+                  { label: "Engleză", value: "en" },
                   { label: "Русский", value: "ru" },
                 ]}
               />
               <FormField
-                label="Avatar URL"
+                label="URL avatar"
                 value={profileState.avatar_url}
                 onChange={(event) =>
                   setProfileState((current) => ({
@@ -161,7 +161,7 @@ export function AccountSettings() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Password</CardTitle>
+            <CardTitle>Parolă</CardTitle>
             <CardDescription>Actualizează datele de securitate ale contului.</CardDescription>
           </CardHeader>
           <CardContent>

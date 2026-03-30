@@ -25,7 +25,7 @@ export function LoginPage() {
             <span className="text-sm font-semibold">film.md</span>
           </div>
           <Button variant="ghost" size="sm">
-            Login
+            Autentificare
           </Button>
         </div>
         <div className="flex-1 bg-muted/60" />
@@ -34,19 +34,19 @@ export function LoginPage() {
       <div className="flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-sm space-y-6">
           <div className="flex items-center justify-between lg:hidden">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-md border">
                 <FilmIcon className="h-4 w-4" />
               </div>
               <span className="text-sm font-semibold">film.md</span>
             </div>
             <Button variant="ghost" size="sm">
-              Login
+              Autentificare
             </Button>
           </div>
 
           <div className="space-y-2 text-center">
-            <h1 className="text-3xl font-semibold tracking-tight">Admin login</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Autentificare admin</h1>
             <p className="text-sm text-muted-foreground">
               Intră cu contul care are permisiunea <code>admin.access</code>.
             </p>
@@ -64,7 +64,7 @@ export function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Password"
+              placeholder="Parolă"
               required
             />
 
@@ -75,7 +75,7 @@ export function LoginPage() {
             ) : null}
 
             <Button type="submit" className="w-full" disabled={isAuthLoading}>
-              {isAuthLoading ? "Se autentifică..." : "Sign in with Email"}
+              {isAuthLoading ? "Se autentifică..." : "Intră cu email"}
             </Button>
 
             <div className="relative">
@@ -83,13 +83,13 @@ export function LoginPage() {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Seed account</span>
+                <span className="bg-background px-2 text-muted-foreground">Cont demo</span>
               </div>
             </div>
 
             <div className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">
               <div>Email: <span className="font-medium text-foreground">admin@film.md</span></div>
-              <div className="mt-1">Password: <span className="font-medium text-foreground">password</span></div>
+              <div className="mt-1">Parolă: <span className="font-medium text-foreground">password</span></div>
             </div>
 
             <Button type="button" variant="outline" className="w-full">
@@ -99,7 +99,7 @@ export function LoginPage() {
           </form>
 
           <p className="text-center text-xs text-muted-foreground">
-            By continuing, you agree to the Terms of Service and Privacy Policy.
+            Continuând, accepți Termenii de utilizare și Politica de confidențialitate.
           </p>
         </div>
       </div>

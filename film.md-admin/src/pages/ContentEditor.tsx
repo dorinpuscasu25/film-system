@@ -97,47 +97,47 @@ const FALLBACK_OPTIONS: AdminContentOptions = {
     { value: "en", label: "EN" },
   ],
   types: [
-    { value: "movie", label: "Movies" },
-    { value: "series", label: "Series" },
+    { value: "movie", label: "Filme" },
+    { value: "series", label: "Seriale" },
   ],
   statuses: [
-    { value: "draft", label: "Draft" },
-    { value: "ready", label: "Ready" },
-    { value: "published", label: "Published" },
-    { value: "archived", label: "Archived" },
+    { value: "draft", label: "Ciornă" },
+    { value: "ready", label: "Pregătit" },
+    { value: "published", label: "Publicat" },
+    { value: "archived", label: "Arhivat" },
   ],
   countries: [],
   age_ratings: ["0+", "6+", "12+", "16+", "18+"],
   quality_options: ["SD", "HD", "Full HD", "4K"],
   offer_types: [
-    { value: "free", label: "Free" },
-    { value: "rental", label: "Rental" },
-    { value: "lifetime", label: "Forever" },
+    { value: "free", label: "Gratuit" },
+    { value: "rental", label: "Închiriere" },
+    { value: "lifetime", label: "Permanent" },
   ],
   video_types: [
     { value: "trailer", label: "Trailer" },
     { value: "teaser", label: "Teaser" },
     { value: "clip", label: "Clip" },
     { value: "extra", label: "Extra" },
-    { value: "behind_scenes", label: "Behind the Scenes" },
-    { value: "interview", label: "Interview" },
+    { value: "behind_scenes", label: "Din culise" },
+    { value: "interview", label: "Interviu" },
   ],
   cast_credit_types: [
-    { value: "lead_actor", label: "Lead actor" },
-    { value: "supporting_actor", label: "Supporting actor" },
-    { value: "voice_actor", label: "Voice actor" },
-    { value: "guest_star", label: "Guest star" },
+    { value: "lead_actor", label: "Actor principal" },
+    { value: "supporting_actor", label: "Actor secundar" },
+    { value: "voice_actor", label: "Actor voice-over" },
+    { value: "guest_star", label: "Invitat special" },
     { value: "cameo", label: "Cameo" },
   ],
   crew_credit_types: [
-    { value: "director", label: "Director" },
-    { value: "screenwriter", label: "Screenwriter" },
-    { value: "producer", label: "Producer" },
+    { value: "director", label: "Regizor" },
+    { value: "screenwriter", label: "Scenarist" },
+    { value: "producer", label: "Producător" },
     { value: "creator", label: "Creator" },
     { value: "showrunner", label: "Showrunner" },
-    { value: "cinematographer", label: "Cinematographer" },
-    { value: "composer", label: "Composer" },
-    { value: "editor", label: "Editor" },
+    { value: "cinematographer", label: "Director de imagine" },
+    { value: "composer", label: "Compozitor" },
+    { value: "editor", label: "Montaj" },
   ],
   taxonomies: {
     genre: [],
@@ -527,8 +527,8 @@ export function ContentEditor() {
   }, [numericContentId]);
 
   const pageTitle = isNew
-    ? "Create New Content"
-    : formState.title[formState.default_locale] || formState.original_title || "Edit Content";
+    ? "Creează titlu nou"
+    : formState.title[formState.default_locale] || formState.original_title || "Editează titlul";
 
   const selectedTaxonomyCount = formState.taxonomy_ids.length;
   const previewImages = useMemo(() => formState.preview_images.filter(Boolean), [formState.preview_images]);
@@ -793,15 +793,15 @@ export function ContentEditor() {
     }
 
     if (!formState.original_title.trim()) {
-      nextErrors.original_title = ["Original title este obligatoriu."];
+      nextErrors.original_title = ["Titlul original este obligatoriu."];
     }
 
     if (!formState.poster_url.trim()) {
-      nextErrors.poster_url = ["Poster URL este obligatoriu."];
+      nextErrors.poster_url = ["URL-ul posterului este obligatoriu."];
     }
 
     if (!formState.backdrop_url.trim()) {
-      nextErrors.backdrop_url = ["Backdrop URL este obligatoriu."];
+      nextErrors.backdrop_url = ["URL-ul backdrop-ului este obligatoriu."];
     }
 
     if (formState.available_qualities.length === 0) {
@@ -814,7 +814,7 @@ export function ContentEditor() {
       }
 
       if (!formState.short_description[locale.value].trim()) {
-        nextErrors[`short_description.${locale.value}`] = ["Short description este obligatoriu."];
+        nextErrors[`short_description.${locale.value}`] = ["Descrierea scurtă este obligatorie."];
       }
 
       if (!formState.description[locale.value].trim()) {
@@ -969,7 +969,7 @@ export function ContentEditor() {
       localErrors.rental_days = ["Setează numărul de zile pentru rental."];
     }
     if (formState.type === "movie" && !currentOffer.playback_url.trim()) {
-      localErrors.playback_url = ["Playback URL este obligatoriu pentru filme."];
+      localErrors.playback_url = ["URL-ul de playback este obligatoriu pentru filme."];
     }
 
     if (Object.keys(localErrors).length > 0) {
@@ -1125,7 +1125,7 @@ export function ContentEditor() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={statusVariant(formState.status)}>{formState.status}</Badge>
               <span className="text-sm text-muted-foreground">
-                {selectedTaxonomyCount} taxonomies attached
+                {selectedTaxonomyCount} taxonomii atașate
               </span>
             </div>
           </div>
@@ -1133,11 +1133,11 @@ export function ContentEditor() {
 
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={() => navigate("catalog")}>
-            Back to catalog
+            Înapoi la catalog
           </Button>
           <Button onClick={() => void handleSave()} disabled={isSubmitting}>
             <SaveIcon className="h-4 w-4" />
-            {isSubmitting ? "Saving..." : "Save content"}
+            {isSubmitting ? "Se salvează..." : "Salvează titlul"}
           </Button>
         </div>
       </div>
@@ -1157,7 +1157,7 @@ export function ContentEditor() {
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-sm font-medium">Editing locale</div>
+            <div className="text-sm font-medium">Limbă de editare</div>
             <div className="text-sm text-muted-foreground">
               Textele locale din videos, credits și seasons folosesc limba selectată aici.
             </div>
@@ -1180,38 +1180,38 @@ export function ContentEditor() {
             General
           </TabsTrigger>
           <TabsTrigger value="localization" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
-            Localization
+            Localizare
           </TabsTrigger>
           <TabsTrigger value="seo" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
-            SEO & Notes
+            SEO și note
           </TabsTrigger>
           <TabsTrigger value="media" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             Media
           </TabsTrigger>
           <TabsTrigger value="credits" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
-            Credits
+            Distribuție
           </TabsTrigger>
           <TabsTrigger value="series" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
-            Series
+            Serii
           </TabsTrigger>
           <TabsTrigger value="publishing" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
-            Publishing
+            Publicare
           </TabsTrigger>
           <TabsTrigger value="commerce" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
-            Commerce
+            Oferte
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Core content data</CardTitle>
+              <CardTitle>Date de bază</CardTitle>
               <CardDescription>Informațiile structurale și taxonomiile folosite în catalog și în filtre.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <FormField
-                  label="Content type"
+                  label="Tip conținut"
                   type="select"
                   value={formState.type}
                   onChange={(event) => setFormState((current) => ({ ...current, type: event.target.value as AdminContentType }))}
@@ -1225,7 +1225,7 @@ export function ContentEditor() {
                   options={options.statuses.map((item) => ({ label: item.label, value: item.value }))}
                 />
                 <FormField
-                  label="Default locale"
+                  label="Limbă implicită"
                   type="select"
                   value={formState.default_locale}
                   onChange={(event) => setFormState((current) => ({ ...current, default_locale: event.target.value as TaxonomyLocale }))}
@@ -1241,13 +1241,13 @@ export function ContentEditor() {
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <FormField
-                  label="Original title"
+                  label="Titlu original"
                   value={formState.original_title}
                   error={getFieldError("original_title")}
                   onChange={(event) => setFormState((current) => ({ ...current, original_title: event.target.value }))}
                 />
                 <FormField
-                  label="Release year"
+                  label="An lansare"
                   type="number"
                   value={formState.release_year}
                   onChange={(event) =>
@@ -1258,11 +1258,11 @@ export function ContentEditor() {
                   }
                 />
                 <FormField
-                  label="Country"
+                  label="Țară"
                   type="select"
                   value={formState.country_code}
                   onChange={(event) => setFormState((current) => ({ ...current, country_code: event.target.value }))}
-                  options={[{ label: "Select country", value: "" }, ...options.countries]}
+                  options={[{ label: "Selectează țara", value: "" }, ...options.countries]}
                 />
                 <FormField
                   label="IMDb rating"
@@ -1276,7 +1276,7 @@ export function ContentEditor() {
                   }
                 />
                 <FormField
-                  label="Platform rating"
+                  label="Rating platformă"
                   type="number"
                   value={formState.platform_rating}
                   onChange={(event) =>
@@ -1287,7 +1287,7 @@ export function ContentEditor() {
                   }
                 />
                 <FormField
-                  label="Runtime (minutes)"
+                  label="Durată (minute)"
                   type="number"
                   value={formState.runtime_minutes}
                   onChange={(event) =>
@@ -1301,17 +1301,17 @@ export function ContentEditor() {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <FormField
-                  label="Age rating"
+                  label="Restricție de vârstă"
                   type="select"
                   value={formState.age_rating}
                   onChange={(event) => setFormState((current) => ({ ...current, age_rating: event.target.value }))}
                   options={[
-                    { label: "Select age rating", value: "" },
+                    { label: "Selectează ratingul", value: "" },
                     ...options.age_ratings.map((value) => ({ label: value, value })),
                   ]}
                 />
                 <FormField
-                  label="Sort order"
+                  label="Ordine de sortare"
                   type="number"
                   value={formState.sort_order}
                   onChange={(event) =>
@@ -1325,28 +1325,28 @@ export function ContentEditor() {
 
               <div className="grid gap-6 xl:grid-cols-2">
                 <TaxonomyPicker
-                  label="Genres"
+                  label="Genuri"
                   items={options.taxonomies.genre ?? []}
                   selectedIds={formState.taxonomy_ids}
                   locale={localeTab}
                   onToggle={toggleTaxonomy}
                 />
                 <TaxonomyPicker
-                  label="Collections"
+                  label="Colecții"
                   items={options.taxonomies.collection ?? []}
                   selectedIds={formState.taxonomy_ids}
                   locale={localeTab}
                   onToggle={toggleTaxonomy}
                 />
                 <TaxonomyPicker
-                  label="Tags"
+                  label="Tag-uri"
                   items={options.taxonomies.tag ?? []}
                   selectedIds={formState.taxonomy_ids}
                   locale={localeTab}
                   onToggle={toggleTaxonomy}
                 />
                 <TaxonomyPicker
-                  label="Badges"
+                  label="Badge-uri"
                   items={options.taxonomies.badge ?? []}
                   selectedIds={formState.taxonomy_ids}
                   locale={localeTab}
@@ -1360,7 +1360,7 @@ export function ContentEditor() {
         <TabsContent value="localization" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Localized storefront copy</CardTitle>
+              <CardTitle>Copy localizat pentru storefront</CardTitle>
               <CardDescription>Textele care intră în carduri, home hero și pagina de detaliu.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1376,7 +1376,7 @@ export function ContentEditor() {
                 {options.locales.map((locale) => (
                   <TabsContent key={locale.value} value={locale.value} className="space-y-4">
                     <FormField
-                      label={`Title (${locale.label})`}
+                      label={`Titlu (${locale.label})`}
                       value={formState.title[locale.value]}
                       error={getFieldError(`title.${locale.value}`)}
                       onChange={(event) => updateLocalizedField("title", locale.value, event.target.value)}
@@ -1387,7 +1387,7 @@ export function ContentEditor() {
                       onChange={(event) => updateLocalizedField("tagline", locale.value, event.target.value)}
                     />
                     <FormField
-                      label={`Short description (${locale.label})`}
+                      label={`Descriere scurtă (${locale.label})`}
                       type="textarea"
                       rows={4}
                       value={formState.short_description[locale.value]}
@@ -1395,7 +1395,7 @@ export function ContentEditor() {
                       onChange={(event) => updateLocalizedField("short_description", locale.value, event.target.value)}
                     />
                     <FormField
-                      label={`Full description (${locale.label})`}
+                      label={`Descriere completă (${locale.label})`}
                       type="textarea"
                       rows={8}
                       value={formState.description[locale.value]}
@@ -1412,7 +1412,7 @@ export function ContentEditor() {
         <TabsContent value="seo" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>SEO & editorial notes</CardTitle>
+              <CardTitle>SEO și note editoriale</CardTitle>
               <CardDescription>Metadate și note suplimentare pentru detaliu și indexare.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1428,19 +1428,19 @@ export function ContentEditor() {
                 {options.locales.map((locale) => (
                   <TabsContent key={locale.value} value={locale.value} className="space-y-4">
                     <FormField
-                      label={`Meta title (${locale.label})`}
+                      label={`Meta titlu (${locale.label})`}
                       value={formState.meta_title[locale.value]}
                       onChange={(event) => updateLocalizedField("meta_title", locale.value, event.target.value)}
                     />
                     <FormField
-                      label={`Meta description (${locale.label})`}
+                      label={`Meta descriere (${locale.label})`}
                       type="textarea"
                       rows={4}
                       value={formState.meta_description[locale.value]}
                       onChange={(event) => updateLocalizedField("meta_description", locale.value, event.target.value)}
                     />
                     <FormField
-                      label={`Editorial notes (${locale.label})`}
+                      label={`Note editoriale (${locale.label})`}
                       type="textarea"
                       rows={4}
                       value={formState.editor_notes[locale.value]}
@@ -1462,15 +1462,15 @@ export function ContentEditor() {
         <TabsContent value="media" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Media assets</CardTitle>
+              <CardTitle>Asset-uri media</CardTitle>
               <CardDescription>
                 Pentru imagini poți lipi URL sau încărca local cu preview. Video-urile rămân pe URL până legăm upload-ul media.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="space-y-4">
-                <ImageUploadField
-                  label="Poster"
+                  <ImageUploadField
+                    label="Poster"
                   value={formState.poster_url}
                   error={getFieldError("poster_url")}
                   previewLabel="Poster"
@@ -1504,7 +1504,7 @@ export function ContentEditor() {
                   />
                 </div>
                 <FormField
-                  label="Trailer URL"
+                  label="URL trailer"
                   value={formState.trailer_url}
                   onChange={(event) => setFormState((current) => ({ ...current, trailer_url: event.target.value }))}
                 />
@@ -1516,7 +1516,7 @@ export function ContentEditor() {
                     </div>
                     <Button type="button" variant="outline" onClick={addPreviewImage}>
                       <PlusIcon className="h-4 w-4" />
-                      Add image
+                      Adaugă imagine
                     </Button>
                   </CardHeader>
                   <CardContent className="space-y-4 pt-6">
@@ -1528,15 +1528,15 @@ export function ContentEditor() {
                     {formState.preview_images.map((image, index) => (
                       <div key={`${index}-${image}`} className="space-y-3 rounded-xl border p-4">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">Preview image #{index + 1}</div>
+                          <div className="text-sm font-medium">Imagine preview #{index + 1}</div>
                           <Button type="button" variant="ghost" size="icon" onClick={() => removePreviewImage(index)}>
                             <TrashIcon className="h-4 w-4" />
                           </Button>
                         </div>
                         <ImageUploadField
-                          label={`Preview image ${index + 1}`}
+                          label={`Imagine preview ${index + 1}`}
                           value={image}
-                          previewLabel={`Gallery ${index + 1}`}
+                          previewLabel={`Galerie ${index + 1}`}
                           onChange={(value) => updatePreviewImage(index, value)}
                         />
                       </div>
@@ -1548,7 +1548,7 @@ export function ContentEditor() {
               <div className="space-y-4">
                 <Card className="overflow-hidden">
                   <CardHeader className="border-b pb-4">
-                    <CardTitle className="text-lg">Visual preview</CardTitle>
+                    <CardTitle className="text-lg">Previzualizare vizuală</CardTitle>
                     <CardDescription>Verificare rapidă pentru poster și hero.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4 pt-6">
@@ -1559,7 +1559,7 @@ export function ContentEditor() {
                           <img src={formState.poster_url} alt="Poster preview" className="aspect-[2/3] w-full object-cover" />
                         ) : (
                           <div className="flex aspect-[2/3] items-center justify-center text-sm text-muted-foreground">
-                            Poster preview
+                            Previzualizare poster
                           </div>
                         )}
                       </div>
@@ -1575,7 +1575,7 @@ export function ContentEditor() {
                           />
                         ) : (
                           <div className="flex aspect-video items-center justify-center text-sm text-muted-foreground">
-                            Hero preview
+                            Previzualizare hero
                           </div>
                         )}
                       </div>
@@ -1598,7 +1598,7 @@ export function ContentEditor() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <div>
-                <CardTitle className="text-lg">Video assets</CardTitle>
+                <CardTitle className="text-lg">Asset-uri video</CardTitle>
                 <CardDescription>Trailere, teasere și extras. Pentru moment fiecare asset folosește doar URL.</CardDescription>
               </div>
               <Button
@@ -1617,13 +1617,13 @@ export function ContentEditor() {
                 }
               >
                 <PlusIcon className="h-4 w-4" />
-                Add video
+                Adaugă video
               </Button>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
               {formState.videos.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                  Nu există încă videos. Poți adăuga `Official Trailer`, `Teaser`, `Behind the Scenes` sau orice extra relevant pentru storefront.
+                  Nu există încă video-uri. Poți adăuga `Trailer oficial`, `Teaser`, `Din culise` sau orice extra relevant pentru storefront.
                 </div>
               ) : (
                 formState.videos.map((video, index) => (
@@ -1632,12 +1632,13 @@ export function ContentEditor() {
                       <div>
                         <CardTitle className="text-base">
                           {video.title[localeTab] || video.title.ro || `Video #${index + 1}`}
+                          {video.title[localeTab] || video.title.ro || `Video ${index + 1}`}
                         </CardTitle>
                         <CardDescription>{video.type}</CardDescription>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" onClick={() => setPrimaryVideo(index)}>
-                          {video.is_primary ? "Primary" : "Set primary"}
+                          {video.is_primary ? "Principal" : "Setează principal"}
                         </Button>
                         <Button
                           variant="ghost"
@@ -1655,12 +1656,12 @@ export function ContentEditor() {
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
                       <FormField
-                        label={`Video title (${localeTab.toUpperCase()})`}
+                        label={`Titlu video (${localeTab.toUpperCase()})`}
                         value={video.title[localeTab]}
                         onChange={(event) => updateVideoLocalized(index, "title", localeTab, event.target.value)}
                       />
                       <FormField
-                        label="Video type"
+                        label="Tip video"
                         type="select"
                         value={video.type}
                         onChange={(event) => updateVideo(index, "type", event.target.value as AdminContentVideo["type"])}
@@ -1683,7 +1684,7 @@ export function ContentEditor() {
                         />
                       </div>
                       <FormField
-                        label="Duration (seconds)"
+                        label="Durată (secunde)"
                         type="number"
                         value={video.duration_seconds ?? ""}
                         onChange={(event) =>
@@ -1695,7 +1696,7 @@ export function ContentEditor() {
                         }
                       />
                       <FormField
-                        label="Sort order"
+                        label="Ordine de sortare"
                         type="number"
                         value={video.sort_order}
                         onChange={(event) =>
@@ -1727,7 +1728,7 @@ export function ContentEditor() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <div>
-                <CardTitle>Cast & Crew</CardTitle>
+                <CardTitle>Distribuție și echipă</CardTitle>
                 <CardDescription>Actorii, personajele și echipa principală care trebuie afișate în pagina de detaliu.</CardDescription>
               </div>
               <div className="flex gap-2">
@@ -1747,7 +1748,7 @@ export function ContentEditor() {
                   }
                 >
                   <PlusIcon className="h-4 w-4" />
-                  Add cast
+                  Adaugă actor
                 </Button>
                 <Button
                   variant="outline"
@@ -1765,22 +1766,22 @@ export function ContentEditor() {
                   }
                 >
                   <PlusIcon className="h-4 w-4" />
-                  Add crew
+                  Adaugă membru echipă
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="grid gap-6 pt-6 xl:grid-cols-2">
               <div className="space-y-4">
-                <div className="text-sm font-medium">Cast</div>
+                <div className="text-sm font-medium">Distribuție</div>
                 {formState.cast_members.length === 0 ? (
                   <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                    Nu există membri în cast.
+                    Nu există membri în distribuție.
                   </div>
                 ) : null}
                 {formState.cast_members.map((member, index) => (
                   <Card key={member.id}>
                     <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                      <CardTitle className="text-base">{member.name || `Cast #${index + 1}`}</CardTitle>
+                      <CardTitle className="text-base">{member.name || `Actor ${index + 1}`}</CardTitle>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1801,7 +1802,7 @@ export function ContentEditor() {
                         onChange={(event) => updateCastMember(index, "name", event.target.value)}
                       />
                       <FormField
-                        label="Cast type"
+                        label="Tip credit actor"
                         type="select"
                         value={member.credit_type}
                         options={(options.cast_credit_types ?? FALLBACK_OPTIONS.cast_credit_types ?? []).map((item) => ({
@@ -1811,12 +1812,12 @@ export function ContentEditor() {
                         onChange={(event) => updateCastMember(index, "credit_type", event.target.value)}
                       />
                       <FormField
-                        label={`Character name (${localeTab.toUpperCase()})`}
+                        label={`Nume personaj (${localeTab.toUpperCase()})`}
                         value={member.character_name[localeTab]}
                         onChange={(event) => updateCastMemberLocalized(index, localeTab, event.target.value)}
                       />
                       <ImageUploadField
-                        label={`Cast avatar ${index + 1}`}
+                        label={`Avatar actor ${index + 1}`}
                         value={member.avatar_url ?? ""}
                         previewLabel="Avatar"
                         aspectClassName="aspect-square"
@@ -1828,16 +1829,16 @@ export function ContentEditor() {
               </div>
 
               <div className="space-y-4">
-                <div className="text-sm font-medium">Crew</div>
+                <div className="text-sm font-medium">Echipă</div>
                 {formState.crew_members.length === 0 ? (
                   <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                    Nu există membri în crew.
+                    Nu există membri în echipă.
                   </div>
                 ) : null}
                 {formState.crew_members.map((member, index) => (
                   <Card key={member.id}>
                     <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                      <CardTitle className="text-base">{member.name || `Crew #${index + 1}`}</CardTitle>
+                      <CardTitle className="text-base">{member.name || `Membru echipă ${index + 1}`}</CardTitle>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1853,12 +1854,12 @@ export function ContentEditor() {
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-6">
                       <FormField
-                        label="Name"
+                        label="Nume"
                         value={member.name}
                         onChange={(event) => updateCrewMember(index, "name", event.target.value)}
                       />
                       <FormField
-                        label="Crew role"
+                        label="Rol în echipă"
                         type="select"
                         value={member.credit_type}
                         options={(options.crew_credit_types ?? FALLBACK_OPTIONS.crew_credit_types ?? []).map((item) => ({
@@ -1868,12 +1869,12 @@ export function ContentEditor() {
                         onChange={(event) => updateCrewMember(index, "credit_type", event.target.value)}
                       />
                       <FormField
-                        label={`Role label (${localeTab.toUpperCase()})`}
+                        label={`Etichetă rol (${localeTab.toUpperCase()})`}
                         value={member.job_title[localeTab]}
                         onChange={(event) => updateCrewMemberLocalized(index, localeTab, event.target.value)}
                       />
                       <ImageUploadField
-                        label={`Crew avatar ${index + 1}`}
+                        label={`Avatar echipă ${index + 1}`}
                         value={member.avatar_url ?? ""}
                         previewLabel="Avatar"
                         aspectClassName="aspect-square"
@@ -1891,7 +1892,7 @@ export function ContentEditor() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <div>
-                <CardTitle>Series structure</CardTitle>
+                <CardTitle>Structură serial</CardTitle>
                 <CardDescription>Sezoane și episoade. Pentru filme, secțiunea poate rămâne goală.</CardDescription>
               </div>
               <Button
@@ -1911,7 +1912,7 @@ export function ContentEditor() {
                 }
               >
                 <PlusIcon className="h-4 w-4" />
-                Add season
+                Adaugă sezon
               </Button>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
@@ -1932,9 +1933,9 @@ export function ContentEditor() {
                   <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
                     <div>
                       <CardTitle className="text-base">
-                        {season.title?.[localeTab] || season.title?.ro || `Season ${season.season_number}`}
+                        {season.title?.[localeTab] || season.title?.ro || `Sezonul ${season.season_number}`}
                       </CardTitle>
-                      <CardDescription>{season.episodes.length} episodes</CardDescription>
+                      <CardDescription>{season.episodes.length} episoade</CardDescription>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -1959,9 +1960,9 @@ export function ContentEditor() {
                             ),
                           }))
                         }
-                      >
-                        <PlusIcon className="h-4 w-4" />
-                        Add episode
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                        Adaugă episod
                       </Button>
                       <Button
                         variant="ghost"
@@ -1980,7 +1981,7 @@ export function ContentEditor() {
                   <CardContent className="space-y-6 pt-6">
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <FormField
-                        label="Season number"
+                        label="Număr sezon"
                         type="number"
                         value={season.season_number}
                         onChange={(event) =>
@@ -1997,14 +1998,14 @@ export function ContentEditor() {
                         onChange={(event) => updateSeasonLocalized(seasonIndex, "title", localeTab, event.target.value)}
                       />
                       <ImageUploadField
-                        label={`Season poster ${seasonIndex + 1}`}
+                        label={`Poster sezon ${seasonIndex + 1}`}
                         value={season.poster_url ?? ""}
-                        previewLabel="Season poster"
+                        previewLabel="Poster sezon"
                         aspectClassName="aspect-[2/3]"
                         onChange={(value) => updateSeason(seasonIndex, "poster_url", value)}
                       />
                       <FormField
-                        label="Sort order"
+                        label="Ordine de sortare"
                         type="number"
                         value={season.sort_order}
                         onChange={(event) =>
@@ -2017,7 +2018,7 @@ export function ContentEditor() {
                       />
                     </div>
                     <FormField
-                      label={`Season description (${localeTab.toUpperCase()})`}
+                      label={`Descriere sezon (${localeTab.toUpperCase()})`}
                       type="textarea"
                       rows={4}
                       value={season.description?.[localeTab] ?? ""}
@@ -2029,7 +2030,7 @@ export function ContentEditor() {
                         <Card key={episode.id}>
                           <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
                             <CardTitle className="text-base">
-                              {episode.title?.[localeTab] || episode.title?.ro || `Episode ${episode.episode_number}`}
+                              {episode.title?.[localeTab] || episode.title?.ro || `Episodul ${episode.episode_number}`}
                             </CardTitle>
                             <Button
                               variant="ghost"
@@ -2053,7 +2054,7 @@ export function ContentEditor() {
                           </CardHeader>
                           <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
                             <FormField
-                              label="Episode number"
+                              label="Număr episod"
                               type="number"
                               value={episode.episode_number}
                               onChange={(event) =>
@@ -2066,14 +2067,14 @@ export function ContentEditor() {
                               }
                             />
                             <FormField
-                              label="Title"
+                              label="Titlu"
                               value={episode.title[localeTab]}
                               onChange={(event) =>
                                 updateEpisodeLocalized(seasonIndex, episodeIndex, "title", localeTab, event.target.value)
                               }
                             />
                             <FormField
-                              label="Runtime"
+                              label="Durată"
                               type="number"
                               value={episode.runtime_minutes ?? ""}
                               onChange={(event) =>
@@ -2087,9 +2088,9 @@ export function ContentEditor() {
                             />
                             <div className="md:col-span-2 xl:col-span-2">
                               <ImageUploadField
-                                label={`Episode thumbnail ${episodeIndex + 1}`}
+                                label={`Miniatură episod ${episodeIndex + 1}`}
                                 value={episode.thumbnail_url ?? ""}
-                                previewLabel="Thumbnail"
+                                previewLabel="Miniatură"
                                 onChange={(value) =>
                                   updateEpisode(seasonIndex, episodeIndex, "thumbnail_url", value)
                                 }
@@ -2097,7 +2098,7 @@ export function ContentEditor() {
                             </div>
                             <div className="md:col-span-2 xl:col-span-2">
                               <ImageUploadField
-                                label={`Episode backdrop ${episodeIndex + 1}`}
+                                label={`Backdrop episod ${episodeIndex + 1}`}
                                 value={episode.backdrop_url ?? ""}
                                 previewLabel="Backdrop"
                                 onChange={(value) =>
@@ -2106,19 +2107,19 @@ export function ContentEditor() {
                               />
                             </div>
                             <FormField
-                              label="Episode video URL"
+                              label="URL video episod"
                               value={episode.video_url ?? ""}
                               onChange={(event) => updateEpisode(seasonIndex, episodeIndex, "video_url", event.target.value)}
                             />
                             <FormField
-                              label="Episode trailer URL"
+                              label="URL trailer episod"
                               value={episode.trailer_url ?? ""}
                               onChange={(event) =>
                                 updateEpisode(seasonIndex, episodeIndex, "trailer_url", event.target.value)
                               }
                             />
                             <FormField
-                              label="Sort order"
+                              label="Ordine de sortare"
                               type="number"
                               value={episode.sort_order}
                               onChange={(event) =>
@@ -2132,7 +2133,7 @@ export function ContentEditor() {
                             />
                             <div className="md:col-span-2 xl:col-span-4">
                               <FormField
-                                label={`Episode description (${localeTab.toUpperCase()})`}
+                                label={`Descriere episod (${localeTab.toUpperCase()})`}
                                 type="textarea"
                                 rows={3}
                                 value={episode.description?.[localeTab] ?? ""}
@@ -2161,19 +2162,19 @@ export function ContentEditor() {
         <TabsContent value="publishing" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Storefront behavior</CardTitle>
+              <CardTitle>Comportament în storefront</CardTitle>
               <CardDescription>Controlezi vizibilitatea pe home, highlights și disponibilitatea publică.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 xl:grid-cols-2">
               <FormField
-                label="Featured"
+                label="Promovat"
                 type="toggle"
                 checked={formState.is_featured}
-                helperText="Poate apărea în secțiunea featured și în home hero."
+                helperText="Poate apărea în secțiunile promovate și în hero-ul principal."
                 onChange={(event) => setFormState((current) => ({ ...current, is_featured: event.target.checked }))}
               />
               <FormField
-                label="Trending"
+                label="În trend"
                 type="toggle"
                 checked={formState.is_trending}
                 helperText="Poate intra în highlights sau listări promo."
@@ -2181,11 +2182,11 @@ export function ContentEditor() {
               />
               <Card className="xl:col-span-2">
                 <CardHeader className="border-b pb-4">
-                  <CardTitle className="text-lg">Subtitles & playback qualities</CardTitle>
+                  <CardTitle className="text-lg">Subtitrări și calități playback</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5 pt-6">
                   <div className="space-y-3">
-                    <div className="text-sm font-medium">Subtitle locales</div>
+                    <div className="text-sm font-medium">Limbi subtitrare</div>
                     <div className="flex flex-wrap gap-2">
                       {options.locales.map((locale) => {
                         const selected = formState.subtitle_locales.includes(locale.value);
@@ -2210,7 +2211,7 @@ export function ContentEditor() {
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">Available qualities</div>
+                      <div className="text-sm font-medium">Calități disponibile</div>
                       {getFieldError("available_qualities") ? (
                         <span className="text-sm text-destructive">{getFieldError("available_qualities")}</span>
                       ) : null}
@@ -2245,14 +2246,14 @@ export function ContentEditor() {
         <TabsContent value="commerce" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Access & offers</CardTitle>
+              <CardTitle>Acces și oferte</CardTitle>
               <CardDescription>
                 Toată logica de monetizare stă aici: free, rental, forever și URL-ul video pentru fiecare calitate.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
-                label="Free title"
+                label="Titlu gratuit"
                 type="toggle"
                 checked={formState.is_free}
                 helperText="Dacă e activ, titlul intră în secțiunea free și nu cere preț."
@@ -2269,7 +2270,7 @@ export function ContentEditor() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <div>
-                <CardTitle className="text-lg">Offer variants</CardTitle>
+                <CardTitle className="text-lg">Variante de ofertă</CardTitle>
                 <CardDescription>
                   Pentru filme, fiecare offer trebuie să aibă `playback URL` pentru calitatea respectivă. Pentru seriale îl poți lăsa gol și folosești URL-urile pe episoade.
                 </CardDescription>
@@ -2289,7 +2290,7 @@ export function ContentEditor() {
                 }
               >
                 <PlusIcon className="h-4 w-4" />
-                Add offer
+                Adaugă ofertă
               </Button>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
@@ -2301,7 +2302,7 @@ export function ContentEditor() {
 
               {numericContentId && offerDrafts.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                  Nu există încă offers. Poți crea variante `Free`, `Rental` sau `Forever` pentru fiecare calitate.
+                  Nu există încă oferte. Poți crea variante `Gratuit`, `Închiriere` sau `Permanent` pentru fiecare calitate.
                 </div>
               ) : null}
 
@@ -2319,10 +2320,10 @@ export function ContentEditor() {
                         </CardTitle>
                         <CardDescription>
                           {offer.offer_type === "free"
-                            ? "Free access"
+                            ? "Acces gratuit"
                             : offer.offer_type === "lifetime"
-                              ? "Lifetime access"
-                              : `${offer.rental_days || 0} days rental`}
+                              ? "Acces permanent"
+                              : `${offer.rental_days || 0} zile închiriere`}
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">
@@ -2332,7 +2333,7 @@ export function ContentEditor() {
                           onClick={() => void handleSaveOffer(offer.local_id)}
                           disabled={isBusy}
                         >
-                          {isBusy ? "Saving..." : "Save offer"}
+                          {isBusy ? "Se salvează..." : "Salvează oferta"}
                         </Button>
                         <Button
                           type="button"
@@ -2347,13 +2348,13 @@ export function ContentEditor() {
                     </CardHeader>
                     <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
                       <FormField
-                        label="Offer name"
+                        label="Nume ofertă"
                         value={offer.name}
                         error={getOfferFieldError(offer.local_id, "name")}
                         onChange={(event) => updateOfferDraft(offer.local_id, "name", event.target.value)}
                       />
                       <FormField
-                        label="Access type"
+                        label="Tip acces"
                         type="select"
                         value={offer.offer_type}
                         error={getOfferFieldError(offer.local_id, "offer_type")}
@@ -2377,7 +2378,7 @@ export function ContentEditor() {
                         }
                       />
                       <FormField
-                        label="Quality"
+                        label="Calitate"
                         type="select"
                         value={offer.quality}
                         error={getOfferFieldError(offer.local_id, "quality")}
@@ -2385,13 +2386,13 @@ export function ContentEditor() {
                         onChange={(event) => updateOfferDraft(offer.local_id, "quality", event.target.value)}
                       />
                       <FormField
-                        label="Currency"
+                        label="Monedă"
                         value={offer.currency}
                         error={getOfferFieldError(offer.local_id, "currency")}
                         onChange={(event) => updateOfferDraft(offer.local_id, "currency", event.target.value.toUpperCase())}
                       />
                       <FormField
-                        label="Price"
+                        label="Preț"
                         type="number"
                         value={offer.price_amount}
                         disabled={isFreeOffer}
@@ -2405,7 +2406,7 @@ export function ContentEditor() {
                         }
                       />
                       <FormField
-                        label="Rental days"
+                        label="Zile închiriere"
                         type="number"
                         value={offer.rental_days}
                         disabled={!isRental}
@@ -2419,14 +2420,14 @@ export function ContentEditor() {
                         }
                       />
                       <FormField
-                        label="Starts at"
+                        label="Începe la"
                         type="date"
                         value={offer.starts_at}
                         error={getOfferFieldError(offer.local_id, "starts_at")}
                         onChange={(event) => updateOfferDraft(offer.local_id, "starts_at", event.target.value)}
                       />
                       <FormField
-                        label="Ends at"
+                        label="Se termină la"
                         type="date"
                         value={offer.ends_at}
                         error={getOfferFieldError(offer.local_id, "ends_at")}
@@ -2434,7 +2435,7 @@ export function ContentEditor() {
                       />
                       <div className="md:col-span-2 xl:col-span-3">
                         <FormField
-                          label="Playback URL"
+                          label="URL playback"
                           value={offer.playback_url}
                           error={getOfferFieldError(offer.local_id, "playback_url")}
                           helperText={formState.type === "movie"
@@ -2444,7 +2445,7 @@ export function ContentEditor() {
                         />
                       </div>
                       <FormField
-                        label="Sort order"
+                        label="Ordine de sortare"
                         type="number"
                         value={offer.sort_order}
                         error={getOfferFieldError(offer.local_id, "sort_order")}
@@ -2458,7 +2459,7 @@ export function ContentEditor() {
                       />
                       <div className="md:col-span-2 xl:col-span-4">
                         <FormField
-                          label="Active"
+                          label="Activă"
                           type="toggle"
                           checked={offer.is_active}
                           helperText="Offer-ul poate fi afișat și cumpărat doar dacă este activ."

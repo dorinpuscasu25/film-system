@@ -585,7 +585,7 @@ export function HomeCuration() {
   if (isLoading) {
     return (
       <div className="flex min-h-[55vh] items-center justify-center text-sm text-muted-foreground">
-        Loading home curation...
+        Se încarcă setările homepage-ului...
       </div>
     );
   }
@@ -594,8 +594,8 @@ export function HomeCuration() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-2">
-          <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">Home curation</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Homepage orchestration</h1>
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">Homepage</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Orchestrare homepage</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
             Controlezi din admin sliderul principal, carouselele editoriale și shelves dinamice bazate pe genuri,
             colecții sau badge-uri.
@@ -605,14 +605,14 @@ export function HomeCuration() {
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" onClick={() => addSection("hero_slider")} disabled={!canEdit}>
             <PlusIcon className="h-4 w-4" />
-            Add hero slider
+            Adaugă slider hero
           </Button>
           <Button variant="outline" onClick={() => addSection("content_carousel")} disabled={!canEdit}>
             <PlusIcon className="h-4 w-4" />
-            Add carousel
+            Adaugă carusel
           </Button>
           <Button onClick={handleSave} disabled={!canEdit || isSaving}>
-            {isSaving ? "Saving..." : "Save homepage"}
+            {isSaving ? "Se salvează..." : "Salvează homepage-ul"}
           </Button>
         </div>
       </div>
@@ -620,16 +620,16 @@ export function HomeCuration() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Sections</CardDescription>
+            <CardDescription>Secțiuni</CardDescription>
             <CardTitle>{sections.length}</CardTitle>
           </CardHeader>
           <CardContent className="pt-0 text-sm text-muted-foreground">
-            Hero blocks și carousele gestionate manual din admin.
+            Blocuri hero și carusele gestionate manual din admin.
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Hero slides</CardDescription>
+            <CardDescription>Slide-uri hero</CardDescription>
             <CardTitle>{sections.reduce((sum, section) => sum + section.hero_slides.length, 0)}</CardTitle>
           </CardHeader>
           <CardContent className="pt-0 text-sm text-muted-foreground">
@@ -638,7 +638,7 @@ export function HomeCuration() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Dynamic shelves</CardDescription>
+            <CardDescription>Rafturi dinamice</CardDescription>
             <CardTitle>{sections.filter((section) => section.source_mode === "dynamic").length}</CardTitle>
           </CardHeader>
           <CardContent className="pt-0 text-sm text-muted-foreground">
@@ -662,7 +662,7 @@ export function HomeCuration() {
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle className="text-xl">Sections</CardTitle>
+            <CardTitle className="text-xl">Secțiuni</CardTitle>
             <CardDescription>Alege ordinea în care apar pe homepage și ce tip de shelf construiești.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -693,21 +693,21 @@ export function HomeCuration() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold">{section.localized_title || section.name}</span>
-                        <span className="rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                          {section.section_type === "hero_slider" ? "Hero" : section.source_mode === "manual" ? "Manual" : "Dynamic"}
-                        </span>
+                          <span className="rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {section.section_type === "hero_slider" ? "Hero" : section.source_mode === "manual" ? "Manual" : "Dinamic"}
+                          </span>
                       </div>
                       <p className="text-xs text-muted-foreground">{section.name}</p>
                     </div>
 
                     <div className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
-                      {section.active ? "Live" : "Off"}
+                      {section.active ? "Activă" : "Oprită"}
                     </div>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground">
-                      {itemCount} {section.section_type === "hero_slider" ? "slides" : "titles"}
+                      {itemCount} {section.section_type === "hero_slider" ? "slide-uri" : "titluri"}
                     </span>
 
                     <div className="flex items-center gap-1">
@@ -759,13 +759,13 @@ export function HomeCuration() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-xl">Section settings</CardTitle>
+                <CardTitle className="text-xl">Setări secțiune</CardTitle>
                 <CardDescription>Configurează identitatea editorială și localizările pentru secțiunea selectată.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px_160px]">
                   <FormField
-                    label="Internal name"
+                    label="Nume intern"
                     value={selectedSection.name}
                     onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
                       ...section,
@@ -774,7 +774,7 @@ export function HomeCuration() {
                     disabled={!canEdit}
                   />
                   <FormField
-                    label="Type"
+                    label="Tip"
                     type="select"
                     value={selectedSection.section_type}
                     onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
@@ -785,7 +785,7 @@ export function HomeCuration() {
                     options={options?.section_types ?? []}
                   />
                   <FormField
-                    label="Status"
+                    label="Stare"
                     type="toggle"
                     checked={selectedSection.active}
                     onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
@@ -800,7 +800,7 @@ export function HomeCuration() {
                 <div className="space-y-4 rounded-xl border p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="font-medium">Localized copy</h3>
+                      <h3 className="font-medium">Copy localizat</h3>
                       <p className="text-sm text-muted-foreground">
                         Titlul și subtitlul shelf-ului sunt independente de titlurile conținutului din interior.
                       </p>
@@ -814,7 +814,7 @@ export function HomeCuration() {
 
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Section title ({activeLocale.toUpperCase()})</Label>
+                      <Label>Titlu secțiune ({activeLocale.toUpperCase()})</Label>
                       <Input
                         value={selectedSection.title[activeLocale]}
                         onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
@@ -828,7 +828,7 @@ export function HomeCuration() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Section subtitle ({activeLocale.toUpperCase()})</Label>
+                      <Label>Subtitlu secțiune ({activeLocale.toUpperCase()})</Label>
                       <Textarea
                         rows={3}
                         value={selectedSection.subtitle[activeLocale]}
@@ -850,7 +850,7 @@ export function HomeCuration() {
             {selectedSection.section_type === "hero_slider" ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl">Hero slides</CardTitle>
+                  <CardTitle className="text-xl">Slide-uri hero</CardTitle>
                   <CardDescription>
                     Fiecare slide poate folosi un title din catalog, dar și copy și artwork complet personalizate.
                   </CardDescription>
@@ -858,12 +858,12 @@ export function HomeCuration() {
                 <CardContent className="space-y-6">
                   <div className="grid gap-3 rounded-xl border p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
                     <FormField
-                      label="Source title"
+                      label="Titlu sursă"
                       type="select"
                       value={heroPickerContentId}
                       onChange={(event) => setHeroPickerContentId(event.target.value)}
                       options={[
-                        { value: "", label: "Choose a catalog title" },
+                        { value: "", label: "Alege un titlu din catalog" },
                         ...(options?.contents ?? []).map((content) => ({
                           value: String(content.id),
                           label: `${content.title} • ${content.type.toUpperCase()} • ${content.status}`,
@@ -874,7 +874,7 @@ export function HomeCuration() {
                     <div className="flex items-end">
                       <Button type="button" variant="outline" onClick={() => addHeroSlide(selectedSection.id ?? 0)} disabled={!canEdit}>
                         <PlusIcon className="h-4 w-4" />
-                        Add hero slide
+                        Adaugă slide hero
                       </Button>
                     </div>
                   </div>
@@ -894,11 +894,11 @@ export function HomeCuration() {
                               Slide {index + 1}
                             </span>
                             <span className="rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                              {slide.active ? "Active" : "Hidden"}
+                              {slide.active ? "Activ" : "Ascuns"}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            Source content: {slide.content?.title ?? `Title #${slide.content_id}`}
+                            Conținut sursă: {slide.content?.title ?? `Titlu #${slide.content_id}`}
                           </p>
                         </div>
 
@@ -935,7 +935,7 @@ export function HomeCuration() {
 
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
                         <FormField
-                          label="Linked catalog title"
+                          label="Titlu din catalog"
                           type="select"
                           value={String(slide.content_id)}
                           onChange={(event) => {
@@ -958,7 +958,7 @@ export function HomeCuration() {
                         />
 
                         <FormField
-                          label="Visible"
+                          label="Vizibil"
                           type="toggle"
                           checked={slide.active}
                           onChange={(event) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
@@ -972,7 +972,7 @@ export function HomeCuration() {
 
                       <div className="grid gap-4 xl:grid-cols-2">
                         <ImageUploadField
-                          label="Desktop artwork"
+                          label="Artwork desktop"
                           value={slide.desktop_image_url ?? ""}
                           onChange={(value) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
                             ...currentSlide,
@@ -982,7 +982,7 @@ export function HomeCuration() {
                           helperText="Imagine dedicată pentru hero pe desktop."
                         />
                         <ImageUploadField
-                          label="Mobile artwork"
+                          label="Artwork mobile"
                           value={slide.mobile_image_url ?? ""}
                           onChange={(value) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
                             ...currentSlide,
@@ -996,7 +996,7 @@ export function HomeCuration() {
                       <div className="space-y-4 rounded-xl border p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <h4 className="font-medium">Localized hero copy</h4>
+                            <h4 className="font-medium">Copy hero localizat</h4>
                             <p className="text-sm text-muted-foreground">
                               Poți suprascrie titlul și descrierea din catalog pentru campanii sau premiere.
                             </p>
@@ -1024,7 +1024,7 @@ export function HomeCuration() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Headline ({activeLocale.toUpperCase()})</Label>
+                            <Label>Titlu principal ({activeLocale.toUpperCase()})</Label>
                             <Input
                               value={slide.title[activeLocale]}
                               onChange={(event) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
@@ -1038,7 +1038,7 @@ export function HomeCuration() {
                             />
                           </div>
                           <div className="space-y-2 lg:col-span-2">
-                            <Label>Description ({activeLocale.toUpperCase()})</Label>
+                            <Label>Descriere ({activeLocale.toUpperCase()})</Label>
                             <Textarea
                               rows={4}
                               value={slide.description[activeLocale]}
@@ -1053,7 +1053,7 @@ export function HomeCuration() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Primary CTA ({activeLocale.toUpperCase()})</Label>
+                            <Label>CTA principal ({activeLocale.toUpperCase()})</Label>
                             <Input
                               value={slide.primary_cta_label[activeLocale]}
                               onChange={(event) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
@@ -1067,7 +1067,7 @@ export function HomeCuration() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Secondary CTA ({activeLocale.toUpperCase()})</Label>
+                            <Label>CTA secundar ({activeLocale.toUpperCase()})</Label>
                             <Input
                               value={slide.secondary_cta_label[activeLocale]}
                               onChange={(event) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
@@ -1092,7 +1092,7 @@ export function HomeCuration() {
               <>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-xl">Shelf logic</CardTitle>
+                    <CardTitle className="text-xl">Logică raft</CardTitle>
                     <CardDescription>
                       Alege dacă această secțiune este controlată manual sau populată automat din reguli.
                     </CardDescription>
@@ -1100,7 +1100,7 @@ export function HomeCuration() {
                   <CardContent className="space-y-5">
                     <div className="grid gap-4 lg:grid-cols-2">
                       <FormField
-                        label="Source mode"
+                        label="Mod sursă"
                         type="select"
                         value={selectedSection.source_mode ?? "dynamic"}
                         onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
@@ -1111,7 +1111,7 @@ export function HomeCuration() {
                         disabled={!canEdit}
                       />
                       <FormField
-                        label="Max titles"
+                        label="Număr maxim de titluri"
                         type="number"
                         min={1}
                         max={40}
@@ -1128,12 +1128,12 @@ export function HomeCuration() {
                       <div className="space-y-5 rounded-xl border p-4">
                         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_200px]">
                           <FormField
-                            label="Add catalog title"
+                            label="Adaugă titlu din catalog"
                             type="select"
                             value={manualPickerContentId}
                             onChange={(event) => setManualPickerContentId(event.target.value)}
                             options={[
-                              { value: "", label: "Choose a title" },
+                              { value: "", label: "Alege un titlu" },
                               ...(options?.contents ?? [])
                                 .filter((content) => !selectedSection.content_ids.includes(content.id))
                                 .map((content) => ({
@@ -1146,7 +1146,7 @@ export function HomeCuration() {
                           <div className="flex items-end">
                             <Button type="button" variant="outline" onClick={() => addManualContent(selectedSection.id ?? 0)} disabled={!canEdit}>
                               <PlusIcon className="h-4 w-4" />
-                              Add title
+                              Adaugă titlu
                             </Button>
                           </div>
                         </div>
@@ -1165,7 +1165,7 @@ export function HomeCuration() {
                                   {content.poster_url ? (
                                     <img src={content.poster_url} alt={content.title} className="h-full w-full object-cover" />
                                   ) : (
-                                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No art</div>
+                                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Fără imagine</div>
                                   )}
                                 </div>
                                 <div className="space-y-1">
@@ -1179,7 +1179,7 @@ export function HomeCuration() {
                                     </span>
                                   </div>
                                   <p className="text-sm text-muted-foreground">
-                                    {content.release_year ?? "TBD"} • {content.genres.join(", ") || "No genres"} • {content.lowest_price === 0 ? "Free" : `$${content.lowest_price}`}
+                                    {content.release_year ?? "TBD"} • {content.genres.join(", ") || "Fără genuri"} • {content.lowest_price === 0 ? "Gratuit" : `$${content.lowest_price}`}
                                   </p>
                                 </div>
                               </div>
@@ -1223,7 +1223,7 @@ export function HomeCuration() {
                       <div className="space-y-5 rounded-xl border p-4">
                         <div className="grid gap-4 lg:grid-cols-2">
                           <FormField
-                            label="Access mode"
+                            label="Tip acces"
                             type="select"
                             value={selectedSection.rule_filters.access}
                             onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
@@ -1237,7 +1237,7 @@ export function HomeCuration() {
                             disabled={!canEdit}
                           />
                           <FormField
-                            label="Sort by"
+                            label="Sortează după"
                             type="select"
                             value={selectedSection.rule_filters.sort_mode}
                             onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
@@ -1251,7 +1251,7 @@ export function HomeCuration() {
                             disabled={!canEdit}
                           />
                           <FormField
-                            label="Taxonomy match"
+                            label="Potrivire taxonomii"
                             type="select"
                             value={selectedSection.rule_filters.matching_strategy}
                             onChange={(event) => updateSection(selectedSection.id ?? 0, (section) => ({
@@ -1267,7 +1267,7 @@ export function HomeCuration() {
                         </div>
 
                         <div className="space-y-3">
-                          <Label>Content types</Label>
+                          <Label>Tipuri de conținut</Label>
                           <div className="flex flex-wrap gap-2">
                             {(options?.content_types ?? []).map((option) => {
                               const active = selectedSection.rule_filters.content_types.includes(option.value);
@@ -1308,7 +1308,7 @@ export function HomeCuration() {
                                 : "border-border hover:bg-accent/30",
                             )}
                           >
-                            <div className="font-medium">Featured only</div>
+                            <div className="font-medium">Doar featured</div>
                             <div className="text-sm opacity-80">Include doar titluri marcate ca featured.</div>
                           </button>
                           <button
@@ -1328,7 +1328,7 @@ export function HomeCuration() {
                                 : "border-border hover:bg-accent/30",
                             )}
                           >
-                            <div className="font-medium">Trending only</div>
+                            <div className="font-medium">Doar trending</div>
                             <div className="text-sm opacity-80">Păstrează doar titlurile cu flag de trend.</div>
                           </button>
                         </div>
@@ -1336,6 +1336,7 @@ export function HomeCuration() {
                         <div className="space-y-4">
                           <div>
                             <h3 className="font-medium">Taxonomy filters</h3>
+                            <h3 className="font-medium">Filtre taxonomii</h3>
                             <p className="text-sm text-muted-foreground">
                               Poți combina genuri, colecții, tag-uri și badge-uri într-un singur shelf dinamic.
                             </p>
@@ -1386,7 +1387,7 @@ export function HomeCuration() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-xl">Live preview</CardTitle>
+                    <CardTitle className="text-xl">Previzualizare live</CardTitle>
                     <CardDescription>
                       Preview rapid din admin pentru titlurile care vor intra în shelf după regulile curente.
                     </CardDescription>
@@ -1405,7 +1406,7 @@ export function HomeCuration() {
                             {content.poster_url ? (
                               <img src={content.poster_url} alt={content.title} className="h-full w-full object-cover" />
                             ) : (
-                              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No art</div>
+                              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Fără imagine</div>
                             )}
                           </div>
                           <div className="space-y-1">
@@ -1417,12 +1418,12 @@ export function HomeCuration() {
                               {content.is_trending ? (
                                 <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
                                   <SparklesIcon className="h-3 w-3" />
-                                  Trending
+                                  În trend
                                 </span>
                               ) : null}
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              {content.release_year ?? "TBD"} • {content.genres.join(", ") || "No genres"} • {content.lowest_price === 0 ? "Free" : `$${content.lowest_price}`}
+                              {content.release_year ?? "TBD"} • {content.genres.join(", ") || "Fără genuri"} • {content.lowest_price === 0 ? "Gratuit" : `$${content.lowest_price}`}
                             </p>
                           </div>
                         </div>
@@ -1438,8 +1439,8 @@ export function HomeCuration() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl">Select a section</CardTitle>
-              <CardDescription>Choose a section from the left to start configuring the homepage.</CardDescription>
+              <CardTitle className="text-xl">Selectează o secțiune</CardTitle>
+              <CardDescription>Alege o secțiune din stânga ca să începi configurarea homepage-ului.</CardDescription>
             </CardHeader>
           </Card>
         )}

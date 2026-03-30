@@ -15,7 +15,7 @@ type RangeValue = "7days" | "30days" | "3months";
 const EMPTY_DASHBOARD: DashboardResponse = {
   range: {
     value: "30days",
-    label: "Last 30 days",
+    label: "Ultimele 30 de zile",
     days: 30,
     from: "",
     to: "",
@@ -59,7 +59,7 @@ function formatCurrency(amount: number, currency = "USD") {
 }
 
 function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleString() : "No timestamp";
+  return value ? new Date(value).toLocaleString() : "Fără dată";
 }
 
 export function Billing() {
@@ -124,17 +124,17 @@ export function Billing() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Billing</h1>
+          <h1 className="page-title">Facturare</h1>
           <p className="page-description">
-            Full transaction history, revenue mix și top-selling titles pentru commerce.
+            Istoric complet de tranzacții, mix de venituri și top titluri vândute pentru commerce.
           </p>
         </div>
 
         <Tabs
           tabs={[
-            { id: "3months", label: "Last 3 months" },
-            { id: "30days", label: "Last 30 days" },
-            { id: "7days", label: "Last 7 days" },
+            { id: "3months", label: "Ultimele 3 luni" },
+            { id: "30days", label: "Ultimele 30 de zile" },
+            { id: "7days", label: "Ultimele 7 zile" },
           ]}
           activeTab={range}
           onChange={(value) => setRange(value as RangeValue)}
@@ -143,31 +143,31 @@ export function Billing() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard
-          title={`Revenue ${dashboard.range.label}`}
+          title={`Venit ${dashboard.range.label}`}
           value={formatCurrency(dashboard.stats.period_revenue_amount)}
           icon={DollarSignIcon}
-          trendLabel={`${dashboard.stats.period_orders_count} orders`}
+          trendLabel={`${dashboard.stats.period_orders_count} comenzi`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Average Order"
+          title="Comandă medie"
           value={formatCurrency(dashboard.stats.average_order_value)}
           icon={CreditCardIcon}
-          trendLabel={`${dashboard.stats.unique_buyers_count} buyers`}
+          trendLabel={`${dashboard.stats.unique_buyers_count} cumpărători`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="All-time Revenue"
+          title="Venit total"
           value={formatCurrency(dashboard.stats.total_revenue_amount)}
           icon={ShoppingCartIcon}
-          trendLabel={`${dashboard.stats.orders_total} total orders`}
+          trendLabel={`${dashboard.stats.orders_total} comenzi totale`}
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Wallet Float"
+          title="Sold total wallet"
           value={formatCurrency(dashboard.stats.wallet_balance_total)}
           icon={WalletIcon}
-          trendLabel={`${dashboard.summary.buyers_total} paying users`}
+          trendLabel={`${dashboard.summary.buyers_total} utilizatori plătitori`}
           colorClass="bg-muted"
         />
       </div>
@@ -175,9 +175,9 @@ export function Billing() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <CardHeader>
-            <CardTitle>Revenue Timeline</CardTitle>
+            <CardTitle>Evoluție venituri</CardTitle>
             <CardDescription>
-              Sales activity from {dashboard.range.from || "the selected range"} to {dashboard.range.to || "today"}.
+              Activitatea de vânzări din {dashboard.range.from || "intervalul selectat"} până în {dashboard.range.to || "astăzi"}.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -185,7 +185,7 @@ export function Billing() {
               <SalesTimeline points={dashboard.sales_timeline} metric="revenue" />
             ) : (
               <div className="flex h-64 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
-                {isLoading ? "Loading billing activity..." : "No billing activity in this range yet."}
+                {isLoading ? "Se încarcă activitatea de facturare..." : "Nu există încă activitate de facturare în acest interval."}
               </div>
             )}
           </CardContent>
@@ -193,13 +193,13 @@ export function Billing() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Sales Mix</CardTitle>
-            <CardDescription>How purchases are distributed by access type.</CardDescription>
+            <CardTitle>Mix de vânzări</CardTitle>
+            <CardDescription>Cum sunt distribuite cumpărările pe tipuri de acces.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg border bg-background p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Rentals</span>
+                <span className="text-sm text-muted-foreground">Închirieri</span>
                 <span className="font-semibold">{dashboard.breakdown.rental_orders_count}</span>
               </div>
               <p className="mt-2 text-xl font-semibold">
@@ -208,7 +208,7 @@ export function Billing() {
             </div>
             <div className="rounded-lg border bg-background p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Lifetime</span>
+                <span className="text-sm text-muted-foreground">Permanent</span>
                 <span className="font-semibold">{dashboard.breakdown.lifetime_orders_count}</span>
               </div>
               <p className="mt-2 text-xl font-semibold">
@@ -217,11 +217,11 @@ export function Billing() {
             </div>
             <div className="rounded-lg border bg-background p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Free claims</span>
+                <span className="text-sm text-muted-foreground">Accesări gratuite</span>
                 <span className="font-semibold">{dashboard.breakdown.free_orders_count}</span>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Useful for monitoring promotional content and free funnels.
+                Util pentru monitorizarea conținutului promoțional și a funnel-urilor gratuite.
               </p>
             </div>
           </CardContent>
@@ -232,9 +232,9 @@ export function Billing() {
         <Card>
           <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <CardTitle>Transaction History</CardTitle>
+              <CardTitle>Istoric tranzacții</CardTitle>
               <CardDescription>
-                Latest wallet transactions across purchases, credits and future refunds.
+                Ultimele tranzacții din wallet pentru cumpărări, credite și viitoare refunduri.
               </CardDescription>
             </div>
             <div className="relative w-full max-w-sm">
@@ -243,7 +243,7 @@ export function Billing() {
                 className="pl-9"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search user, title, offer..."
+                placeholder="Caută utilizator, titlu, ofertă..."
               />
             </div>
           </CardHeader>
@@ -251,12 +251,12 @@ export function Billing() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Content</TableHead>
-                  <TableHead>Offer</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>When</TableHead>
+                  <TableHead>Tip</TableHead>
+                  <TableHead>Utilizator</TableHead>
+                  <TableHead>Conținut</TableHead>
+                  <TableHead>Ofertă</TableHead>
+                  <TableHead>Sumă</TableHead>
+                  <TableHead>Când</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -269,16 +269,16 @@ export function Billing() {
                           amount={transaction.amount}
                           label={transaction.type_label}
                         />
-                      </TableCell>
+                        </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <p className="font-medium">{transaction.user.name ?? "Unknown user"}</p>
-                          <p className="text-xs text-muted-foreground">{transaction.user.email ?? "No email"}</p>
+                          <p className="font-medium">{transaction.user.name ?? "Utilizator necunoscut"}</p>
+                          <p className="text-xs text-muted-foreground">{transaction.user.email ?? "Fără email"}</p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <p className="font-medium">{transaction.content?.title ?? "Platform transaction"}</p>
+                          <p className="font-medium">{transaction.content?.title ?? "Tranzacție platformă"}</p>
                           <p className="text-xs text-muted-foreground">{transaction.content?.slug ?? transaction.description}</p>
                         </div>
                       </TableCell>
@@ -286,7 +286,7 @@ export function Billing() {
                         <div className="space-y-1">
                           <p className="font-medium">{transaction.offer.name ?? "N/A"}</p>
                           <p className="text-xs text-muted-foreground">
-                            {transaction.offer.quality ?? "No quality"}
+                            {transaction.offer.quality ?? "Fără calitate"}
                             {transaction.offer.offer_type ? ` • ${transaction.offer.offer_type}` : ""}
                           </p>
                         </div>
@@ -298,7 +298,7 @@ export function Billing() {
                             {formatCurrency(transaction.amount_absolute, transaction.currency)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Balance after {formatCurrency(transaction.balance_after, transaction.currency)}
+                            Sold după {formatCurrency(transaction.balance_after, transaction.currency)}
                           </p>
                         </div>
                       </TableCell>
@@ -308,7 +308,7 @@ export function Billing() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                      {isLoading ? "Loading transactions..." : "No transactions found for the current filters."}
+                      {isLoading ? "Se încarcă tranzacțiile..." : "Nu există tranzacții pentru filtrele curente."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -319,8 +319,8 @@ export function Billing() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Top Selling Titles</CardTitle>
-            <CardDescription>Most valuable content in the selected time window.</CardDescription>
+            <CardTitle>Top titluri vândute</CardTitle>
+            <CardDescription>Cel mai valoros conținut din intervalul selectat.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {dashboard.top_titles.length > 0 ? (
@@ -330,24 +330,24 @@ export function Billing() {
                     <div>
                       <p className="font-medium">{title.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {title.orders_count} orders • {title.unique_buyers_count} buyers
+                        {title.orders_count} comenzi • {title.unique_buyers_count} cumpărători
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground">#{index + 1}</span>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Revenue</span>
+                    <span className="text-muted-foreground">Venit</span>
                     <span className="font-semibold">{formatCurrency(title.revenue_amount)}</span>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Free claims</span>
+                    <span className="text-muted-foreground">Accesări gratuite</span>
                     <span className="font-medium">{title.free_claims_count}</span>
                   </div>
                 </div>
               ))
             ) : (
               <div className="flex h-48 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
-                No title sales yet.
+                Nu există încă vânzări pe titluri.
               </div>
             )}
           </CardContent>

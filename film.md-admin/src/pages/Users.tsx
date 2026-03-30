@@ -31,6 +31,10 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleString();
 }
 
+function userStatusLabel(status: "active" | "suspended") {
+  return status === "active" ? "Activ" : "Suspendat";
+}
+
 export function Users() {
   const { can } = useAdmin();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -96,7 +100,7 @@ export function Users() {
   const userColumns = [
     {
       key: "name",
-      header: "User",
+      header: "Utilizator",
       render: (user: AdminUser) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-muted text-sm font-medium">
@@ -111,7 +115,7 @@ export function Users() {
     },
     {
       key: "roles",
-      header: "Roles",
+      header: "Roluri",
       render: (user: AdminUser) => (
         <div className="flex flex-wrap gap-2">
           {user.roles.map((role) => (
@@ -124,14 +128,14 @@ export function Users() {
     },
     {
       key: "status",
-      header: "Status",
+      header: "Stare",
       render: (user: AdminUser) => (
-        <Badge variant={user.status === "active" ? "published" : "archived"}>{user.status}</Badge>
+        <Badge variant={user.status === "active" ? "published" : "archived"}>{userStatusLabel(user.status)}</Badge>
       ),
     },
     {
       key: "last_seen_at",
-      header: "Last Seen",
+      header: "Ultima activitate",
       render: (user: AdminUser) => formatDate(user.last_seen_at),
     },
     {
@@ -156,7 +160,7 @@ export function Users() {
               });
               setIsEditModalOpen(true);
             }}
-            title="Edit user"
+            title="Editează utilizatorul"
           >
             <EditIcon className="h-4 w-4" />
           </Button>
@@ -222,7 +226,7 @@ export function Users() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Users & Access</h1>
+          <h1 className="page-title">Utilizatori și acces</h1>
           <p className="page-description">
             Gestionează utilizatori activi, invitații și rolurile pe care le primesc.
           </p>
@@ -231,7 +235,7 @@ export function Users() {
         {can("users.invite") ? (
           <Button onClick={() => setIsInviteModalOpen(true)}>
             <PlusIcon className="mr-2 h-4 w-4" />
-            Invite user
+            Invită utilizator
           </Button>
         ) : null}
       </div>
@@ -247,7 +251,7 @@ export function Users() {
           <p>{successMessage}</p>
           {inviteResultUrl ? (
             <a href={inviteResultUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block font-medium underline">
-              Open invite link
+              Deschide linkul de invitație
             </a>
           ) : null}
         </div>
@@ -268,7 +272,7 @@ export function Users() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Invitations</CardTitle>
+          <CardTitle>Invitații</CardTitle>
           <CardDescription>Invite-urile generate și starea lor curentă.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -284,15 +288,15 @@ export function Users() {
                       {invitation.email}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Roles: {invitation.role_names.join(", ") || "No roles"}
+                      Roluri: {invitation.role_names.join(", ") || "Fără roluri"}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                     <Badge variant={invitation.status === "accepted" ? "published" : "ready"}>
-                      {invitation.status}
+                      {invitation.status === "accepted" ? "Acceptată" : "În așteptare"}
                     </Badge>
-                    <span>Created: {formatDate(invitation.created_at)}</span>
-                    <span>Expires: {formatDate(invitation.expires_at)}</span>
+                    <span>Creată: {formatDate(invitation.created_at)}</span>
+                    <span>Expiră: {formatDate(invitation.expires_at)}</span>
                   </div>
                 </div>
               ))
@@ -304,21 +308,21 @@ export function Users() {
       <Modal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        title="Invite a new user"
+        title="Invită un utilizator nou"
         footer={
           <>
             <Button variant="outline" onClick={() => setIsInviteModalOpen(false)}>
-              Cancel
+              Anulează
             </Button>
             <Button onClick={() => void handleInviteSubmit()} disabled={isSubmitting || inviteState.role_ids.length === 0}>
-              {isSubmitting ? "Sending..." : "Send invite"}
+              {isSubmitting ? "Se trimite..." : "Trimite invitația"}
             </Button>
           </>
         }
       >
         <div className="form-grid">
           <FormField
-            label="Name"
+            label="Nume"
             value={inviteState.name}
             onChange={(event) => setInviteState((current) => ({ ...current, name: event.target.value }))}
           />
@@ -329,7 +333,7 @@ export function Users() {
             onChange={(event) => setInviteState((current) => ({ ...current, email: event.target.value }))}
           />
           <FormField
-            label="Invite expires in (hours)"
+            label="Invitația expiră în (ore)"
             type="number"
             value={inviteState.expires_in_hours}
             onChange={(event) =>
@@ -341,7 +345,7 @@ export function Users() {
           />
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Roles</p>
+            <p className="text-sm font-medium">Roluri</p>
             <div className="space-y-2 rounded-md border p-4">
               {roleOptions.map((role) => (
                 <label key={role.value} className="flex items-center gap-3 text-sm">
@@ -367,21 +371,21 @@ export function Users() {
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Edit user"
+        title="Editează utilizatorul"
         footer={
           <>
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-              Cancel
+              Anulează
             </Button>
             <Button onClick={() => void handleUserSave()} disabled={isSubmitting || editState.role_ids.length === 0}>
-              {isSubmitting ? "Saving..." : "Save user"}
+              {isSubmitting ? "Se salvează..." : "Salvează utilizatorul"}
             </Button>
           </>
         }
       >
         <div className="form-grid">
           <FormField
-            label="Name"
+            label="Nume"
             value={editState.name}
             onChange={(event) => setEditState((current) => ({ ...current, name: event.target.value }))}
           />
@@ -393,7 +397,7 @@ export function Users() {
           />
           <div className="grid gap-4 md:grid-cols-2">
             <FormField
-              label="Status"
+              label="Stare"
               type="select"
               value={editState.status}
               onChange={(event) =>
@@ -403,12 +407,12 @@ export function Users() {
                 }))
               }
               options={[
-                { label: "Active", value: "active" },
-                { label: "Suspended", value: "suspended" },
+                { label: "Activ", value: "active" },
+                { label: "Suspendat", value: "suspended" },
               ]}
             />
             <FormField
-              label="Locale"
+              label="Limbă"
               type="select"
               value={editState.preferred_locale}
               onChange={(event) =>
@@ -419,14 +423,14 @@ export function Users() {
               }
               options={[
                 { label: "Română", value: "ro" },
-                { label: "English", value: "en" },
+                { label: "Engleză", value: "en" },
                 { label: "Русский", value: "ru" },
               ]}
             />
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Roles</p>
+            <p className="text-sm font-medium">Roluri</p>
             <div className="space-y-2 rounded-md border p-4">
               {roleOptions.map((role) => (
                 <label key={role.value} className="flex items-center gap-3 text-sm">

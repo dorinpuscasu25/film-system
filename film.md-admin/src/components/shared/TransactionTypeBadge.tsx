@@ -11,15 +11,15 @@ export function TransactionTypeBadge({ type, amount, label }: TransactionTypeBad
   const resolvedLabel = label ?? (
     type === "purchase"
       ? amount === 0
-        ? "Free claim"
-        : "Purchase"
+        ? "Acces gratuit"
+        : "Cumpărare"
       : type === "refund"
         ? "Refund"
         : type === "top_up"
-          ? "Top up"
+          ? "Alimentare"
           : type === "welcome_bonus"
-            ? "Welcome credit"
-            : "Adjustment"
+            ? "Credit de bun venit"
+            : "Ajustare"
   );
 
   const className = type === "purchase"

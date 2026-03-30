@@ -6,29 +6,29 @@ export function PlaybackOps() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">
-          Playback Operations
+          Operațiuni playback
         </h1>
         <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full font-medium border border-emerald-200">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-          All Systems Operational
+          Toate sistemele sunt operaționale
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
-          title="Active Streams"
+          title="Streamuri active"
           value="1,245"
           icon={ActivityIcon}
           trend={5} />
         
         <StatsCard
-          title="CDN Bandwidth"
+          title="Lățime de bandă CDN"
           value="4.2 Tbps"
           icon={ServerIcon}
           colorClass="text-blue-600 bg-blue-100" />
         
         <StatsCard
-          title="DRM Token Rejects"
+          title="Tokenuri DRM respinse"
           value="12"
           icon={ShieldIcon}
           colorClass="text-orange-600 bg-orange-100" />
@@ -38,29 +38,29 @@ export function PlaybackOps() {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50">
           <h2 className="text-lg font-medium text-slate-900">
-            Active Sessions (Live)
+            Sesiuni active (live)
           </h2>
         </div>
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                User
+                Utilizator
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Content
+                Conținut
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Quality
+                Calitate
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Device
+                Dispozitiv
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Started
+                Pornit
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
-                Actions
+                Acțiuni
               </th>
             </tr>
           </thead>
@@ -82,11 +82,11 @@ export function PlaybackOps() {
                   Smart TV (Tizen)
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                  {i * 12} mins ago
+                  acum {i * 12} min
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button className="text-red-600 hover:text-red-900">
-                    Revoke Token
+                    Revocă tokenul
                   </button>
                 </td>
               </tr>

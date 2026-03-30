@@ -15,13 +15,30 @@ type ContentRow = AdminContent & {
 
 function formatMoney(content: AdminContent) {
   if (content.is_free) {
-    return "Free";
+    return "Gratuit";
   }
 
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: content.currency || "USD",
   }).format(content.lowest_price || content.price_amount || 0);
+}
+
+function contentTypeLabel(type: AdminContent["type"]) {
+  return type === "movie" ? "Film" : "Serial";
+}
+
+function contentStatusLabel(status: AdminContentStatus) {
+  switch (status) {
+    case "published":
+      return "Publicat";
+    case "ready":
+      return "Pregătit";
+    case "archived":
+      return "Arhivat";
+    default:
+      return "Ciornă";
+  }
 }
 
 function statusVariant(status: AdminContentStatus) {
@@ -125,7 +142,7 @@ export function ContentCatalog() {
   const columns = [
     {
       key: "title",
-      header: "Title",
+      header: "Titlu",
       render: (item: ContentRow) => (
         <div className="flex items-center gap-3">
           <img
@@ -143,44 +160,44 @@ export function ContentCatalog() {
     },
     {
       key: "type",
-      header: "Type",
+      header: "Tip",
       render: (item: ContentRow) => (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           {item.type === "movie" ? <FilmIcon className="h-4 w-4" /> : <TvIcon className="h-4 w-4" />}
-          <span className="capitalize">{item.type}</span>
+          <span>{contentTypeLabel(item.type)}</span>
         </div>
       ),
     },
     {
       key: "flags",
-      header: "Flags",
+      header: "Etichete",
       render: (item: ContentRow) => (
         <div className="flex flex-wrap gap-2">
-          {item.is_featured ? <Badge variant="featured">Featured</Badge> : null}
-          {item.is_trending ? <Badge variant="ready">Trending</Badge> : null}
-          {item.is_free ? <Badge variant="free">Free</Badge> : <Badge variant="paid">{formatMoney(item)}</Badge>}
-          {item.offers_count > 0 ? <Badge variant="draft">{item.offers_count} offers</Badge> : null}
+          {item.is_featured ? <Badge variant="featured">Promovat</Badge> : null}
+          {item.is_trending ? <Badge variant="ready">În trend</Badge> : null}
+          {item.is_free ? <Badge variant="free">Gratuit</Badge> : <Badge variant="paid">{formatMoney(item)}</Badge>}
+          {item.offers_count > 0 ? <Badge variant="draft">{item.offers_count} oferte</Badge> : null}
         </div>
       ),
     },
     {
       key: "release_year",
-      header: "Year",
+      header: "An",
       render: (item: ContentRow) => item.release_year ?? "N/A",
     },
     {
       key: "genres",
-      header: "Genres",
+      header: "Genuri",
       render: (item: ContentRow) => (
         <span className="text-sm text-muted-foreground">
-          {item.genres.map((genre) => genre.localized_name).join(", ") || "No genres"}
+          {item.genres.map((genre) => genre.localized_name).join(", ") || "Fără genuri"}
         </span>
       ),
     },
     {
       key: "status",
-      header: "Status",
-      render: (item: ContentRow) => <Badge variant={statusVariant(item.status)}>{item.status}</Badge>,
+      header: "Stare",
+      render: (item: ContentRow) => <Badge variant={statusVariant(item.status)}>{contentStatusLabel(item.status)}</Badge>,
     },
     {
       key: "actions",
@@ -194,7 +211,7 @@ export function ContentCatalog() {
               event.stopPropagation();
               navigate("editor", String(item.id), ["Catalog", item.localized_title]);
             }}
-            title="Edit content"
+            title="Editează titlul"
           >
             <EditIcon className="h-4 w-4" />
           </Button>
@@ -205,7 +222,7 @@ export function ContentCatalog() {
               event.stopPropagation();
               window.open(`/movie/${item.slug}`, "_blank");
             }}
-            title="Preview content"
+            title="Previzualizează titlul"
           >
             <EyeIcon className="h-4 w-4" />
           </Button>
@@ -217,7 +234,7 @@ export function ContentCatalog() {
                 event.stopPropagation();
                 void handleDelete(item);
               }}
-              title="Delete content"
+              title="Șterge titlul"
             >
               <TrashIcon className="h-4 w-4" />
             </Button>
@@ -231,16 +248,16 @@ export function ContentCatalog() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Content Catalog</h1>
+          <h1 className="page-title">Catalog conținut</h1>
           <p className="page-description">
             Titluri reale din backend, cu localizări, bannere desktop/mobile și taxonomii pregătite pentru storefront.
           </p>
         </div>
 
         {can("content.create") ? (
-          <Button onClick={() => navigate("editor", "new", ["Catalog", "New content"])}>
+          <Button onClick={() => navigate("editor", "new", ["Catalog", "Titlu nou"])}>
             <PlusIcon className="h-4 w-4" />
-            Add content
+            Adaugă titlu
           </Button>
         ) : null}
       </div>
@@ -261,9 +278,9 @@ export function ContentCatalog() {
         <CardContent className="space-y-4 p-4">
           <Tabs
             tabs={[
-              { id: "all", label: "All content", count: items.length },
-              { id: "movie", label: "Movies", count: items.filter((item) => item.type === "movie").length },
-              { id: "series", label: "Series", count: items.filter((item) => item.type === "series").length },
+              { id: "all", label: "Tot conținutul", count: items.length },
+              { id: "movie", label: "Filme", count: items.filter((item) => item.type === "movie").length },
+              { id: "series", label: "Seriale", count: items.filter((item) => item.type === "series").length },
             ]}
             activeTab={activeTab}
             onChange={(value) => setActiveTab(value as "all" | "movie" | "series")}
@@ -275,11 +292,11 @@ export function ContentCatalog() {
               onChange={(event) => setStatusFilter(event.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="all">All statuses</option>
-              <option value="draft">Draft</option>
-              <option value="ready">Ready</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
+              <option value="all">Toate stările</option>
+              <option value="draft">Ciornă</option>
+              <option value="ready">Pregătit</option>
+              <option value="published">Publicat</option>
+              <option value="archived">Arhivat</option>
             </select>
 
             <select
@@ -287,7 +304,7 @@ export function ContentCatalog() {
               onChange={(event) => setCountryFilter(event.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="all">All countries</option>
+              <option value="all">Toate țările</option>
               {Array.from(new Set(items.map((item) => `${item.country_code ?? ""}|${item.country_name ?? ""}`)))
                 .filter((value) => value !== "|")
                 .map((value) => {
@@ -305,7 +322,7 @@ export function ContentCatalog() {
               onChange={(event) => setGenreFilter(event.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="all">All genres</option>
+              <option value="all">Toate genurile</option>
               {genreOptions.map((genre) => (
                 <option key={genre} value={genre}>
                   {genre}
@@ -321,7 +338,7 @@ export function ContentCatalog() {
               data={tableRows}
               columns={columns}
               keyExtractor={(item) => String(item.id)}
-              searchPlaceholder="Search by title, slug, genre or country..."
+              searchPlaceholder="Caută după titlu, slug, gen sau țară..."
               onRowClick={(item) => navigate("editor", String(item.id), ["Catalog", item.localized_title])}
             />
           )}

@@ -144,38 +144,38 @@ export function Moderation() {
   const tabs = [
   {
     id: 'review',
-    label: 'Review Queue',
+    label: 'Coada de review',
     icon: ShieldAlertIcon,
     count: reviewQueue.length
   },
   {
     id: 'media-jobs',
-    label: 'Media Jobs',
+    label: 'Joburi media',
     icon: ServerIcon
   },
   {
     id: 'audit-log',
-    label: 'Audit Log',
+    label: 'Jurnal audit',
     icon: ScrollTextIcon
   },
   {
     id: 'change-history',
-    label: 'Change History',
+    label: 'Istoric modificări',
     icon: HistoryIcon
   }];
 
   const mediaJobsColumns = [
   {
     key: 'content',
-    header: 'Content'
+    header: 'Conținut'
   },
   {
     key: 'jobType',
-    header: 'Job Type'
+    header: 'Tip job'
   },
   {
     key: 'quality',
-    header: 'Quality'
+    header: 'Calitate'
   },
   {
     key: 'status',
@@ -201,11 +201,11 @@ export function Moderation() {
   },
   {
     key: 'started',
-    header: 'Started'
+    header: 'Pornit'
   },
   {
     key: 'duration',
-    header: 'Duration'
+    header: 'Durată'
   },
   {
     key: 'actions',
@@ -213,7 +213,7 @@ export function Moderation() {
     render: (item: any) =>
     item.status === 'failed' ?
     <button className="text-sm text-indigo-600 hover:text-indigo-900 font-medium">
-            Retry
+            Reîncearcă
           </button> :
     null
   }];
@@ -221,12 +221,12 @@ export function Moderation() {
   const auditLogColumns = [
   {
     key: 'timestamp',
-    header: 'Timestamp',
+    header: 'Dată și oră',
     sortable: true
   },
   {
     key: 'user',
-    header: 'User',
+    header: 'Utilizator',
     render: (item: any) =>
     <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-medium text-slate-600">
@@ -238,7 +238,7 @@ export function Moderation() {
   },
   {
     key: 'action',
-    header: 'Action',
+    header: 'Acțiune',
     render: (item: any) =>
     <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-700">
           {item.action}
@@ -247,11 +247,11 @@ export function Moderation() {
   },
   {
     key: 'target',
-    header: 'Target'
+    header: 'Țintă'
   },
   {
     key: 'details',
-    header: 'Details'
+    header: 'Detalii'
   }];
 
   const changeHistoryColumns = [
@@ -262,15 +262,15 @@ export function Moderation() {
   },
   {
     key: 'changedBy',
-    header: 'Changed By'
+    header: 'Modificat de'
   },
   {
     key: 'field',
-    header: 'Field'
+    header: 'Câmp'
   },
   {
     key: 'changes',
-    header: 'Changes',
+    header: 'Modificări',
     render: (item: any) =>
     <div className="flex items-center gap-2 text-sm">
           <span className="text-red-600 bg-red-50 px-1 rounded line-through">
@@ -288,7 +288,7 @@ export function Moderation() {
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">
-          Moderation & Quality Control
+          Moderare și controlul calității
         </h1>
       </div>
 
@@ -302,7 +302,7 @@ export function Moderation() {
           <div className="flex-1 overflow-y-auto">
               {reviewQueue.length === 0 ?
             <div className="p-8 text-center text-slate-500">
-                  No items pending review.
+                  Nu există elemente în așteptare pentru review.
                 </div> :
 
             <div className="divide-y divide-slate-200 border border-slate-200 rounded-lg">
@@ -316,7 +316,7 @@ export function Moderation() {
                           {item.title}
                         </h3>
                         <p className="text-xs text-slate-500 capitalize">
-                          {item.type} • Submitted 2 hours ago
+                          {item.type} • trimis acum 2 ore
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -324,9 +324,8 @@ export function Moderation() {
                   <button
                     onClick={() => handleReviewClick(item)}
                     className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">
-                    
-                            Review Content
-                          </button>
+                    Revizuiește
+                  </button>
                   }
                         {can('moderation.approve') &&
                   <button
@@ -335,7 +334,7 @@ export function Moderation() {
                       handleApprove();
                     }}
                     className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md"
-                    title="Approve & Publish">
+                    title="Aprobă și publică">
                     
                             <CheckCircleIcon className="w-5 h-5" />
                           </button>
@@ -344,7 +343,7 @@ export function Moderation() {
                   <button
                     onClick={() => handleRejectClick(item)}
                     className="p-1.5 text-red-600 hover:bg-red-50 rounded-md"
-                    title="Reject">
+                    title="Respinge">
                     
                             <XCircleIcon className="w-5 h-5" />
                           </button>
@@ -362,7 +361,7 @@ export function Moderation() {
             data={mediaJobs}
             columns={mediaJobsColumns}
             keyExtractor={(item) => item.id}
-            searchPlaceholder="Search jobs..." />
+            searchPlaceholder="Caută joburi..." />
 
           }
 
@@ -370,25 +369,25 @@ export function Moderation() {
           <div className="flex flex-col h-full space-y-4">
               <div className="flex gap-4">
                 <select className="text-sm border-slate-300 rounded-md py-1.5 pl-3 pr-8">
-                  <option>All Actions</option>
-                  <option>Created</option>
-                  <option>Updated</option>
-                  <option>Published</option>
-                  <option>Archived</option>
-                  <option>Deleted</option>
+                  <option>Toate acțiunile</option>
+                  <option>Create</option>
+                  <option>Update</option>
+                  <option>Publicare</option>
+                  <option>Arhivare</option>
+                  <option>Ștergere</option>
                 </select>
                 <select className="text-sm border-slate-300 rounded-md py-1.5 pl-3 pr-8">
-                  <option>All Users</option>
+                  <option>Toți utilizatorii</option>
                   <option>Andrei Ciobanu</option>
                   <option>Vasile Munteanu</option>
-                  <option>System</option>
+                  <option>Sistem</option>
                 </select>
               </div>
               <DataTable
               data={mockAuditLog}
               columns={auditLogColumns}
               keyExtractor={(item) => item.id}
-              searchPlaceholder="Search logs..." />
+              searchPlaceholder="Caută în jurnale..." />
             
             </div>
           }
@@ -397,7 +396,7 @@ export function Moderation() {
           <div className="flex flex-col h-full space-y-4">
               <div className="flex gap-4">
                 <select className="text-sm border-slate-300 rounded-md py-1.5 pl-3 pr-8">
-                  <option>All Content</option>
+                  <option>Tot conținutul</option>
                   <option>Carbon</option>
                   <option>Umbre</option>
                   <option>Moromeții 2</option>
@@ -407,7 +406,7 @@ export function Moderation() {
               data={changeHistory}
               columns={changeHistoryColumns}
               keyExtractor={(item) => item.id}
-              searchPlaceholder="Search history..." />
+              searchPlaceholder="Caută în istoric..." />
             
             </div>
           }
@@ -417,7 +416,7 @@ export function Moderation() {
       <Modal
         isOpen={showReviewModal}
         onClose={() => setShowReviewModal(false)}
-        title="Review Content"
+        title="Revizuiește conținutul"
         size="xl"
         footer={
         <>
@@ -425,19 +424,19 @@ export function Moderation() {
             onClick={() => handleRejectClick()}
             className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
             
-              Reject
+              Respinge
             </button>
             <button
             onClick={() => setShowReviewModal(false)}
             className="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200">
             
-              Request Changes
+              Cere modificări
             </button>
             <button
             onClick={handleApprove}
             className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700">
             
-              Approve & Publish
+              Aprobă și publică
             </button>
           </>
         }>
@@ -453,47 +452,47 @@ export function Moderation() {
                 {selectedItem.country} • {selectedItem.ageRating}
               </p>
               <p className="text-sm text-slate-700">
-                Description preview would go here...
+                Aici va apărea previzualizarea descrierii...
               </p>
             </div>
 
             <div>
               <h4 className="text-sm font-medium text-slate-900 mb-3">
-                Publish Checklist
+                Checklist de publicare
               </h4>
               <ul className="space-y-3">
                 <li className="flex items-center gap-3 text-sm">
                   <CheckCircleIcon className="w-5 h-5 text-emerald-500" />
-                  <span className="text-slate-700">Basic metadata filled</span>
+                  <span className="text-slate-700">Metadatele de bază sunt completate</span>
                 </li>
                 <li className="flex items-center gap-3 text-sm">
                   <CheckCircleIcon className="w-5 h-5 text-emerald-500" />
-                  <span className="text-slate-700">Poster image uploaded</span>
+                  <span className="text-slate-700">Posterul este încărcat</span>
                 </li>
                 <li className="flex items-center gap-3 text-sm">
                   <CheckCircleIcon className="w-5 h-5 text-emerald-500" />
                   <span className="text-slate-700">
-                    At least 1 locale translated
+                    Cel puțin o limbă este tradusă
                   </span>
                 </li>
                 <li className="flex items-center gap-3 text-sm">
                   <CheckCircleIcon className="w-5 h-5 text-emerald-500" />
-                  <span className="text-slate-700">Video assets processed</span>
+                  <span className="text-slate-700">Asset-urile video sunt procesate</span>
                 </li>
                 <li className="flex items-center gap-3 text-sm">
                   <CheckCircleIcon className="w-5 h-5 text-emerald-500" />
-                  <span className="text-slate-700">Age rating set</span>
+                  <span className="text-slate-700">Restricția de vârstă este setată</span>
                 </li>
               </ul>
             </div>
 
             <FormField
-            label="Reviewer Notes"
+            label="Note reviewer"
             type="textarea"
             rows={4}
             value={reviewNotes}
             onChange={(e) => setReviewNotes(e.target.value)}
-            placeholder="Add any notes for the editor..." />
+            placeholder="Adaugă note pentru editor..." />
           
           </div>
         }
@@ -502,7 +501,7 @@ export function Moderation() {
       <Modal
         isOpen={showRejectModal}
         onClose={() => setShowRejectModal(false)}
-        title="Reject Content"
+        title="Respinge conținutul"
         size="md"
         footer={
         <>
@@ -510,29 +509,29 @@ export function Moderation() {
             onClick={() => setShowRejectModal(false)}
             className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
             
-              Cancel
+              Anulează
             </button>
             <button
             onClick={confirmReject}
             className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
             
-              Confirm Rejection
+              Confirmă respingerea
             </button>
           </>
         }>
         
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Please provide a reason for rejecting &quot;{selectedItem?.title}
+            Te rugăm să oferi un motiv pentru respingerea titlului &quot;{selectedItem?.title}
             &quot;.
           </p>
           <FormField
-            label="Rejection Reason"
+            label="Motiv respingere"
             type="textarea"
             rows={4}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Explain what needs to be fixed..." />
+            placeholder="Explică ce trebuie corectat..." />
           
         </div>
       </Modal>

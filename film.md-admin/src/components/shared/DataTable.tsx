@@ -29,7 +29,7 @@ interface DataTableProps<T> {
 export function DataTable<T>({
   data,
   columns,
-  searchPlaceholder = "Search...",
+  searchPlaceholder = "Caută...",
   onRowClick,
   actions,
   keyExtractor,
@@ -93,7 +93,7 @@ export function DataTable<T>({
         <div className="flex flex-wrap items-center gap-2">
           {selectedRows.size > 0 ? (
             <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
-              {selectedRows.size} selected
+              {selectedRows.size} selectate
             </div>
           ) : null}
           {actions}
@@ -126,7 +126,7 @@ export function DataTable<T>({
             {paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length + 1} className="h-24 text-center text-muted-foreground">
-                  No data found.
+                  Nu există date.
                 </TableCell>
               </TableRow>
             ) : (
@@ -163,15 +163,15 @@ export function DataTable<T>({
 
         <div className="flex flex-col gap-4 border-t px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing{" "}
+            Afișezi{" "}
             <span className="font-medium text-foreground">
               {filteredData.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
             </span>{" "}
-            to{" "}
+            până la{" "}
             <span className="font-medium text-foreground">
               {Math.min(currentPage * itemsPerPage, filteredData.length)}
             </span>{" "}
-            of <span className="font-medium text-foreground">{filteredData.length}</span> results
+            din <span className="font-medium text-foreground">{filteredData.length}</span> rezultate
           </p>
 
           <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export function DataTable<T>({
               <ChevronLeftIcon className="h-4 w-4" />
             </Button>
             <div className="rounded-md border px-3 py-2 text-sm">
-              Page {currentPage} of {totalPages || 1}
+              Pagina {currentPage} din {totalPages || 1}
             </div>
             <Button
               variant="outline"

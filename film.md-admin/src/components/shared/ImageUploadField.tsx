@@ -31,7 +31,7 @@ export function ImageUploadField({
   onChange,
   error,
   helperText,
-  previewLabel = "Preview",
+  previewLabel = "Previzualizare",
   aspectClassName = "aspect-video",
 }: ImageUploadFieldProps) {
   const inputId = label.toLowerCase().replace(/\s+/g, "-");
@@ -68,7 +68,7 @@ export function ImageUploadField({
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
               <ImagePlusIcon className="h-4 w-4" />
-              Upload image
+              Încarcă imagine
             </Button>
             <Button
               type="button"
@@ -77,7 +77,7 @@ export function ImageUploadField({
               disabled={!value}
             >
               <Trash2Icon className="h-4 w-4" />
-              Clear
+              Golește
             </Button>
           </div>
 
@@ -102,7 +102,7 @@ export function ImageUploadField({
               <img src={value} alt={`${label} preview`} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                No image selected
+                Nicio imagine selectată
               </div>
             )}
           </div>

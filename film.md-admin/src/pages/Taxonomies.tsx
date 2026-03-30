@@ -37,10 +37,10 @@ type TaxonomyTableRow = AdminTaxonomy & {
 };
 
 const FALLBACK_TYPES: TaxonomyTypeOption[] = [
-  { value: "genre", label: "Genres" },
-  { value: "collection", label: "Collections" },
-  { value: "tag", label: "Tags" },
-  { value: "badge", label: "Badges" },
+  { value: "genre", label: "Genuri" },
+  { value: "collection", label: "Colecții" },
+  { value: "tag", label: "Tag-uri" },
+  { value: "badge", label: "Badge-uri" },
 ];
 
 const FALLBACK_LOCALES: TaxonomyLocaleOption[] = [
@@ -57,8 +57,8 @@ const TYPE_DESCRIPTIONS: Record<TaxonomyType, string> = {
 };
 
 const TYPE_SINGULAR: Record<TaxonomyType, string> = {
-  genre: "genre",
-  collection: "collection",
+  genre: "gen",
+  collection: "colecție",
   tag: "tag",
   badge: "badge",
 };
@@ -243,7 +243,7 @@ export function Taxonomies() {
   }, [currentUser?.preferred_locale]);
 
   const currentTypeItems = taxonomies[activeType] ?? [];
-  const currentTypeLabel = typeOptions.find((type) => type.value === activeType)?.label ?? "Taxonomies";
+  const currentTypeLabel = typeOptions.find((type) => type.value === activeType)?.label ?? "Taxonomii";
 
   const tableRows = useMemo<TaxonomyTableRow[]>(
     () =>
@@ -291,25 +291,25 @@ export function Taxonomies() {
     const baseColumns = [
       {
         key: "name",
-        header: "Localized label",
+        header: "Etichetă localizată",
         render: (taxonomy: TaxonomyTableRow) => (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{taxonomy.name[activeLocale] || taxonomy.localized_name}</span>
               {taxonomy.type === "badge" && taxonomy.color ? (
-                <TaxonomyColorBadge label="Preview" color={taxonomy.color} />
+                <TaxonomyColorBadge label="Previzualizare" color={taxonomy.color} />
               ) : null}
             </div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">{taxonomy.slug}</div>
             <p className="max-w-xl text-xs text-muted-foreground">
-              {taxonomy.description[activeLocale] || taxonomy.localized_description || "No description yet."}
+              {taxonomy.description[activeLocale] || taxonomy.localized_description || "Fără descriere momentan."}
             </p>
           </div>
         ),
       },
       {
         key: "translations",
-        header: "Locales",
+        header: "Limbi",
         render: (taxonomy: TaxonomyTableRow) => (
           <div className="flex flex-wrap gap-2">
             {localeOptions.map((locale) => {
@@ -335,26 +335,26 @@ export function Taxonomies() {
       },
       {
         key: "content_count",
-        header: "Content",
+        header: "Conținut",
         render: (taxonomy: TaxonomyTableRow) => taxonomy.content_count,
       },
       {
         key: "sort_order",
-        header: "Sort",
+        header: "Ordine",
         render: (taxonomy: TaxonomyTableRow) => taxonomy.sort_order,
       },
       {
         key: "active",
-        header: "Status",
+        header: "Stare",
         render: (taxonomy: TaxonomyTableRow) => (
           <Badge variant={taxonomy.active ? "published" : "archived"}>
-            {taxonomy.active ? "Active" : "Inactive"}
+            {taxonomy.active ? "Activă" : "Inactivă"}
           </Badge>
         ),
       },
       {
         key: "updated_at",
-        header: "Updated",
+        header: "Actualizată",
         render: (taxonomy: TaxonomyTableRow) => formatDate(taxonomy.updated_at),
       },
       {
@@ -366,7 +366,7 @@ export function Taxonomies() {
               <Button
                 variant="ghost"
                 size="icon"
-                title="Edit taxonomy"
+                title="Editează taxonomia"
                 onClick={(event) => {
                   event.stopPropagation();
                   setSuccessMessage(null);
@@ -394,7 +394,7 @@ export function Taxonomies() {
               <Button
                 variant="ghost"
                 size="icon"
-                title="Delete taxonomy"
+                title="Șterge taxonomia"
                 onClick={(event) => {
                   event.stopPropagation();
                   void handleDelete(taxonomy);
@@ -553,7 +553,7 @@ export function Taxonomies() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Taxonomies</h1>
+          <h1 className="page-title">Taxonomii</h1>
           <p className="page-description">
             Genuri, colecții, tag-uri și badges multilingve, gata pentru consum pe storefront și în filtrele publice.
           </p>
@@ -573,7 +573,7 @@ export function Taxonomies() {
           {can("taxonomies.create") ? (
             <Button onClick={handleCreate}>
               <PlusIcon className="h-4 w-4" />
-              Add taxonomy
+              Adaugă taxonomie
             </Button>
           ) : null}
         </div>
@@ -620,13 +620,13 @@ export function Taxonomies() {
             />
             <SummaryCard
               icon={GlobeIcon}
-              label="Localized"
+              label="Localizate"
               value={completeLocalizations}
               description="Au label complet în RO, RU și EN."
             />
             <SummaryCard
               icon={PaletteIcon}
-              label={activeType === "badge" ? "Custom colors" : "With description"}
+              label={activeType === "badge" ? "Culori custom" : "Cu descriere"}
               value={activeType === "badge" ? coloredItemsCount : describedTaxonomies}
               description={
                 activeType === "badge"
@@ -651,7 +651,7 @@ export function Taxonomies() {
                   data={tableRows}
                   columns={columns}
                   keyExtractor={(taxonomy) => String(taxonomy.id)}
-                  searchPlaceholder={`Search ${currentTypeLabel.toLowerCase()}...`}
+                  searchPlaceholder={`Caută în ${currentTypeLabel.toLowerCase()}...`}
                 />
               )}
             </CardContent>
@@ -663,14 +663,14 @@ export function Taxonomies() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         size="xl"
-        title={editingTaxonomy ? `Edit ${TYPE_SINGULAR[formState.type]}` : `Add new ${TYPE_SINGULAR[formState.type]}`}
+        title={editingTaxonomy ? `Editează ${TYPE_SINGULAR[formState.type]}` : `Adaugă ${TYPE_SINGULAR[formState.type]}`}
         footer={
           <>
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Cancel
+              Anulează
             </Button>
             <Button onClick={() => void handleSave()} disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save taxonomy"}
+              {isSubmitting ? "Se salvează..." : "Salvează taxonomia"}
             </Button>
           </>
         }
@@ -685,7 +685,7 @@ export function Taxonomies() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
             <Card>
               <CardHeader className="border-b pb-4">
-                <CardTitle className="text-lg">Localized content</CardTitle>
+                <CardTitle className="text-lg">Conținut localizat</CardTitle>
                 <CardDescription>
                   Completează label-urile și descrierile pe limbi. Valorile acestea sunt salvate în JSON și pot fi
                   trimise direct spre frontend.
@@ -714,21 +714,21 @@ export function Taxonomies() {
                   {localeOptions.map((locale) => (
                     <TabsContent key={locale.value} value={locale.value} className="space-y-4">
                       <FormField
-                        label={`Name (${locale.label})`}
+                        label={`Nume (${locale.label})`}
                         value={formState.name[locale.value]}
                         error={getFieldError(`name.${locale.value}`)}
                         onChange={(event) => updateLocalizedField("name", locale.value, event.target.value)}
-                        placeholder={`Enter ${TYPE_SINGULAR[formState.type]} name in ${locale.label}`}
+                        placeholder={`Introdu numele pentru ${TYPE_SINGULAR[formState.type]} în ${locale.label}`}
                       />
 
                       <FormField
-                        label={`Description (${locale.label})`}
+                        label={`Descriere (${locale.label})`}
                         type="textarea"
                         rows={6}
                         value={formState.description[locale.value]}
                         error={getFieldError(`description.${locale.value}`)}
                         onChange={(event) => updateLocalizedField("description", locale.value, event.target.value)}
-                        placeholder={`Optional description for ${locale.label}`}
+                        placeholder={`Descriere opțională pentru ${locale.label}`}
                       />
                     </TabsContent>
                   ))}
@@ -739,12 +739,12 @@ export function Taxonomies() {
             <div className="space-y-4">
               <Card>
                 <CardHeader className="border-b pb-4">
-                  <CardTitle className="text-lg">Shared settings</CardTitle>
+                  <CardTitle className="text-lg">Setări comune</CardTitle>
                   <CardDescription>Setări comune pentru structură, ordonare și disponibilitate.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-6">
                   <FormField
-                    label="Taxonomy type"
+                    label="Tip taxonomie"
                     type="select"
                     value={formState.type}
                     onChange={(event) => {
@@ -772,7 +772,7 @@ export function Taxonomies() {
                   />
 
                   <FormField
-                    label="Sort order"
+                    label="Ordine de sortare"
                     type="number"
                     min={0}
                     value={formState.sort_order}
@@ -787,7 +787,7 @@ export function Taxonomies() {
                   />
 
                   <FormField
-                    label="Active"
+                    label="Activă"
                     type="toggle"
                     checked={formState.active}
                     helperText="Doar intrările active vor putea fi afișate în storefront."
@@ -804,13 +804,13 @@ export function Taxonomies() {
               {formState.type === "badge" ? (
                 <Card>
                   <CardHeader className="border-b pb-4">
-                    <CardTitle className="text-lg">Badge color</CardTitle>
+                    <CardTitle className="text-lg">Culoare badge</CardTitle>
                     <CardDescription>Culoarea este folosită direct în UI pentru badges și highlight-uri.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4 pt-6">
                     <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-3">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Picker</label>
+                        <label className="text-sm font-medium">Selector</label>
                         <input
                           type="color"
                           value={formState.color || "#0F172A"}
@@ -825,7 +825,7 @@ export function Taxonomies() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Hex value</label>
+                        <label className="text-sm font-medium">Valoare hex</label>
                         <Input
                           value={formState.color}
                           onChange={(event) =>
@@ -844,11 +844,11 @@ export function Taxonomies() {
                     <div className="rounded-lg border bg-muted/30 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium">Live preview</p>
+                          <p className="text-sm font-medium">Previzualizare live</p>
                           <p className="text-xs text-muted-foreground">Cum poate arăta badge-ul pe storefront.</p>
                         </div>
                         <TaxonomyColorBadge
-                          label={formState.name[formLocale].trim() || formState.name.ro.trim() || "Badge preview"}
+                          label={formState.name[formLocale].trim() || formState.name.ro.trim() || "Previzualizare badge"}
                           color={formState.color}
                         />
                       </div>
