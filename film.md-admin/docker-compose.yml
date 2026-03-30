@@ -1,0 +1,11 @@
+services:
+  admin-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+    container_name: film-md-admin-frontend
+    ports:
+      - "${ADMIN_FRONTEND_PORT:-4174}:80"
+    restart: unless-stopped
