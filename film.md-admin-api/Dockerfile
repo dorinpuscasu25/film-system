@@ -1,14 +1,3 @@
-FROM node:22-alpine AS assets
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY . .
-
-RUN npm run build
-
 FROM php:8.3-cli-bookworm
 
 WORKDIR /var/www/html
@@ -21,7 +10,6 @@ RUN apt-get update \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . .
-COPY --from=assets /app/public/build ./public/build
 COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint
 
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader
