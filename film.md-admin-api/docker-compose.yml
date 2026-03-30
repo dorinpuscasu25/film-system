@@ -1,0 +1,52 @@
+services:
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: film-md-admin-api
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8000:8000"
+  #   restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: film-md-postgres
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-film_md}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-film_md}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - '5432:5432'
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.16
+    container_name: film-md-meilisearch
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY:-masterKey}
+      MEILI_NO_ANALYTICS: 'true'
+    ports:
+      - '7700:7700'
+    restart: unless-stopped
+    volumes:
+      - meilisearch_data:/meili_data
+
+volumes:
+  postgres_data:
+  meilisearch_data:
