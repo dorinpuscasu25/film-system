@@ -11,7 +11,10 @@ interface SalesTimelineProps {
 
 export function SalesTimeline({ points, metric, currency = "USD", className }: SalesTimelineProps) {
   const maxValue = Math.max(
-    ...points.map((point) => (metric === "revenue" ? point.revenue_amount : point.orders_count)),
+    ...points.map((point) => {
+      const value = metric === "revenue" ? point.revenue_amount : point.orders_count;
+      return Number.isFinite(value) ? Number(value) : 0;
+    }),
     1,
   );
 
@@ -19,18 +22,23 @@ export function SalesTimeline({ points, metric, currency = "USD", className }: S
     <div className={cn("space-y-4", className)}>
       <div className="grid h-64 grid-cols-[repeat(auto-fit,minmax(12px,1fr))] items-end gap-2">
         {points.map((point) => {
-          const value = metric === "revenue" ? point.revenue_amount : point.orders_count;
+          const value = Number.isFinite(metric === "revenue" ? point.revenue_amount : point.orders_count)
+            ? Number(metric === "revenue" ? point.revenue_amount : point.orders_count)
+            : 0;
           const heightPercent = Math.max((value / maxValue) * 100, value > 0 ? 8 : 2);
+          const revenueAmount = Number.isFinite(point.revenue_amount) ? Number(point.revenue_amount) : 0;
+          const ordersCount = Number.isFinite(point.orders_count) ? Number(point.orders_count) : 0;
+          const freeClaimsCount = Number.isFinite(point.free_claims_count) ? Number(point.free_claims_count) : 0;
 
           return (
             <div key={point.date} className="group flex h-full flex-col items-center justify-end gap-2">
               <div className="pointer-events-none min-h-[52px] opacity-0 transition-opacity group-hover:opacity-100">
                 <div className="rounded-md border bg-background px-2 py-1 text-center text-[11px] shadow-sm">
                   <div className="font-medium text-foreground">
-                    {metric === "revenue" ? `${currency} ${point.revenue_amount.toFixed(2)}` : `${point.orders_count} orders`}
+                    {metric === "revenue" ? `${currency} ${revenueAmount.toFixed(2)}` : `${ordersCount} orders`}
                   </div>
-                  {point.free_claims_count > 0 ? (
-                    <div className="text-muted-foreground">{point.free_claims_count} free</div>
+                  {freeClaimsCount > 0 ? (
+                    <div className="text-muted-foreground">{freeClaimsCount} free</div>
                   ) : null}
                 </div>
               </div>

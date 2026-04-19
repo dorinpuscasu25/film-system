@@ -88,8 +88,45 @@ const EMPTY_EXPORTS: ExportJobsResponse = {
   items: [],
 };
 
-function formatCurrency(amount: number, currency = "USD") {
-  return `${currency} ${amount.toFixed(2)}`;
+function safeNumber(value: number | null | undefined) {
+  return Number.isFinite(value) ? Number(value) : 0;
+}
+
+function normalizeDashboard(response: Partial<DashboardResponse> | null | undefined): DashboardResponse {
+  return {
+    ...EMPTY_DASHBOARD,
+    ...response,
+    range: {
+      ...EMPTY_DASHBOARD.range,
+      ...(response?.range ?? {}),
+    },
+    stats: {
+      ...EMPTY_DASHBOARD.stats,
+      ...(response?.stats ?? {}),
+    },
+    breakdown: {
+      ...EMPTY_DASHBOARD.breakdown,
+      ...(response?.breakdown ?? {}),
+    },
+    summary: {
+      ...EMPTY_DASHBOARD.summary,
+      ...(response?.summary ?? {}),
+    },
+    cost_overview: {
+      ...EMPTY_DASHBOARD.cost_overview,
+      ...(response?.cost_overview ?? {}),
+    },
+    sales_timeline: Array.isArray(response?.sales_timeline) ? response.sales_timeline : EMPTY_DASHBOARD.sales_timeline,
+    recent_transactions: Array.isArray(response?.recent_transactions) ? response.recent_transactions : EMPTY_DASHBOARD.recent_transactions,
+    recent_sales: Array.isArray(response?.recent_sales) ? response.recent_sales : EMPTY_DASHBOARD.recent_sales,
+    top_titles: Array.isArray(response?.top_titles) ? response.top_titles : EMPTY_DASHBOARD.top_titles,
+    analytics_timeline: Array.isArray(response?.analytics_timeline) ? response.analytics_timeline : EMPTY_DASHBOARD.analytics_timeline,
+    country_breakdown: Array.isArray(response?.country_breakdown) ? response.country_breakdown : EMPTY_DASHBOARD.country_breakdown,
+  };
+}
+
+function formatCurrency(amount: number | null | undefined, currency = "USD") {
+  return `${currency} ${safeNumber(amount).toFixed(2)}`;
 }
 
 function formatDate(value: string | null) {
@@ -127,7 +164,7 @@ export function Billing() {
     try {
       const response = await adminApi.getDashboard(selectedRange);
       if (!cancelledRef?.current) {
-        setDashboard(response);
+        setDashboard(normalizeDashboard(response));
       }
     } catch {
       if (!cancelledRef?.current) {
