@@ -75,6 +75,45 @@ class StoreContentRequest extends FormRequest
             'subtitle_locales.*' => [Rule::in(Content::supportedLocales())],
             'available_qualities' => ['required', 'array', 'min:1'],
             'available_qualities.*' => [Rule::in(Content::availableQualities())],
+            'content_formats' => ['nullable', 'array'],
+            'content_formats.*.id' => ['nullable', 'integer'],
+            'content_formats.*.quality' => ['required', Rule::in(Content::availableQualities())],
+            'content_formats.*.format_type' => ['required', Rule::in(['main', 'trailer'])],
+            'content_formats.*.bunny_library_id' => ['required', 'string', 'max:64'],
+            'content_formats.*.bunny_video_id' => ['required', 'string', 'max:128'],
+            'content_formats.*.stream_url' => ['nullable', 'url', 'max:2048'],
+            'content_formats.*.token_path' => ['nullable', 'string', 'max:255'],
+            'content_formats.*.drm_policy' => ['nullable', 'string', 'max:32'],
+            'content_formats.*.is_active' => ['sometimes', 'boolean'],
+            'content_formats.*.is_default' => ['sometimes', 'boolean'],
+            'content_formats.*.sort_order' => ['nullable', 'integer', 'min:0'],
+            'content_formats.*.meta' => ['nullable', 'array'],
+            'rights_windows' => ['nullable', 'array'],
+            'rights_windows.*.id' => ['nullable', 'integer'],
+            'rights_windows.*.content_format_quality' => ['nullable', Rule::in(Content::availableQualities())],
+            'rights_windows.*.country_code' => ['nullable', Rule::in(array_keys(Content::countryOptions()))],
+            'rights_windows.*.is_allowed' => ['sometimes', 'boolean'],
+            'rights_windows.*.starts_at' => ['nullable', 'date'],
+            'rights_windows.*.ends_at' => ['nullable', 'date', 'after:rights_windows.*.starts_at'],
+            'rights_windows.*.meta' => ['nullable', 'array'],
+            'subtitle_tracks' => ['nullable', 'array'],
+            'subtitle_tracks.*.id' => ['nullable', 'integer'],
+            'subtitle_tracks.*.content_format_quality' => ['nullable', Rule::in(Content::availableQualities())],
+            'subtitle_tracks.*.locale' => [Rule::in(Content::supportedLocales())],
+            'subtitle_tracks.*.label' => ['required', 'string', 'max:64'],
+            'subtitle_tracks.*.file_url' => ['required', 'url', 'max:2048'],
+            'subtitle_tracks.*.is_default' => ['sometimes', 'boolean'],
+            'subtitle_tracks.*.sort_order' => ['nullable', 'integer', 'min:0'],
+            'premiere_events' => ['nullable', 'array'],
+            'premiere_events.*.id' => ['nullable', 'integer'],
+            'premiere_events.*.title' => ['required', 'string', 'max:255'],
+            'premiere_events.*.starts_at' => ['required', 'date'],
+            'premiere_events.*.ends_at' => ['nullable', 'date'],
+            'premiere_events.*.is_active' => ['sometimes', 'boolean'],
+            'premiere_events.*.is_public' => ['sometimes', 'boolean'],
+            'premiere_events.*.meta' => ['nullable', 'array'],
+            'creator_ids' => ['nullable', 'array'],
+            'creator_ids.*' => ['integer', Rule::exists('content_creators', 'id')],
             'is_featured' => ['sometimes', 'boolean'],
             'is_trending' => ['sometimes', 'boolean'],
             'is_free' => ['sometimes', 'boolean'],
@@ -174,6 +213,15 @@ class StoreContentRequest extends FormRequest
                 ->unique()
                 ->values()
                 ->all(),
+            'content_formats' => $this->normalizeContentFormats(),
+            'rights_windows' => $this->normalizeRightsWindows(),
+            'subtitle_tracks' => $this->normalizeSubtitleTracks(),
+            'premiere_events' => $this->normalizePremiereEvents(),
+            'creator_ids' => collect($this->input('creator_ids', []))
+                ->map(fn (mixed $value): int => (int) $value)
+                ->unique()
+                ->values()
+                ->all(),
             'is_featured' => $this->boolean('is_featured', false),
             'is_trending' => $this->boolean('is_trending', false),
             'is_free' => $this->boolean('is_free', false),
@@ -213,6 +261,7 @@ class StoreContentRequest extends FormRequest
         return [
             $required ? 'required' : 'nullable',
             'string',
+            'max:2048',
             function (string $attribute, mixed $value, Closure $fail): void {
                 $stringValue = trim((string) $value);
 
@@ -223,10 +272,9 @@ class StoreContentRequest extends FormRequest
                 $scheme = parse_url($stringValue, PHP_URL_SCHEME);
                 $isHttpUrl = filter_var($stringValue, FILTER_VALIDATE_URL) !== false
                     && in_array($scheme, ['http', 'https'], true);
-                $isDataImage = preg_match('/^data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9\/+=]+$/', $stringValue) === 1;
 
-                if (! $isHttpUrl && ! $isDataImage) {
-                    $fail("The {$attribute} field must be an image URL or an uploaded image preview.");
+                if (! $isHttpUrl) {
+                    $fail("The {$attribute} field must be a valid image URL (https://...).");
                 }
             },
         ];
@@ -235,6 +283,87 @@ class StoreContentRequest extends FormRequest
     protected function normalizeTranslatableField(string $field): array
     {
         return $this->normalizeTranslatableValue($this->input($field, []));
+    }
+
+    protected function normalizeContentFormats(): array
+    {
+        return collect($this->input('content_formats', []))
+            ->map(function (mixed $item, int $index): array {
+                return [
+                    'id' => data_get($item, 'id'),
+                    'quality' => (string) data_get($item, 'quality'),
+                    'format_type' => (string) (data_get($item, 'format_type') ?: 'main'),
+                    'bunny_library_id' => trim((string) data_get($item, 'bunny_library_id')),
+                    'bunny_video_id' => trim((string) data_get($item, 'bunny_video_id')),
+                    'stream_url' => $this->filledArrayValue($item, 'stream_url'),
+                    'token_path' => $this->filledArrayValue($item, 'token_path'),
+                    'drm_policy' => (string) (data_get($item, 'drm_policy') ?: 'tokenized'),
+                    'is_active' => filter_var(data_get($item, 'is_active', true), FILTER_VALIDATE_BOOL),
+                    'is_default' => filter_var(data_get($item, 'is_default', false), FILTER_VALIDATE_BOOL),
+                    'sort_order' => (int) data_get($item, 'sort_order', $index),
+                    'meta' => data_get($item, 'meta', []),
+                ];
+            })
+            ->filter(fn (array $item): bool => $item['quality'] !== '' && $item['bunny_library_id'] !== '' && $item['bunny_video_id'] !== '')
+            ->values()
+            ->all();
+    }
+
+    protected function normalizeRightsWindows(): array
+    {
+        return collect($this->input('rights_windows', []))
+            ->map(function (mixed $item): array {
+                return [
+                    'id' => data_get($item, 'id'),
+                    'content_format_quality' => $this->filledArrayValue($item, 'content_format_quality'),
+                    'country_code' => $this->filledArrayValue($item, 'country_code'),
+                    'is_allowed' => filter_var(data_get($item, 'is_allowed', true), FILTER_VALIDATE_BOOL),
+                    'starts_at' => $this->filledArrayValue($item, 'starts_at'),
+                    'ends_at' => $this->filledArrayValue($item, 'ends_at'),
+                    'meta' => data_get($item, 'meta', []),
+                ];
+            })
+            ->filter(fn (array $item): bool => $item['country_code'] !== null || $item['content_format_quality'] !== null)
+            ->values()
+            ->all();
+    }
+
+    protected function normalizeSubtitleTracks(): array
+    {
+        return collect($this->input('subtitle_tracks', []))
+            ->map(function (mixed $item, int $index): array {
+                return [
+                    'id' => data_get($item, 'id'),
+                    'content_format_quality' => $this->filledArrayValue($item, 'content_format_quality'),
+                    'locale' => (string) data_get($item, 'locale'),
+                    'label' => trim((string) data_get($item, 'label')),
+                    'file_url' => trim((string) data_get($item, 'file_url')),
+                    'is_default' => filter_var(data_get($item, 'is_default', false), FILTER_VALIDATE_BOOL),
+                    'sort_order' => (int) data_get($item, 'sort_order', $index),
+                ];
+            })
+            ->filter(fn (array $item): bool => $item['locale'] !== '' && $item['label'] !== '' && $item['file_url'] !== '')
+            ->values()
+            ->all();
+    }
+
+    protected function normalizePremiereEvents(): array
+    {
+        return collect($this->input('premiere_events', []))
+            ->map(function (mixed $item): array {
+                return [
+                    'id' => data_get($item, 'id'),
+                    'title' => trim((string) data_get($item, 'title')),
+                    'starts_at' => $this->filledArrayValue($item, 'starts_at'),
+                    'ends_at' => $this->filledArrayValue($item, 'ends_at'),
+                    'is_active' => filter_var(data_get($item, 'is_active', true), FILTER_VALIDATE_BOOL),
+                    'is_public' => filter_var(data_get($item, 'is_public', true), FILTER_VALIDATE_BOOL),
+                    'meta' => data_get($item, 'meta', []),
+                ];
+            })
+            ->filter(fn (array $item): bool => $item['title'] !== '' && $item['starts_at'] !== null)
+            ->values()
+            ->all();
     }
 
     protected function normalizeCastMembers(): array

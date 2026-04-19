@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ShieldAlertIcon,
   CheckCircleIcon,
@@ -7,13 +7,15 @@ import {
   ScrollTextIcon,
   HistoryIcon } from
 'lucide-react';
-import { mockFilms, mockSeries, mockAuditLog } from '../data/mockData';
+import { mockFilms, mockSeries } from '../data/mockData';
 import { Tabs } from '../components/shared/Tabs';
 import { DataTable } from '../components/shared/DataTable';
 import { Modal } from '../components/shared/Modal';
 import { FormField } from '../components/shared/FormField';
 import { Badge } from '../components/shared/Badge';
 import { useAdmin } from '../hooks/useAdmin';
+import { adminApi } from '../lib/api';
+import { AuditLogItem } from '../types';
 const mediaJobs = [
 {
   id: 'mj1',
@@ -119,6 +121,11 @@ export function Moderation() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [auditActionFilter, setAuditActionFilter] = useState('');
+  const [auditUserFilter, setAuditUserFilter] = useState('');
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
   const handleReviewClick = (item: any) => {
     setSelectedItem(item);
     setReviewNotes('');
@@ -254,6 +261,58 @@ export function Moderation() {
     header: 'Detalii'
   }];
 
+  const auditActions = useMemo(
+    () =>
+      Array.from(new Set(auditLogs.map((item) => item.action)))
+        .filter(Boolean)
+        .sort(),
+    [auditLogs],
+  );
+
+  const auditUsers = useMemo(
+    () =>
+      Array.from(new Set(auditLogs.map((item) => item.user)))
+        .filter(Boolean)
+        .sort(),
+    [auditLogs],
+  );
+
+  useEffect(() => {
+    if (activeTab !== 'audit-log' || !can('moderation.view_audit_log')) {
+      return;
+    }
+
+    let cancelled = false;
+    setAuditLoading(true);
+    setAuditError(null);
+
+    adminApi
+      .getAuditLogs(auditActionFilter ? { action: auditActionFilter } : undefined)
+      .then((response) => {
+        if (!cancelled) {
+          setAuditLogs(response.items);
+        }
+      })
+      .catch((error: Error) => {
+        if (!cancelled) {
+          setAuditError(error.message || 'Nu am putut încărca jurnalul de audit.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuditLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, auditActionFilter, can]);
+
+  const filteredAuditLogs = auditUserFilter
+    ? auditLogs.filter((item) => item.user === auditUserFilter)
+    : auditLogs;
+
   const changeHistoryColumns = [
   {
     key: 'date',
@@ -368,25 +427,41 @@ export function Moderation() {
           {activeTab === 'audit-log' && can('moderation.view_audit_log') &&
           <div className="flex flex-col h-full space-y-4">
               <div className="flex gap-4">
-                <select className="text-sm border-slate-300 rounded-md py-1.5 pl-3 pr-8">
-                  <option>Toate acțiunile</option>
-                  <option>Create</option>
-                  <option>Update</option>
-                  <option>Publicare</option>
-                  <option>Arhivare</option>
-                  <option>Ștergere</option>
+                <select
+                  className="text-sm border-slate-300 rounded-md py-1.5 pl-3 pr-8"
+                  value={auditActionFilter}
+                  onChange={(event) => setAuditActionFilter(event.target.value)}
+                >
+                  <option value="">Toate acțiunile</option>
+                  {auditActions.map((action) =>
+                  <option key={action} value={action}>{action}</option>
+                  )}
                 </select>
-                <select className="text-sm border-slate-300 rounded-md py-1.5 pl-3 pr-8">
-                  <option>Toți utilizatorii</option>
-                  <option>Andrei Ciobanu</option>
-                  <option>Vasile Munteanu</option>
-                  <option>Sistem</option>
+                <select
+                  className="text-sm border-slate-300 rounded-md py-1.5 pl-3 pr-8"
+                  value={auditUserFilter}
+                  onChange={(event) => setAuditUserFilter(event.target.value)}
+                >
+                  <option value="">Toți utilizatorii</option>
+                  {auditUsers.map((user) =>
+                  <option key={user} value={user}>{user}</option>
+                  )}
                 </select>
               </div>
+              {auditError ?
+              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {auditError}
+                </div> :
+              null}
+              {auditLoading ?
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  Se încarcă jurnalul de audit...
+                </div> :
+              null}
               <DataTable
-              data={mockAuditLog}
+              data={filteredAuditLogs}
               columns={auditLogColumns}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => String(item.id)}
               searchPlaceholder="Caută în jurnale..." />
             
             </div>

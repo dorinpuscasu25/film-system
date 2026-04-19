@@ -91,6 +91,12 @@ interface PublicContentCard {
   hero_desktop_url?: string | null;
   hero_mobile_url?: string | null;
   trailer_url?: string | null;
+  premiere_event?: {
+    id: string | number;
+    title: string;
+    starts_at: string;
+    ends_at?: string | null;
+  } | null;
   lowest_price?: number;
   currency?: string;
   available_qualities?: string[];
@@ -303,6 +309,14 @@ function mapCardToMovie(item: PublicContentCard): Movie {
     crew: [],
     videos: [],
     trailerUrl: item.trailer_url ?? "",
+    premiereEvent: item.premiere_event
+      ? {
+          id: String(item.premiere_event.id),
+          title: item.premiere_event.title,
+          startsAt: item.premiere_event.starts_at,
+          endsAt: item.premiere_event.ends_at ?? undefined,
+        }
+      : undefined,
     isNew: Boolean(item.badges?.some((badge) => badge.slug === "new")) || year >= currentYear - 1,
     isTrending: Boolean(item.is_trending),
     isFeatured: Boolean(item.is_featured),
@@ -357,6 +371,14 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
       isPrimary: Boolean(video.is_primary),
     })),
     trailerUrl: item.trailer_url ?? item.videos?.find((video) => video.is_primary)?.video_url ?? "",
+    premiereEvent: item.premiere_event
+      ? {
+          id: String(item.premiere_event.id),
+          title: item.premiere_event.title,
+          startsAt: item.premiere_event.starts_at,
+          endsAt: item.premiere_event.ends_at ?? undefined,
+        }
+      : undefined,
     isNew: Boolean(item.badges?.some((badge) => badge.slug === "new")) || year >= currentYear - 1,
     isTrending: Boolean(item.is_trending),
     isFeatured: Boolean(item.is_featured),

@@ -6,7 +6,7 @@ import { Modal } from "../components/shared/Modal";
 import { FormField } from "../components/shared/FormField";
 import { useAdmin } from "../hooks/useAdmin";
 import { adminApi } from "../lib/api";
-import { AdminInvitation, AdminRole, AdminUser } from "../types";
+import { AdminInvitation, AdminRole, AdminUser, AdminUserContentOption } from "../types";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
@@ -17,6 +17,7 @@ interface EditFormState {
   status: "active" | "suspended";
   preferred_locale: "en" | "ro" | "ru";
   role_ids: number[];
+  assigned_content_ids: number[];
 }
 
 interface InviteFormState {
@@ -40,6 +41,7 @@ export function Users() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [invitations, setInvitations] = useState<AdminInvitation[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [contentOptions, setContentOptions] = useState<AdminUserContentOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export function Users() {
     status: "active",
     preferred_locale: "ro",
     role_ids: [],
+    assigned_content_ids: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -73,6 +76,7 @@ export function Users() {
       ]);
       setUsers(usersResponse.users);
       setInvitations(usersResponse.invitations);
+      setContentOptions(usersResponse.content_options);
       setRoles(rolesResponse.roles);
       setInviteState((current) => ({
         ...current,
@@ -127,6 +131,26 @@ export function Users() {
       ),
     },
     {
+      key: "scope",
+      header: "Filme atribuite",
+      render: (user: AdminUser) => (
+        <div className="flex max-w-md flex-wrap gap-2">
+          {user.assigned_contents.length > 0 ? (
+            user.assigned_contents.slice(0, 4).map((content) => (
+              <Badge key={`${user.id}-${content.id}`} variant="ready">
+                {content.title ?? content.slug ?? `#${content.id}`}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-xs text-muted-foreground">Toate filmele</span>
+          )}
+          {user.assigned_contents.length > 4 ? (
+            <Badge variant="draft">+{user.assigned_contents.length - 4}</Badge>
+          ) : null}
+        </div>
+      ),
+    },
+    {
       key: "status",
       header: "Stare",
       render: (user: AdminUser) => (
@@ -157,6 +181,7 @@ export function Users() {
                 status: user.status,
                 preferred_locale: user.preferred_locale,
                 role_ids: user.roles.map((role) => role.id),
+                assigned_content_ids: user.assigned_content_ids,
               });
               setIsEditModalOpen(true);
             }}
@@ -206,6 +231,7 @@ export function Users() {
         email: editState.email,
         status: editState.status,
         role_ids: editState.role_ids,
+        assigned_content_ids: editState.assigned_content_ids,
         preferred_locale: editState.preferred_locale,
       });
       setSuccessMessage("Utilizatorul a fost actualizat.");
@@ -364,6 +390,35 @@ export function Users() {
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Filme atribuite</p>
+            <div className="admin-scrollbar max-h-64 space-y-2 overflow-y-auto rounded-md border p-4">
+              {contentOptions.map((content) => (
+                <label key={content.id} className="flex items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input"
+                    checked={editState.assigned_content_ids.includes(content.id)}
+                    onChange={() =>
+                      setEditState((current) => ({
+                        ...current,
+                        assigned_content_ids: toggleSelection(current.assigned_content_ids, content.id),
+                      }))
+                    }
+                  />
+                  <span>{content.title}</span>
+                  <span className="text-xs text-muted-foreground">/{content.slug}</span>
+                </label>
+              ))}
+              {contentOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nu există filme disponibile pentru asignare.</p>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Dacă rolul are permisiunea `content.scope_assigned`, utilizatorul va vedea doar filmele bifate aici.
+            </p>
           </div>
         </div>
       </Modal>

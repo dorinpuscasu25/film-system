@@ -84,6 +84,50 @@ class Content extends Model
         return $this->hasMany(Offer::class)->orderBy('sort_order')->orderBy('price_amount');
     }
 
+    public function formats(): HasMany
+    {
+        return $this->hasMany(ContentFormat::class)->orderBy('sort_order')->orderByDesc('is_default');
+    }
+
+    public function rightsWindows(): HasMany
+    {
+        return $this->hasMany(ContentRightsWindow::class)->orderBy('country_code')->orderBy('starts_at');
+    }
+
+    public function subtitleTracks(): HasMany
+    {
+        return $this->hasMany(SubtitleTrack::class)->orderBy('sort_order');
+    }
+
+    public function creators(): BelongsToMany
+    {
+        return $this->belongsToMany(ContentCreator::class, 'content_creator_assignments')
+            ->withPivot(['role', 'is_primary'])
+            ->withTimestamps();
+    }
+
+    public function premiereEvents(): HasMany
+    {
+        return $this->hasMany(PremiereEvent::class)->orderBy('starts_at');
+    }
+
+    public function playbackSessions(): HasMany
+    {
+        return $this->hasMany(PlaybackSession::class);
+    }
+
+    public function monthlyCosts(): HasMany
+    {
+        return $this->hasMany(VideoMonthlyCost::class);
+    }
+
+    public function assignedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_content_accesses')
+            ->withPivot(['can_view', 'can_view_stats', 'meta'])
+            ->withTimestamps();
+    }
+
     public function entitlements(): HasMany
     {
         return $this->hasMany(ContentEntitlement::class);

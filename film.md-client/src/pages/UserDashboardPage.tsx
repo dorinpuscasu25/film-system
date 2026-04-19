@@ -8,6 +8,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Tabs } from "../components/Tabs";
 import { WalletModal } from "../components/WalletModal";
 import { getFullCatalog } from "../lib/storefront";
+import { fetchContinueWatching } from "../lib/session";
 import { Movie } from "../types";
 
 export function UserDashboardPage() {
@@ -22,6 +23,12 @@ export function UserDashboardPage() {
   const [activeTab, setActiveTab] = useState("myfilms");
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [catalog, setCatalog] = useState<Movie[]>([]);
+  const [continueWatching, setContinueWatching] = useState<Array<{
+    contentSlug: string;
+    title: string;
+    posterUrl: string;
+    progressPercent: number;
+  }>>([]);
   const [accountName, setAccountName] = useState("");
   const [accountLocale, setAccountLocale] = useState<"en" | "ro" | "ru">("en");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -57,6 +64,43 @@ export function UserDashboardPage() {
       active = false;
     };
   }, [currentLanguage.code]);
+
+  useEffect(() => {
+    if (!user) {
+      setContinueWatching([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadContinueWatching() {
+      try {
+        const response = await fetchContinueWatching(currentLanguage.code);
+        if (!active) {
+          return;
+        }
+
+        setContinueWatching(
+          (response.items ?? []).map((item) => ({
+            contentSlug: item.content_slug,
+            title: item.title ?? item.content_slug,
+            posterUrl: item.poster_url ?? "",
+            progressPercent: Number(item.progress_percent ?? 0),
+          })),
+        );
+      } catch {
+        if (active) {
+          setContinueWatching([]);
+        }
+      }
+    }
+
+    void loadContinueWatching();
+
+    return () => {
+      active = false;
+    };
+  }, [currentLanguage.code, user]);
 
   useEffect(() => {
     if (!user) {
@@ -173,6 +217,42 @@ export function UserDashboardPage() {
         <div className="mt-8">
           {activeTab === "myfilms" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {continueWatching.length > 0 ? (
+                <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="mb-4 flex items-center gap-3">
+                    <HistoryIcon className="h-5 w-5 text-accent" />
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Continue Watching</h2>
+                      <p className="text-sm text-gray-400">Ai progres salvat pe aceste titluri.</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {continueWatching.map((item) => (
+                      <button
+                        key={item.contentSlug}
+                        onClick={() => navigate(`/watch/${item.contentSlug}`)}
+                        className="flex items-center gap-4 rounded-xl border border-white/10 bg-background/50 p-4 text-left transition hover:border-white/20 hover:bg-background/70"
+                      >
+                        <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-surface">
+                          {item.posterUrl ? (
+                            <img src={item.posterUrl} alt={item.title} className="h-full w-full object-cover" />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-2 font-semibold text-white">{item.title}</p>
+                          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className="h-full rounded-full bg-accent"
+                              style={{ width: `${Math.min(100, Math.max(0, item.progressPercent))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {purchasedMovies.length > 0 ? (
                 <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
                   {purchasedMovies.map(({ purchase, movie }) => {

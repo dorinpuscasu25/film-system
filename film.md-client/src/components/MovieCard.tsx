@@ -1,4 +1,4 @@
-import React, { lazy } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { PlayIcon, HeartIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,10 +9,24 @@ import { useWallet } from '../contexts/WalletContext';
 interface MovieCardProps {
   movie: Movie;
 }
+
+function supportsInlineTrailerPreview(url?: string) {
+  if (!url) {
+    return false;
+  }
+
+  return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+}
+
 export function MovieCard({ movie }: MovieCardProps) {
   const navigate = useNavigate();
   const { isFavorite, toggleFavorite } = useWallet();
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
   const fav = isFavorite(movie.id);
+  const previewUrl = useMemo(
+    () => (supportsInlineTrailerPreview(movie.trailerUrl) ? movie.trailerUrl : ""),
+    [movie.trailerUrl],
+  );
   const lowestPrice =
   movie.offers && movie.offers.length > 0 ?
   Math.min(...movie.offers.map((offer) => offer.price)) :
@@ -27,6 +41,8 @@ export function MovieCard({ movie }: MovieCardProps) {
       transition={{
         duration: 0.2
       }}
+      onMouseEnter={() => setIsPreviewActive(true)}
+      onMouseLeave={() => setIsPreviewActive(false)}
       onClick={() => navigate(`/movie/${movie.id}`)}>
       
       <img
@@ -34,6 +50,18 @@ export function MovieCard({ movie }: MovieCardProps) {
         alt={movie.title}
         className="w-full h-full object-cover"
         loading="lazy" />
+
+      {previewUrl && isPreviewActive ? (
+        <video
+          className="absolute inset-0 hidden h-full w-full object-cover md:block"
+          src={previewUrl}
+          muted
+          playsInline
+          autoPlay
+          loop
+          preload="metadata"
+        />
+      ) : null}
       
 
       {/* Badges */}

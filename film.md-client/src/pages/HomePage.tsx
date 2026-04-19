@@ -7,6 +7,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Badge } from "../components/Badge";
 import { Carousel } from "../components/Carousel";
 import { HomeHeroSlide, HomeSections, getHomeSections } from "../lib/storefront";
+import { fetchContinueWatching } from "../lib/session";
 
 const EMPTY_HOME: HomeSections = {
   hero: null,
@@ -25,6 +26,14 @@ export function HomePage() {
   const navigate = useNavigate();
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const [homeSections, setHomeSections] = useState<HomeSections>(EMPTY_HOME);
+  const [continueWatching, setContinueWatching] = useState<Array<{
+    contentSlug: string;
+    title: string;
+    posterUrl: string;
+    progressPercent: number;
+    positionSeconds: number;
+    durationSeconds: number;
+  }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +71,45 @@ export function HomePage() {
       active = false;
     };
   }, [currentLanguage.code]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setContinueWatching([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadContinueWatching() {
+      try {
+        const response = await fetchContinueWatching(currentLanguage.code);
+        if (!active) {
+          return;
+        }
+
+        setContinueWatching(
+          (response.items ?? []).map((item) => ({
+            contentSlug: item.content_slug,
+            title: item.title ?? item.content_slug,
+            posterUrl: item.poster_url ?? "",
+            progressPercent: Number(item.progress_percent ?? 0),
+            positionSeconds: Number(item.position_seconds ?? 0),
+            durationSeconds: Number(item.duration_seconds ?? 0),
+          })),
+        );
+      } catch {
+        if (active) {
+          setContinueWatching([]);
+        }
+      }
+    }
+
+    void loadContinueWatching();
+
+    return () => {
+      active = false;
+    };
+  }, [currentLanguage.code, isAuthenticated]);
 
   const heroSlides = useMemo<HomeHeroSlide[]>(() => {
     if (homeSections.heroSlides.length > 0) {
@@ -240,6 +288,46 @@ export function HomePage() {
       </div>
 
       <div className="relative z-10 mt-12 space-y-10">
+        {continueWatching.length > 0 ? (
+          <section className="px-4 md:px-8">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Continue Watching</h2>
+                <p className="text-sm text-gray-400">Reia rapid exact de unde ai rămas.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {continueWatching.map((item) => (
+                <button
+                  key={item.contentSlug}
+                  onClick={() => navigate(`/watch/${item.contentSlug}`)}
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition hover:border-white/20 hover:bg-white/10"
+                >
+                  <div className="flex gap-4 p-4">
+                    <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-surface">
+                      {item.posterUrl ? (
+                        <img src={item.posterUrl} alt={item.title} className="h-full w-full object-cover" />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 font-semibold text-white">{item.title}</p>
+                      <p className="mt-2 text-xs text-gray-400">
+                        {Math.floor(item.positionSeconds / 60)}m din {Math.max(1, Math.floor(item.durationSeconds / 60))}m
+                      </p>
+                      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-accent"
+                          style={{ width: `${Math.min(100, Math.max(0, item.progressPercent))}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {homeSections.sections.length > 0 ? (
           homeSections.sections.map((section) => (
             <Carousel

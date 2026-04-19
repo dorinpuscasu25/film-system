@@ -44,6 +44,11 @@ const EMPTY_DASHBOARD: DashboardResponse = {
     average_order_value: 0,
     active_entitlements_count: 0,
     wallet_balance_total: 0,
+    total_views: 0,
+    total_watch_time_seconds: 0,
+    total_bandwidth_gb: 0,
+    current_month_costs_usd: 0,
+    current_month_profit_usd: 0,
   },
   breakdown: {
     rental_orders_count: 0,
@@ -61,6 +66,15 @@ const EMPTY_DASHBOARD: DashboardResponse = {
     published_titles_total: 0,
     buyers_total: 0,
   },
+  analytics_timeline: [],
+  country_breakdown: [],
+  cost_overview: {
+    storage_cost_usd: 0,
+    delivery_cost_usd: 0,
+    drm_cost_usd: 0,
+    revenue_usd: 0,
+    profit_usd: 0,
+  },
 };
 
 function formatCurrency(amount: number, currency = "USD") {
@@ -73,6 +87,17 @@ function formatDate(value: string | null) {
   }
 
   return new Date(value).toLocaleString();
+}
+
+function formatDuration(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  if (hours <= 0) {
+    return `${minutes}m`;
+  }
+
+  return `${hours}h ${minutes}m`;
 }
 
 export function Dashboard() {
@@ -158,6 +183,37 @@ export function Dashboard() {
           value={formatCurrency(dashboard.stats.wallet_balance_total)}
           icon={WalletIcon}
           trendLabel={`${dashboard.stats.active_entitlements_count} accesări active`}
+          colorClass="bg-muted"
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatsCard
+          title="Views tracking"
+          value={dashboard.stats.total_views}
+          icon={FilmIcon}
+          trendLabel={`${formatDuration(dashboard.stats.total_watch_time_seconds)} watch time`}
+          colorClass="bg-muted"
+        />
+        <StatsCard
+          title="Bandwidth"
+          value={`${dashboard.stats.total_bandwidth_gb.toFixed(2)} GB`}
+          icon={WalletIcon}
+          trendLabel="Trafic agregat din analytics"
+          colorClass="bg-muted"
+        />
+        <StatsCard
+          title="Costuri lună curentă"
+          value={formatCurrency(dashboard.stats.current_month_costs_usd)}
+          icon={DollarSignIcon}
+          trendLabel={`${formatCurrency(dashboard.cost_overview.delivery_cost_usd)} delivery`}
+          colorClass="bg-muted"
+        />
+        <StatsCard
+          title="Profit lună curentă"
+          value={formatCurrency(dashboard.stats.current_month_profit_usd)}
+          icon={DollarSignIcon}
+          trendLabel={`${formatCurrency(dashboard.cost_overview.storage_cost_usd)} storage`}
           colorClass="bg-muted"
         />
       </div>
@@ -337,6 +393,45 @@ export function Dashboard() {
                 Deschide facturarea
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Country analytics</CardTitle>
+            <CardDescription>Top țări după views și trafic agregat din analytics.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {dashboard.country_breakdown.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Nu există încă date agregate pe țări.</div>
+            ) : dashboard.country_breakdown.map((row) => (
+              <div key={row.country_code} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <div className="font-medium">{row.country_code}</div>
+                  <div className="text-sm text-muted-foreground">{row.views} views</div>
+                </div>
+                <div className="text-right text-sm text-muted-foreground">
+                  <div>{formatDuration(row.watch_time_seconds)}</div>
+                  <div>{row.bandwidth_gb.toFixed(2)} GB</div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Cost overview</CardTitle>
+            <CardDescription>Snapshot pentru luna curentă pe storage, delivery, DRM și profit.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between text-sm"><span>Storage</span><span>{formatCurrency(dashboard.cost_overview.storage_cost_usd)}</span></div>
+            <div className="flex items-center justify-between text-sm"><span>Delivery</span><span>{formatCurrency(dashboard.cost_overview.delivery_cost_usd)}</span></div>
+            <div className="flex items-center justify-between text-sm"><span>DRM</span><span>{formatCurrency(dashboard.cost_overview.drm_cost_usd)}</span></div>
+            <div className="flex items-center justify-between text-sm"><span>Revenue</span><span>{formatCurrency(dashboard.cost_overview.revenue_usd)}</span></div>
+            <div className="flex items-center justify-between text-sm font-semibold"><span>Profit</span><span>{formatCurrency(dashboard.cost_overview.profit_usd)}</span></div>
           </CardContent>
         </Card>
       </div>

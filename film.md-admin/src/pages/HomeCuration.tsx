@@ -974,6 +974,7 @@ export function HomeCuration() {
                         <ImageUploadField
                           label="Artwork desktop"
                           value={slide.desktop_image_url ?? ""}
+                          uploadDirectory="home/heroes"
                           onChange={(value) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
                             ...currentSlide,
                             desktop_image_url: value,
@@ -984,6 +985,7 @@ export function HomeCuration() {
                         <ImageUploadField
                           label="Artwork mobile"
                           value={slide.mobile_image_url ?? ""}
+                          uploadDirectory="home/heroes"
                           onChange={(value) => updateHeroSlide(selectedSection.id ?? 0, slide.id, (currentSlide) => ({
                             ...currentSlide,
                             mobile_image_url: value,

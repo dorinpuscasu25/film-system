@@ -93,6 +93,13 @@ export interface StorefrontPurchasePayload {
   library_item: StorefrontLibraryItemPayload;
 }
 
+export interface StorefrontPremiereLockPayload {
+  id: number;
+  title: string;
+  starts_at: string;
+  ends_at?: string | null;
+}
+
 export interface StorefrontPlaybackPayload {
   content: {
     id: string | number;
@@ -115,10 +122,69 @@ export interface StorefrontPlaybackPayload {
   playback: {
     url: string;
     quality?: string | null;
+    content_format_id?: number | null;
     offer_type?: "free" | "rental" | "lifetime" | null;
     expires_at?: string | null;
     is_lifetime: boolean;
+    country_code?: string | null;
+    session_token?: string | null;
   };
+  subtitles?: Array<{
+    id: number;
+    locale: string;
+    label: string;
+    url: string;
+    is_default: boolean;
+  }>;
+  continue_watching?: {
+    position_seconds: number;
+    duration_seconds: number;
+    watch_time_seconds: number;
+    last_watched_at?: string | null;
+  } | null;
+  premiere_event?: StorefrontPremiereLockPayload | null;
+}
+
+export interface StorefrontPlaybackSessionPayload {
+  session: {
+    id: number;
+    token: string;
+    status: string;
+    started_at?: string | null;
+  };
+}
+
+export interface ContinueWatchingItemPayload {
+  content_id: string | number;
+  content_slug: string;
+  title?: string | null;
+  poster_url?: string | null;
+  position_seconds: number;
+  duration_seconds: number;
+  progress_percent: number;
+  last_watched_at?: string | null;
+}
+
+export interface ContinueWatchingResponsePayload {
+  items: ContinueWatchingItemPayload[];
+}
+
+export interface RecommendationItemPayload {
+  id: string | number;
+  slug: string;
+  title: string;
+  poster_url?: string | null;
+  backdrop_url?: string | null;
+  type: "movie" | "series";
+}
+
+export interface RecommendationsResponsePayload {
+  items: RecommendationItemPayload[];
+}
+
+export interface RequestErrorWithPayload extends Error {
+  status?: number;
+  payload?: Record<string, unknown>;
 }
 
 export interface ProfileMutationPayload {
@@ -193,7 +259,17 @@ async function requestJson<T>(
   });
 
   if (!response.ok) {
-    throw new Error(await parseErrorMessage(response));
+    let payload: Record<string, unknown> | undefined;
+    try {
+      payload = await response.clone().json();
+    } catch {
+      payload = undefined;
+    }
+
+    const error = new Error(await parseErrorMessage(response)) as RequestErrorWithPayload;
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -326,6 +402,59 @@ export async function fetchStorefrontPlayback(
   return requestJson<StorefrontPlaybackPayload>(`/storefront/content/${identifier}/playback`, {}, {
     locale: options?.locale,
     episode_id: options?.episodeId,
+  }, true);
+}
+
+export async function startStorefrontPlaybackSession(
+  identifier: string,
+  payload: {
+    content_format_id?: number | null;
+    offer_id?: number | null;
+    account_profile_id?: string | number | null;
+    country_code?: string | null;
+    device_type?: string | null;
+  },
+) {
+  return requestJson<StorefrontPlaybackSessionPayload>(`/storefront/content/${identifier}/playback/session`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, undefined, true);
+}
+
+export async function updateStorefrontWatchProgress(payload: {
+  session_token: string;
+  content_id: string | number;
+  content_format_id?: number | null;
+  episode_id?: string | null;
+  position_seconds?: number;
+  duration_seconds?: number;
+  watch_time_seconds?: number;
+  event_type: string;
+  country_code?: string | null;
+}) {
+  return requestJson<{ session: { id: number; status: string; watch_time_seconds: number; max_position_seconds: number } }>(
+    "/storefront/tracking/watch-progress",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    undefined,
+    true,
+  );
+}
+
+export async function fetchContinueWatching(locale?: "en" | "ro" | "ru") {
+  return requestJson<ContinueWatchingResponsePayload>("/storefront/continue-watching", {}, {
+    locale,
+  }, true);
+}
+
+export async function fetchStorefrontRecommendations(
+  identifier: string,
+  locale?: "en" | "ro" | "ru",
+) {
+  return requestJson<RecommendationsResponsePayload>(`/storefront/content/${identifier}/recommendations`, {}, {
+    locale,
   }, true);
 }
 

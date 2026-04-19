@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Mail\UserInvitationMail;
+use App\Models\Content;
 use App\Models\Invitation;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,10 +19,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends ApiController
 {
+    public function __construct(
+        protected AuditLogService $auditLog,
+    ) {}
+
     public function index(): JsonResponse
     {
         $users = User::query()
-            ->with('roles.permissions')
+            ->with('roles.permissions', 'contentAccesses.content')
             ->latest()
             ->get();
 
@@ -43,6 +49,15 @@ class UserController extends ApiController
 
                 return $this->invitationData($invitation, $roles);
             }),
+            'content_options' => Content::query()
+                ->orderBy('original_title')
+                ->get(['id', 'original_title', 'slug'])
+                ->map(fn (Content $content) => [
+                    'id' => $content->id,
+                    'title' => $content->original_title,
+                    'slug' => $content->slug,
+                ])
+                ->values(),
         ]);
     }
 
@@ -88,6 +103,15 @@ class UserController extends ApiController
             roleNames: $roles->pluck('name')->all(),
         ));
 
+        $this->auditLog->record(
+            'user.invited',
+            'invitation',
+            $invitation->id,
+            ['email' => $invitation->email, 'role_ids' => $roleIds],
+            $request->user(),
+            $request,
+        );
+
         return response()->json([
             'invitation' => $this->invitationData($invitation, $roles),
             'accept_url' => $acceptUrl,
@@ -102,6 +126,8 @@ class UserController extends ApiController
             'status' => ['required', Rule::in(['active', 'suspended'])],
             'role_ids' => ['required', 'array', 'min:1'],
             'role_ids.*' => ['integer', Rule::exists('roles', 'id')],
+            'assigned_content_ids' => ['nullable', 'array'],
+            'assigned_content_ids.*' => ['integer', Rule::exists('contents', 'id')],
             'preferred_locale' => ['nullable', Rule::in(['en', 'ro', 'ru'])],
         ]);
 
@@ -114,7 +140,21 @@ class UserController extends ApiController
             ])->save();
 
             $user->syncRoleIds($validated['role_ids']);
+            $user->syncAssignedContentIds($validated['assigned_content_ids'] ?? []);
         });
+
+        $this->auditLog->record(
+            'user.updated',
+            'user',
+            $user->id,
+            [
+                'email' => $user->email,
+                'status' => $user->status,
+                'assigned_content_ids' => $validated['assigned_content_ids'] ?? [],
+            ],
+            $request->user(),
+            $request,
+        );
 
         return response()->json([
             'user' => $this->userData($user->fresh()),

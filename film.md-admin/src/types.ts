@@ -30,6 +30,12 @@ export interface AdminUser {
   roles: AdminRole[];
   permission_codes: string[];
   admin_panel_access: boolean;
+  assigned_content_ids: number[];
+  assigned_contents: Array<{
+    id: number;
+    title: string | null;
+    slug: string | null;
+  }>;
 }
 
 export interface AdminInvitation {
@@ -59,6 +65,11 @@ export interface DashboardStats {
   average_order_value: number;
   active_entitlements_count: number;
   wallet_balance_total: number;
+  total_views: number;
+  total_watch_time_seconds: number;
+  total_bandwidth_gb: number;
+  current_month_costs_usd: number;
+  current_month_profit_usd: number;
 }
 
 export interface DashboardRange {
@@ -140,6 +151,29 @@ export interface DashboardSummary {
   buyers_total: number;
 }
 
+export interface DashboardAnalyticsTimelinePoint {
+  date: string;
+  label: string;
+  views: number;
+  watch_time_seconds: number;
+  bandwidth_gb: number;
+}
+
+export interface DashboardCountryBreakdown {
+  country_code: string;
+  views: number;
+  watch_time_seconds: number;
+  bandwidth_gb: number;
+}
+
+export interface DashboardCostOverview {
+  storage_cost_usd: number;
+  delivery_cost_usd: number;
+  drm_cost_usd: number;
+  revenue_usd: number;
+  profit_usd: number;
+}
+
 export interface DashboardResponse {
   range: DashboardRange;
   stats: DashboardStats;
@@ -149,6 +183,210 @@ export interface DashboardResponse {
   recent_sales: DashboardTransaction[];
   top_titles: DashboardTopTitle[];
   summary: DashboardSummary;
+  analytics_timeline: DashboardAnalyticsTimelinePoint[];
+  country_breakdown: DashboardCountryBreakdown[];
+  cost_overview: DashboardCostOverview;
+}
+
+export interface CostSettingsVersion {
+  id: number;
+  storage_cost_per_gb_day: number;
+  delivery_cost_per_gb: number;
+  drm_cost_per_license: number;
+  usd_to_mdl_rate: number;
+  effective_from: string | null;
+  effective_until: string | null;
+  is_active: boolean;
+  created_at: string | null;
+}
+
+export interface VideoMonthlyCostItem {
+  id: number;
+  content_id: number | null;
+  content_title: string | null;
+  quality: string | null;
+  month: string;
+  storage_cost_usd: number;
+  delivery_cost_usd: number;
+  drm_cost_usd: number;
+  revenue_usd: number;
+  profit_usd: number;
+  is_locked: boolean;
+}
+
+export interface CreatorStatementItem {
+  id: number;
+  creator_id: number | null;
+  creator_name: string | null;
+  month: string;
+  revenue_usd: number;
+  costs_usd: number;
+  payout_usd: number;
+  profit_usd: number;
+  is_locked: boolean;
+}
+
+export interface CostSettingsCreatorOption {
+  id: number;
+  name: string;
+  email: string | null;
+  company_name: string | null;
+}
+
+export interface CostSettingsResponse {
+  current: CostSettingsVersion | null;
+  versions: CostSettingsVersion[];
+  monthly_costs: VideoMonthlyCostItem[];
+  creator_statements: CreatorStatementItem[];
+  creators: CostSettingsCreatorOption[];
+}
+
+export interface CostSettingsPayload {
+  storage_cost_per_gb_day: number;
+  delivery_cost_per_gb: number;
+  drm_cost_per_license: number;
+  usd_to_mdl_rate: number;
+}
+
+export interface ExportJobItem {
+  id: number;
+  format: string;
+  scope: string;
+  status: string;
+  file_path: string | null;
+  file_name?: string | null;
+  mime_type?: string | null;
+  error_message?: string | null;
+  filters: Record<string, unknown>;
+  requested_by: string | null;
+  created_at: string | null;
+}
+
+export interface ExportJobsResponse {
+  items: ExportJobItem[];
+}
+
+export interface ExportJobPayload {
+  format: "excel" | "pdf" | "json";
+  scope: string;
+  filters?: Record<string, unknown>;
+}
+
+export interface PlaybackOpsStats {
+  active_streams: number;
+  completed_today: number;
+  total_watch_time_seconds: number;
+}
+
+export interface PlaybackOpsSession {
+  id: number;
+  user_name: string | null;
+  user_email: string | null;
+  content_title: string | null;
+  quality: string | null;
+  country_code: string | null;
+  device_type: string | null;
+  status: string;
+  started_at: string | null;
+  ended_at: string | null;
+  watch_time_seconds: number;
+  max_position_seconds: number;
+}
+
+export interface PlaybackOpsResponse {
+  stats: PlaybackOpsStats;
+  sessions: PlaybackOpsSession[];
+}
+
+export interface AdminAdCreative {
+  id: number;
+  name: string;
+  media_url: string;
+  mime_type: string | null;
+  duration_seconds: number | null;
+  width: number | null;
+  height: number | null;
+  is_active: boolean;
+}
+
+export interface AdminAdTargetingRule {
+  id: number;
+  country_code: string | null;
+  allowed_group: string | null;
+  content_id: number | null;
+  content_title: string | null;
+  is_include_rule: boolean;
+}
+
+export interface AdminAdCampaignStats {
+  impressions: number;
+  clicks: number;
+  completes: number;
+}
+
+export interface AdminAdCampaign {
+  id: number;
+  name: string;
+  company_name: string | null;
+  vast_tag_url: string | null;
+  click_through_url: string | null;
+  placement: string;
+  status: string;
+  bid_amount: number;
+  skip_offset_seconds: number | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  creatives: AdminAdCreative[];
+  targeting_rules: AdminAdTargetingRule[];
+  stats: AdminAdCampaignStats;
+}
+
+export interface AdCampaignOptionContent {
+  id: number;
+  title: string;
+  slug: string;
+}
+
+export interface AdCampaignOptions {
+  placements: string[];
+  statuses: string[];
+  allowed_groups: string[];
+  contents: AdCampaignOptionContent[];
+}
+
+export interface AdCampaignsResponse {
+  items: AdminAdCampaign[];
+  options: AdCampaignOptions;
+}
+
+export interface AdCampaignPayload {
+  name: string;
+  company_name?: string | null;
+  vast_tag_url?: string | null;
+  click_through_url?: string | null;
+  placement: string;
+  status: string;
+  bid_amount?: number | null;
+  skip_offset_seconds?: number | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  is_active?: boolean;
+  creatives?: Array<{
+    name: string;
+    media_url: string;
+    mime_type?: string | null;
+    duration_seconds?: number | null;
+    width?: number | null;
+    height?: number | null;
+    is_active?: boolean;
+  }>;
+  targeting_rules?: Array<{
+    country_code?: string | null;
+    allowed_group?: string | null;
+    content_id?: number | null;
+    is_include_rule?: boolean;
+  }>;
 }
 
 export type TaxonomyLocale = "ro" | "ru" | "en";
@@ -405,6 +643,69 @@ export interface AdminContentSeason {
   episodes: AdminContentEpisode[];
 }
 
+export interface AdminContentFormat {
+  id: number;
+  quality: string;
+  format_type: "main" | "trailer";
+  bunny_library_id: string;
+  bunny_video_id: string;
+  stream_url: string | null;
+  token_path: string | null;
+  drm_policy: string;
+  is_active: boolean;
+  is_default: boolean;
+  sort_order: number;
+  meta: Record<string, unknown>;
+}
+
+export interface AdminRightsWindow {
+  id: number;
+  content_format_id: number | null;
+  content_format_quality: string | null;
+  country_code: string | null;
+  is_allowed: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  meta: Record<string, unknown>;
+}
+
+export interface AdminSubtitleTrack {
+  id: number;
+  content_format_id: number | null;
+  content_format_quality: string | null;
+  locale: TaxonomyLocale;
+  label: string;
+  file_url: string;
+  is_default: boolean;
+  sort_order: number;
+}
+
+export interface AdminPremiereEvent {
+  id: number;
+  title: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  is_public: boolean;
+  meta: Record<string, unknown>;
+}
+
+export interface AdminContentCreator {
+  id: number;
+  name: string;
+  email: string | null;
+  company_name: string | null;
+  platform_fee_percent: number;
+  assignment_role: string;
+  is_primary: boolean;
+}
+
+export interface AdminUserContentOption {
+  id: number;
+  title: string;
+  slug: string;
+}
+
 export interface AdminContent {
   id: number;
   type: AdminContentType;
@@ -438,6 +739,12 @@ export interface AdminContent {
   crew: AdminContentCrewMember[];
   videos: AdminContentVideo[];
   seasons: AdminContentSeason[];
+  content_formats: AdminContentFormat[];
+  rights_windows: AdminRightsWindow[];
+  subtitle_tracks: AdminSubtitleTrack[];
+  premiere_events: AdminPremiereEvent[];
+  creators: AdminContentCreator[];
+  creator_ids: number[];
   seasons_count: number;
   episodes_count: number;
   subtitle_locales: TaxonomyLocale[];
@@ -481,6 +788,7 @@ export interface AdminContentOptions {
   video_types?: SelectOption<AdminContentVideo["type"]>[];
   cast_credit_types?: SelectOption[];
   crew_credit_types?: SelectOption[];
+  format_types?: SelectOption<AdminContentFormat["format_type"]>[];
   taxonomies: Partial<Record<TaxonomyType, AdminContentTaxonomyOption[]>>;
 }
 
@@ -613,6 +921,48 @@ export interface ContentPayload {
     }>;
   }>;
   subtitle_locales?: TaxonomyLocale[];
+  content_formats?: Array<{
+    id?: number;
+    quality: string;
+    format_type: AdminContentFormat["format_type"];
+    bunny_library_id: string;
+    bunny_video_id: string;
+    stream_url?: string | null;
+    token_path?: string | null;
+    drm_policy?: string | null;
+    is_active?: boolean;
+    is_default?: boolean;
+    sort_order?: number;
+    meta?: Record<string, unknown>;
+  }>;
+  rights_windows?: Array<{
+    id?: number;
+    content_format_quality?: string | null;
+    country_code?: string | null;
+    is_allowed?: boolean;
+    starts_at?: string | null;
+    ends_at?: string | null;
+    meta?: Record<string, unknown>;
+  }>;
+  subtitle_tracks?: Array<{
+    id?: number;
+    content_format_quality?: string | null;
+    locale: TaxonomyLocale;
+    label: string;
+    file_url: string;
+    is_default?: boolean;
+    sort_order?: number;
+  }>;
+  premiere_events?: Array<{
+    id?: number;
+    title: string;
+    starts_at: string;
+    ends_at?: string | null;
+    is_active?: boolean;
+    is_public?: boolean;
+    meta?: Record<string, unknown>;
+  }>;
+  creator_ids?: number[];
   available_qualities: string[];
   is_featured: boolean;
   is_trending: boolean;
@@ -623,4 +973,22 @@ export interface ContentPayload {
   sort_order?: number;
   canonical_url?: string | null;
   taxonomy_ids?: number[];
+}
+
+export interface AuditLogItem {
+  id: number;
+  timestamp: string | null;
+  user: string;
+  user_id: number | null;
+  action: string;
+  target: string;
+  details: string;
+  entity_type: string;
+  entity_id: string | null;
+  ip_address: string | null;
+  payload: Record<string, unknown>;
+}
+
+export interface AuditLogsResponse {
+  items: AuditLogItem[];
 }

@@ -52,6 +52,19 @@ class User extends Authenticatable
         return $this->hasMany(AccountProfile::class)->orderByDesc('is_default')->orderBy('sort_order')->orderBy('id');
     }
 
+    public function contentAccesses(): HasMany
+    {
+        return $this->hasMany(UserContentAccess::class)->orderBy('content_id');
+    }
+
+    public function assignedContents(): BelongsToMany
+    {
+        return $this->belongsToMany(Content::class, 'user_content_accesses')
+            ->withPivot(['can_view', 'can_view_stats', 'meta'])
+            ->withTimestamps()
+            ->orderBy('original_title');
+    }
+
     public function roleNames(): array
     {
         return $this->roles()
@@ -83,10 +96,53 @@ class User extends Authenticatable
         return $this->roles->contains('admin_panel_access', true) || $this->hasPermission('admin.access');
     }
 
+    public function hasScopedContentAccess(): bool
+    {
+        return $this->hasPermission('content.scope_assigned');
+    }
+
+    public function assignedContentIds(): array
+    {
+        if ($this->relationLoaded('contentAccesses')) {
+            return $this->contentAccesses
+                ->where('can_view', true)
+                ->pluck('content_id')
+                ->map(fn (mixed $value): int => (int) $value)
+                ->values()
+                ->all();
+        }
+
+        return $this->contentAccesses()
+            ->where('can_view', true)
+            ->pluck('content_id')
+            ->map(fn (mixed $value): int => (int) $value)
+            ->all();
+    }
+
     public function syncRoleIds(array $roleIds): void
     {
         $this->roles()->sync(array_values(array_unique($roleIds)));
         $this->unsetRelation('roles');
+    }
+
+    public function syncAssignedContentIds(array $contentIds): void
+    {
+        $syncPayload = collect($contentIds)
+            ->map(fn (mixed $contentId): int => (int) $contentId)
+            ->filter(fn (int $contentId): bool => $contentId > 0)
+            ->unique()
+            ->mapWithKeys(fn (int $contentId): array => [
+                $contentId => [
+                    'can_view' => true,
+                    'can_view_stats' => true,
+                    'meta' => null,
+                ],
+            ])
+            ->all();
+
+        $this->assignedContents()->sync($syncPayload);
+        $this->unsetRelation('contentAccesses');
+        $this->unsetRelation('assignedContents');
     }
 
     protected function displayName(): Attribute

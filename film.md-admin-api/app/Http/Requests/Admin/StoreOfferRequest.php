@@ -50,10 +50,6 @@ class StoreOfferRequest extends FormRequest
                 $validator->errors()->add('quality', 'The selected quality is not enabled for this title.');
             }
 
-            if ($content?->type === Content::TYPE_MOVIE && ! $this->filled('playback_url')) {
-                $validator->errors()->add('playback_url', 'Movie offers require a playback URL for the selected quality.');
-            }
-
             $duplicateQuery = Offer::query()
                 ->where('content_id', $this->integer('content_id'))
                 ->where('offer_type', $offerType)

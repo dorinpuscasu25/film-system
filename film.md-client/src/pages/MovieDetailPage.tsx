@@ -18,7 +18,37 @@ import { ReviewCard } from "../components/ReviewCard";
 import { PurchaseModal } from "../components/PurchaseModal";
 import { Carousel } from "../components/Carousel";
 import { getContentDetail, getFullCatalog } from "../lib/storefront";
+import { fetchStorefrontRecommendations } from "../lib/session";
 import { Movie } from "../types";
+
+function formatCountdown(targetDate?: string) {
+  if (!targetDate) {
+    return null;
+  }
+
+  const now = Date.now();
+  const target = new Date(targetDate).getTime();
+  const diff = target - now;
+
+  if (diff <= 0) {
+    return "Now live";
+  }
+
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
+}
 
 export function MovieDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +62,7 @@ export function MovieDetailPage() {
   const [activeSeason, setActiveSeason] = useState(1);
   const [movie, setMovie] = useState<Movie | null>(null);
   const [catalog, setCatalog] = useState<Movie[]>([]);
+  const [recommendedSlugs, setRecommendedSlugs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +93,7 @@ export function MovieDetailPage() {
 
         setMovie(detail);
         setCatalog(allContent);
+        setRecommendedSlugs([]);
         setActiveSeason(detail.seasonsData?.[0]?.seasonNumber ?? 1);
       } catch (loadError) {
         if (!active) {
@@ -83,15 +115,53 @@ export function MovieDetailPage() {
     };
   }, [currentLanguage.code, id]);
 
+  useEffect(() => {
+    if (!id || !isAuthenticated) {
+      setRecommendedSlugs([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadRecommendations() {
+      try {
+        const response = await fetchStorefrontRecommendations(id, currentLanguage.code);
+        if (!active) {
+          return;
+        }
+
+        setRecommendedSlugs((response.items ?? []).map((item) => item.slug));
+      } catch {
+        if (active) {
+          setRecommendedSlugs([]);
+        }
+      }
+    }
+
+    void loadRecommendations();
+
+    return () => {
+      active = false;
+    };
+  }, [currentLanguage.code, id, isAuthenticated]);
+
   const relatedMovies = useMemo(() => {
     if (!movie) {
       return [];
     }
 
+    if (recommendedSlugs.length > 0) {
+      const recommendedSet = new Set(recommendedSlugs);
+      const recommendedItems = catalog.filter((item) => item.id !== movie.id && recommendedSet.has(item.id));
+      if (recommendedItems.length > 0) {
+        return recommendedItems;
+      }
+    }
+
     return catalog.filter(
       (item) => item.id !== movie.id && item.genres.some((genre) => movie.genres.includes(genre)),
     );
-  }, [catalog, movie]);
+  }, [catalog, movie, recommendedSlugs]);
 
   if (isLoading) {
     return (
@@ -129,6 +199,7 @@ export function MovieDetailPage() {
         isPrimary: true,
       }];
   const primaryVideo = videos.find((video) => video.isPrimary) || videos[0];
+  const premiereCountdown = formatCountdown(movie.premiereEvent?.startsAt);
   const seasonsData = movie.seasonsData && movie.seasonsData.length > 0
     ? movie.seasonsData
     : movie.type === "series"
@@ -246,6 +317,21 @@ export function MovieDetailPage() {
                 ))}
               </div>
             </div>
+
+            {movie.premiereEvent ? (
+              <div className="mb-8 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-amber-50">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Digital Premiere</p>
+                <p className="mt-2 text-lg font-semibold">{movie.premiereEvent.title}</p>
+                <p className="mt-1 text-sm text-amber-100/80">
+                  Starts at {new Date(movie.premiereEvent.startsAt).toLocaleString()}
+                </p>
+                {premiereCountdown ? (
+                  <p className="mt-3 inline-flex rounded-full border border-amber-200/20 bg-black/20 px-3 py-1 text-sm font-medium">
+                    {premiereCountdown}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="mb-12 flex flex-wrap items-center gap-4">
               {access ? (

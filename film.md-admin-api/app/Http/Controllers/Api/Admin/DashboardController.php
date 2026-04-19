@@ -11,30 +11,42 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Services\ContentScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends ApiController
 {
+    public function __construct(
+        protected ContentScopeService $contentScope,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $range = $this->resolveRange((string) $request->query('range', '30days'));
         $rangeStart = now()->startOfDay()->subDays($range['days'] - 1);
         $rangeEnd = now()->endOfDay();
+        $isScoped = $this->contentScope->isScoped($user);
+        $assignedContentIds = $this->contentScope->assignedContentIds($user);
+        $assignedContentSlugs = $assignedContentIds === []
+            ? []
+            : Content::query()->whereIn('id', $assignedContentIds)->pluck('slug')->filter()->values()->all();
 
-        $periodPurchaseTransactions = WalletTransaction::query()
+        $periodPurchaseTransactions = $this->scopeTransactionsByContent(WalletTransaction::query(), $assignedContentIds, $assignedContentSlugs, $isScoped)
             ->where('type', WalletTransaction::TYPE_PURCHASE)
             ->whereBetween('processed_at', [$rangeStart, $rangeEnd])
             ->orderBy('processed_at')
             ->get();
 
-        $allTimePaidRevenue = abs((float) WalletTransaction::query()
+        $allTimePaidRevenue = abs((float) $this->scopeTransactionsByContent(WalletTransaction::query(), $assignedContentIds, $assignedContentSlugs, $isScoped)
             ->where('type', WalletTransaction::TYPE_PURCHASE)
             ->where('amount', '<', 0)
             ->sum('amount'));
 
-        $allTimeOrders = WalletTransaction::query()
+        $allTimeOrders = $this->scopeTransactionsByContent(WalletTransaction::query(), $assignedContentIds, $assignedContentSlugs, $isScoped)
             ->where('type', WalletTransaction::TYPE_PURCHASE)
             ->count();
 
@@ -49,18 +61,58 @@ class DashboardController extends ApiController
             })
             ->values();
 
-        $periodEntitlements = ContentEntitlement::query()
+        $periodEntitlements = $this->contentScope->scopeContentQuery($user, ContentEntitlement::query(), 'content_entitlements.content_id')
             ->with('content')
             ->whereBetween('granted_at', [$rangeStart, $rangeEnd])
             ->orderByDesc('granted_at')
             ->get();
 
-        $recentTransactions = WalletTransaction::query()
+        $recentTransactions = $this->scopeTransactionsByContent(WalletTransaction::query(), $assignedContentIds, $assignedContentSlugs, $isScoped)
             ->with('user')
             ->latest('processed_at')
             ->latest('id')
             ->limit(50)
             ->get();
+
+        $analyticsDailyQuery = DB::connection('analytics')
+            ->table('video_daily_aggregates')
+            ->whereBetween('date', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
+            ->orderBy('date');
+
+        if ($isScoped) {
+            $analyticsDailyQuery->whereIn('content_id', $assignedContentIds);
+        }
+
+        $analyticsDaily = collect($analyticsDailyQuery->get());
+
+        $countryBreakdownQuery = DB::connection('analytics')
+            ->table('video_daily_aggregates')
+            ->selectRaw('COALESCE(country_code, ?) as country_code, SUM(views) as views, SUM(watch_time_seconds) as watch_time_seconds, SUM(bandwidth_gb) as bandwidth_gb', ['GLOBAL'])
+            ->whereBetween('date', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
+            ->groupBy('country_code')
+            ->orderByDesc('views')
+            ->limit(8);
+
+        if ($isScoped) {
+            $countryBreakdownQuery->whereIn('content_id', $assignedContentIds);
+        }
+
+        $countryBreakdown = collect($countryBreakdownQuery->get());
+
+        $currentMonth = now()->format('Y-m');
+        $costRowsQuery = DB::table('video_monthly_costs')
+            ->where('month', $currentMonth);
+        if ($isScoped) {
+            $costRowsQuery->whereIn('content_id', $assignedContentIds);
+        }
+        $costRows = collect($costRowsQuery->get());
+        $costOverview = [
+            'storage_cost_usd' => round((float) $costRows->sum('storage_cost_usd'), 2),
+            'delivery_cost_usd' => round((float) $costRows->sum('delivery_cost_usd'), 2),
+            'drm_cost_usd' => round((float) $costRows->sum('drm_cost_usd'), 2),
+            'revenue_usd' => round((float) $costRows->sum('revenue_usd'), 2),
+            'profit_usd' => round((float) $costRows->sum('profit_usd'), 2),
+        ];
 
         [$contentsBySlug, $offersById] = $this->resolveTransactionContext($recentTransactions);
 
@@ -97,6 +149,11 @@ class DashboardController extends ApiController
                     : 0,
                 'active_entitlements_count' => ContentEntitlement::query()->active()->count(),
                 'wallet_balance_total' => round((float) Wallet::query()->sum('balance_amount'), 2),
+                'total_views' => (int) $analyticsDaily->sum('views'),
+                'total_watch_time_seconds' => (int) $analyticsDaily->sum('watch_time_seconds'),
+                'total_bandwidth_gb' => round((float) $analyticsDaily->sum('bandwidth_gb'), 2),
+                'current_month_costs_usd' => round($costOverview['storage_cost_usd'] + $costOverview['delivery_cost_usd'] + $costOverview['drm_cost_usd'], 2),
+                'current_month_profit_usd' => $costOverview['profit_usd'],
             ],
             'breakdown' => [
                 'rental_orders_count' => $periodPurchaseTransactions
@@ -126,15 +183,48 @@ class DashboardController extends ApiController
                 ->map(fn (WalletTransaction $transaction): array => $this->transactionData($transaction, $contentsBySlug, $offersById))
                 ->values(),
             'summary' => [
-                'catalog_titles_total' => Content::query()->count(),
-                'published_titles_total' => Content::query()->where('status', Content::STATUS_PUBLISHED)->count(),
-                'buyers_total' => WalletTransaction::query()
+                'catalog_titles_total' => $this->contentScope->scopeContentQuery($user, Content::query())->count(),
+                'published_titles_total' => $this->contentScope->scopeContentQuery($user, Content::query())->where('status', Content::STATUS_PUBLISHED)->count(),
+                'buyers_total' => $this->scopeTransactionsByContent(WalletTransaction::query(), $assignedContentIds, $assignedContentSlugs, $isScoped)
                     ->where('type', WalletTransaction::TYPE_PURCHASE)
                     ->where('amount', '<', 0)
                     ->distinct('user_id')
                     ->count('user_id'),
             ],
+            'analytics_timeline' => $this->buildAnalyticsTimeline($analyticsDaily, $range['days']),
+            'country_breakdown' => $countryBreakdown
+                ->map(fn ($row) => [
+                    'country_code' => (string) $row->country_code,
+                    'views' => (int) $row->views,
+                    'watch_time_seconds' => (int) $row->watch_time_seconds,
+                    'bandwidth_gb' => round((float) $row->bandwidth_gb, 2),
+                ])
+                ->values(),
+            'cost_overview' => $costOverview,
         ]);
+    }
+
+    protected function scopeTransactionsByContent($query, array $assignedContentIds, array $assignedContentSlugs, bool $isScoped)
+    {
+        if (! $isScoped) {
+            return $query;
+        }
+
+        if ($assignedContentIds === [] && $assignedContentSlugs === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($builder) use ($assignedContentIds, $assignedContentSlugs): void {
+            if ($assignedContentIds !== []) {
+                foreach ($assignedContentIds as $contentId) {
+                    $builder->orWhere('meta->content_id', $contentId);
+                }
+            }
+
+            foreach ($assignedContentSlugs as $slug) {
+                $builder->orWhere('meta->content_slug', $slug);
+            }
+        });
     }
 
     /**
@@ -303,5 +393,26 @@ class DashboardController extends ApiController
         return $content->getTranslation('title', $content->default_locale, false)
             ?? $content->getTranslation('title', 'ro', false)
             ?? $content->original_title;
+    }
+
+    protected function buildAnalyticsTimeline(Collection $rows, int $days): array
+    {
+        $grouped = $rows->groupBy('date');
+
+        return collect(range($days - 1, 0))
+            ->map(function (int $offset) use ($grouped): array {
+                $date = now()->startOfDay()->subDays($offset)->toDateString();
+                $bucket = collect($grouped->get($date, []));
+
+                return [
+                    'date' => $date,
+                    'label' => \Carbon\Carbon::parse($date)->format('M j'),
+                    'views' => (int) $bucket->sum('views'),
+                    'watch_time_seconds' => (int) $bucket->sum('watch_time_seconds'),
+                    'bandwidth_gb' => round((float) $bucket->sum('bandwidth_gb'), 2),
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

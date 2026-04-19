@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\AccountProfile;
 use App\Models\Taxonomy;
 use App\Models\ContentEntitlement;
+use App\Models\PremiereEvent;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -20,7 +21,7 @@ class ApiController extends Controller
 {
     protected function userData(User $user): array
     {
-        $user->loadMissing('roles.permissions');
+        $user->loadMissing('roles.permissions', 'contentAccesses.content');
 
         return [
             'id' => $user->id,
@@ -34,6 +35,17 @@ class ApiController extends Controller
             'roles' => $user->roles->map(fn (Role $role) => $this->roleData($role))->values(),
             'permission_codes' => $user->permissionCodes(),
             'admin_panel_access' => $user->hasAdminPanelAccess(),
+            'assigned_content_ids' => $user->assignedContentIds(),
+            'assigned_contents' => $user->relationLoaded('contentAccesses')
+                ? $user->contentAccesses
+                    ->filter(fn ($assignment) => (bool) $assignment->can_view)
+                    ->map(fn ($assignment) => [
+                        'id' => $assignment->content_id,
+                        'title' => $assignment->content?->original_title,
+                        'slug' => $assignment->content?->slug,
+                    ])
+                    ->values()
+                : [],
             'wallet' => $user->relationLoaded('wallet') && $user->wallet !== null
                 ? $this->walletSummaryData($user->wallet)
                 : null,
@@ -205,9 +217,14 @@ class ApiController extends Controller
 
     protected function contentData(Content $content, string $locale = 'ro'): array
     {
-        $content->loadMissing('taxonomies', 'offers');
+        $content->loadMissing('taxonomies', 'offers', 'formats', 'rightsWindows', 'subtitleTracks', 'creators', 'premiereEvents');
         $taxonomies = $content->taxonomies;
         $offers = $content->offers;
+        $formats = $content->formats;
+        $rightsWindows = $content->rightsWindows;
+        $subtitleTracks = $content->subtitleTracks;
+        $creators = $content->creators;
+        $premiereEvents = $content->premiereEvents;
         $castMembers = collect($content->cast_members ?? [])->sortBy('sort_order')->values();
         $crewMembers = collect($content->crew_members ?? [])->sortBy('sort_order')->values();
         $videos = collect($content->videos ?? [])->sortBy('sort_order')->values();
@@ -421,6 +438,69 @@ class ApiController extends Controller
             'offers' => $offers
                 ->map(fn (Offer $offer) => $this->offerData($offer, $resolvedLocale))
                 ->values(),
+            'content_formats' => $formats
+                ->map(fn ($format) => [
+                    'id' => $format->id,
+                    'quality' => $format->quality,
+                    'format_type' => $format->format_type,
+                    'bunny_library_id' => $format->bunny_library_id,
+                    'bunny_video_id' => $format->bunny_video_id,
+                    'stream_url' => $format->stream_url,
+                    'token_path' => $format->token_path,
+                    'drm_policy' => $format->drm_policy,
+                    'is_active' => $format->is_active,
+                    'is_default' => $format->is_default,
+                    'sort_order' => $format->sort_order,
+                    'meta' => $format->meta ?? [],
+                ])
+                ->values(),
+            'rights_windows' => $rightsWindows
+                ->map(fn ($window) => [
+                    'id' => $window->id,
+                    'content_format_id' => $window->content_format_id,
+                    'content_format_quality' => optional($formats->firstWhere('id', $window->content_format_id))->quality,
+                    'country_code' => $window->country_code,
+                    'is_allowed' => $window->is_allowed,
+                    'starts_at' => $window->starts_at?->toIso8601String(),
+                    'ends_at' => $window->ends_at?->toIso8601String(),
+                    'meta' => $window->meta ?? [],
+                ])
+                ->values(),
+            'subtitle_tracks' => $subtitleTracks
+                ->map(fn ($track) => [
+                    'id' => $track->id,
+                    'content_format_id' => $track->content_format_id,
+                    'content_format_quality' => optional($formats->firstWhere('id', $track->content_format_id))->quality,
+                    'locale' => $track->locale,
+                    'label' => $track->label,
+                    'file_url' => $track->file_url,
+                    'is_default' => $track->is_default,
+                    'sort_order' => $track->sort_order,
+                ])
+                ->values(),
+            'premiere_events' => $premiereEvents
+                ->map(fn (PremiereEvent $event) => [
+                    'id' => $event->id,
+                    'title' => $event->title,
+                    'starts_at' => $event->starts_at?->toIso8601String(),
+                    'ends_at' => $event->ends_at?->toIso8601String(),
+                    'is_active' => $event->is_active,
+                    'is_public' => $event->is_public,
+                    'meta' => $event->meta ?? [],
+                ])
+                ->values(),
+            'creators' => $creators
+                ->map(fn ($creator) => [
+                    'id' => $creator->id,
+                    'name' => $creator->name,
+                    'email' => $creator->email,
+                    'company_name' => $creator->company_name,
+                    'platform_fee_percent' => $creator->platform_fee_percent,
+                    'assignment_role' => data_get($creator->pivot, 'role', 'owner'),
+                    'is_primary' => (bool) data_get($creator->pivot, 'is_primary', false),
+                ])
+                ->values(),
+            'creator_ids' => $creators->pluck('id')->map(fn ($id) => (int) $id)->values(),
             'created_at' => $content->created_at?->toIso8601String(),
             'updated_at' => $content->updated_at?->toIso8601String(),
         ];
@@ -428,7 +508,14 @@ class ApiController extends Controller
 
     protected function publicContentCardData(Content $content, string $locale = 'ro'): array
     {
+        $content->loadMissing('premiereEvents');
         $adminData = $this->contentData($content, $locale);
+        $nextPremiere = $content->premiereEvents
+            ->where('is_active', true)
+            ->where('is_public', true)
+            ->filter(fn (PremiereEvent $event): bool => $event->starts_at !== null && $event->starts_at->isFuture())
+            ->sortBy('starts_at')
+            ->first();
 
         return [
             'id' => (string) $adminData['id'],
@@ -464,6 +551,12 @@ class ApiController extends Controller
             'hero_desktop_url' => $adminData['hero_desktop_url'],
             'hero_mobile_url' => $adminData['hero_mobile_url'],
             'trailer_url' => $adminData['trailer_url'],
+            'premiere_event' => $nextPremiere ? [
+                'id' => $nextPremiere->id,
+                'title' => $nextPremiere->title,
+                'starts_at' => $nextPremiere->starts_at?->toIso8601String(),
+                'ends_at' => $nextPremiere->ends_at?->toIso8601String(),
+            ] : null,
             'lowest_price' => (float) ($adminData['lowest_price'] ?? 0),
             'currency' => $adminData['currency'],
             'available_qualities' => $adminData['available_qualities'],

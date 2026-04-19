@@ -21,6 +21,7 @@ class AccessControlSeeder extends Seeder
         ['code' => 'content.watch', 'name' => 'Watch content', 'group' => 'storefront', 'description' => 'Allows playback for owned titles.'],
         ['code' => 'profile.manage', 'name' => 'Manage own profile', 'group' => 'account', 'description' => 'Allows editing personal settings.'],
         ['code' => 'content.view', 'name' => 'View content', 'group' => 'content', 'description' => 'View content catalog in admin.'],
+        ['code' => 'content.scope_assigned', 'name' => 'View only assigned content', 'group' => 'content', 'description' => 'Limit admin visibility to explicitly assigned titles only.'],
         ['code' => 'content.create', 'name' => 'Create content', 'group' => 'content', 'description' => 'Create new titles.'],
         ['code' => 'content.edit', 'name' => 'Edit content', 'group' => 'content', 'description' => 'Edit existing titles.'],
         ['code' => 'content.publish', 'name' => 'Publish content', 'group' => 'content', 'description' => 'Publish titles to the storefront.'],
@@ -37,7 +38,9 @@ class AccessControlSeeder extends Seeder
         ['code' => 'commerce.create_offers', 'name' => 'Create offers', 'group' => 'commerce', 'description' => 'Create offers and pricing rules.'],
         ['code' => 'commerce.edit_offers', 'name' => 'Edit offers', 'group' => 'commerce', 'description' => 'Edit offers and pricing rules.'],
         ['code' => 'commerce.view_billing', 'name' => 'View billing', 'group' => 'commerce', 'description' => 'View billing reports.'],
+        ['code' => 'commerce.manage_costs', 'name' => 'Manage cost settings', 'group' => 'commerce', 'description' => 'Update platform-wide cost engine settings.'],
         ['code' => 'commerce.process_refunds', 'name' => 'Process refunds', 'group' => 'commerce', 'description' => 'Issue customer refunds.'],
+        ['code' => 'exports.manage', 'name' => 'Manage exports', 'group' => 'exports', 'description' => 'Create export jobs and data dumps.'],
         ['code' => 'users.view', 'name' => 'View users', 'group' => 'users', 'description' => 'View users and invitations.'],
         ['code' => 'users.invite', 'name' => 'Invite users', 'group' => 'users', 'description' => 'Send user invitations.'],
         ['code' => 'users.edit', 'name' => 'Edit users', 'group' => 'users', 'description' => 'Edit users.'],
@@ -59,6 +62,8 @@ class AccessControlSeeder extends Seeder
         ['code' => 'settings.manage_roles', 'name' => 'Manage roles', 'group' => 'settings', 'description' => 'Manage roles and permissions.'],
         ['code' => 'playback.view_sessions', 'name' => 'View playback sessions', 'group' => 'playback', 'description' => 'View playback sessions.'],
         ['code' => 'playback.revoke_tokens', 'name' => 'Revoke playback tokens', 'group' => 'playback', 'description' => 'Revoke playback tokens.'],
+        ['code' => 'advertising.view', 'name' => 'View advertising', 'group' => 'advertising', 'description' => 'View ad campaigns and ad analytics.'],
+        ['code' => 'advertising.manage', 'name' => 'Manage advertising', 'group' => 'advertising', 'description' => 'Create, update and delete ad campaigns.'],
     ];
 
     public function run(): void
@@ -85,6 +90,16 @@ class AccessControlSeeder extends Seeder
                 ['name' => 'Admin'],
                 [
                     'description' => 'Base admin role with access to the backoffice.',
+                    'is_system' => true,
+                    'is_default' => false,
+                    'admin_panel_access' => true,
+                ],
+            );
+
+            $producer = Role::query()->updateOrCreate(
+                ['name' => 'Producer'],
+                [
+                    'description' => 'Scoped admin role that can view only assigned films and their stats.',
                     'is_system' => true,
                     'is_default' => false,
                     'admin_panel_access' => true,
@@ -124,6 +139,8 @@ class AccessControlSeeder extends Seeder
                         'commerce.create_offers',
                         'commerce.edit_offers',
                         'commerce.view_billing',
+                        'commerce.manage_costs',
+                        'exports.manage',
                         'users.view',
                         'users.invite',
                         'users.edit',
@@ -143,6 +160,22 @@ class AccessControlSeeder extends Seeder
                         'settings.manage_roles',
                         'playback.view_sessions',
                         'playback.revoke_tokens',
+                        'advertising.view',
+                        'advertising.manage',
+                    ])
+                    ->pluck('id')
+                    ->all(),
+            );
+
+            $producer->permissions()->sync(
+                Permission::query()
+                    ->whereIn('code', [
+                        'admin.access',
+                        'content.view',
+                        'content.scope_assigned',
+                        'commerce.view_billing',
+                        'playback.view_sessions',
+                        'advertising.view',
                     ])
                     ->pluck('id')
                     ->all(),

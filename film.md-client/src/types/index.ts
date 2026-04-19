@@ -54,6 +54,13 @@ export interface Offer {
   playbackUrl?: string;
 }
 
+export interface PremiereEventSummary {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt?: string;
+}
+
 export interface Movie {
   id: string;
   title: string;
@@ -85,6 +92,7 @@ export interface Movie {
   episodes?: number;
   seasonsData?: Season[];
   offers?: Offer[];
+  premiereEvent?: PremiereEventSummary;
 }
 
 export interface UserProfile {

@@ -1,19 +1,29 @@
 import {
   AdminInvitation,
+  AdminAdCampaign,
+  AuditLogsResponse,
   AdminContent,
   AdminContentFilters,
   AdminContentOptions,
+  AdminUserContentOption,
   AdminOffer,
   AdminPermission,
   AdminRole,
   AdminTaxonomy,
   AdminUser,
+  AdCampaignPayload,
+  AdCampaignsResponse,
   ContentPayload,
+  CostSettingsPayload,
+  CostSettingsResponse,
   DashboardResponse,
+  ExportJobPayload,
+  ExportJobsResponse,
   HomeCurationResponse,
   HomeCurationSection,
   OfferIndexResponse,
   OfferPayload,
+  PlaybackOpsResponse,
   TaxonomyIndexResponse,
   TaxonomyPayload,
 } from "../types";
@@ -104,6 +114,106 @@ export const adminApi = {
     return request<DashboardResponse>("GET", `/admin/dashboard${query}`);
   },
 
+  getCostSettings() {
+    return request<CostSettingsResponse>("GET", "/admin/cost-settings");
+  },
+
+  saveCostSettings(payload: CostSettingsPayload) {
+    return request<{ version: unknown }>("POST", "/admin/cost-settings", {
+      data: payload,
+    });
+  },
+
+  getExports() {
+    return request<ExportJobsResponse>("GET", "/admin/exports");
+  },
+
+  createExportJob(payload: ExportJobPayload) {
+    return request<{ job: unknown }>("POST", "/admin/exports", {
+      data: payload,
+    });
+  },
+
+  async downloadExportJob(jobId: number, fallbackFileName?: string | null) {
+    const headers = new Headers({
+      Accept: "application/octet-stream",
+    });
+
+    if (getAccessToken) {
+      const token = getAccessToken();
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/admin/exports/${jobId}/download`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.message ?? "Export download failed.");
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get("Content-Disposition");
+    const fileNameMatch = contentDisposition?.match(/filename="?([^"]+)"?/i);
+    const fileName = fileNameMatch?.[1] ?? fallbackFileName ?? `export-${jobId}`;
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  getPlaybackOps() {
+    return request<PlaybackOpsResponse>("GET", "/admin/playback/sessions");
+  },
+
+  getAuditLogs(filters?: { action?: string; entity_type?: string; user_id?: number }) {
+    const searchParams = new URLSearchParams();
+    if (filters?.action) {
+      searchParams.set("action", filters.action);
+    }
+    if (filters?.entity_type) {
+      searchParams.set("entity_type", filters.entity_type);
+    }
+    if (filters?.user_id) {
+      searchParams.set("user_id", String(filters.user_id));
+    }
+
+    const query = searchParams.toString();
+    return request<AuditLogsResponse>("GET", `/admin/audit-logs${query ? `?${query}` : ""}`);
+  },
+
+  revokePlaybackSession(sessionId: number) {
+    return request<void>("POST", `/admin/playback/sessions/${sessionId}/revoke`);
+  },
+
+  getAdCampaigns() {
+    return request<AdCampaignsResponse>("GET", "/admin/ad-campaigns");
+  },
+
+  createAdCampaign(payload: AdCampaignPayload) {
+    return request<{ campaign: AdminAdCampaign }>("POST", "/admin/ad-campaigns", {
+      data: payload,
+    });
+  },
+
+  updateAdCampaign(campaignId: number, payload: AdCampaignPayload) {
+    return request<{ campaign: AdminAdCampaign }>("PATCH", `/admin/ad-campaigns/${campaignId}`, {
+      data: payload,
+    });
+  },
+
+  deleteAdCampaign(campaignId: number) {
+    return request<void>("DELETE", `/admin/ad-campaigns/${campaignId}`);
+  },
+
   getHomeCuration() {
     return request<HomeCurationResponse>("GET", "/admin/home-curation");
   },
@@ -145,6 +255,38 @@ export const adminApi = {
     return request<void>("DELETE", `/admin/content/${contentId}`);
   },
 
+  uploadFile(file: File, directory?: string) {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (directory) {
+      formData.append("directory", directory);
+    }
+    return request<{ url: string }>("POST", "/admin/upload", {
+      data: formData,
+    });
+  },
+
+  uploadFiles(files: File[], directory?: string) {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append("files[]", file);
+    }
+    if (directory) {
+      formData.append("directory", directory);
+    }
+    return request<{ urls: string[]; errors: Array<{ index: number; name: string; error: string }> }>(
+      "POST",
+      "/admin/upload",
+      { data: formData },
+    );
+  },
+
+  deleteUpload(url: string) {
+    return request<void>("DELETE", "/admin/upload", {
+      data: { url },
+    });
+  },
+
   getOffers() {
     return request<OfferIndexResponse>("GET", "/admin/offers");
   },
@@ -166,7 +308,7 @@ export const adminApi = {
   },
 
   getUsers() {
-    return request<{ users: AdminUser[]; invitations: AdminInvitation[] }>(
+    return request<{ users: AdminUser[]; invitations: AdminInvitation[]; content_options: AdminUserContentOption[] }>(
       "GET",
       "/admin/users",
     );
@@ -223,6 +365,7 @@ export const adminApi = {
       email: string;
       status: "active" | "suspended";
       role_ids: number[];
+      assigned_content_ids?: number[];
       preferred_locale?: "en" | "ro" | "ru";
     },
   ) {

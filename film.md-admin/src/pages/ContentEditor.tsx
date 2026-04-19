@@ -19,11 +19,15 @@ import {
   AdminContentCastMember,
   AdminContentCrewMember,
   AdminContentEpisode,
+  AdminContentFormat,
+  AdminPremiereEvent,
   AdminOffer,
   AdminOfferType,
+  AdminRightsWindow,
   AdminContentSeason,
   AdminContentOptions,
   AdminContentStatus,
+  AdminSubtitleTrack,
   AdminContentTaxonomyOption,
   AdminContentType,
   AdminContentVideo,
@@ -90,6 +94,52 @@ type OfferFormState = {
   sort_order: number | "";
 };
 
+type ContentFormatFormState = {
+  local_id: string;
+  id?: number;
+  quality: string;
+  format_type: "main" | "trailer";
+  bunny_library_id: string;
+  bunny_video_id: string;
+  stream_url: string;
+  token_path: string;
+  drm_policy: string;
+  is_active: boolean;
+  is_default: boolean;
+  sort_order: number | "";
+};
+
+type RightsWindowFormState = {
+  local_id: string;
+  id?: number;
+  content_format_quality: string;
+  country_code: string;
+  is_allowed: boolean;
+  starts_at: string;
+  ends_at: string;
+};
+
+type SubtitleTrackFormState = {
+  local_id: string;
+  id?: number;
+  content_format_quality: string;
+  locale: TaxonomyLocale;
+  label: string;
+  file_url: string;
+  is_default: boolean;
+  sort_order: number | "";
+};
+
+type PremiereEventFormState = {
+  local_id: string;
+  id?: number;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  is_active: boolean;
+  is_public: boolean;
+};
+
 const FALLBACK_OPTIONS: AdminContentOptions = {
   locales: [
     { value: "ro", label: "RO" },
@@ -138,6 +188,10 @@ const FALLBACK_OPTIONS: AdminContentOptions = {
     { value: "cinematographer", label: "Director de imagine" },
     { value: "composer", label: "Compozitor" },
     { value: "editor", label: "Montaj" },
+  ],
+  format_types: [
+    { value: "main", label: "Main" },
+    { value: "trailer", label: "Trailer" },
   ],
   taxonomies: {
     genre: [],
@@ -259,6 +313,110 @@ function createEmptySeason(): AdminContentSeason {
     poster_url: null,
     sort_order: 0,
     episodes: [],
+  };
+}
+
+function mapContentFormatToForm(format: AdminContentFormat): ContentFormatFormState {
+  return {
+    local_id: `format-${format.id}`,
+    id: format.id,
+    quality: format.quality,
+    format_type: format.format_type,
+    bunny_library_id: format.bunny_library_id,
+    bunny_video_id: format.bunny_video_id,
+    stream_url: format.stream_url ?? "",
+    token_path: format.token_path ?? "",
+    drm_policy: format.drm_policy,
+    is_active: format.is_active,
+    is_default: format.is_default,
+    sort_order: format.sort_order,
+  };
+}
+
+function createEmptyContentFormat(options: AdminContentOptions): ContentFormatFormState {
+  return {
+    local_id: crypto.randomUUID(),
+    quality: options.quality_options[0] ?? "HD",
+    format_type: "main",
+    bunny_library_id: "",
+    bunny_video_id: "",
+    stream_url: "",
+    token_path: "",
+    drm_policy: "tokenized",
+    is_active: true,
+    is_default: false,
+    sort_order: 0,
+  };
+}
+
+function mapRightsWindowToForm(item: AdminRightsWindow): RightsWindowFormState {
+  return {
+    local_id: `rights-${item.id}`,
+    id: item.id,
+    content_format_quality: item.content_format_quality ?? "",
+    country_code: item.country_code ?? "",
+    is_allowed: item.is_allowed,
+    starts_at: item.starts_at ? item.starts_at.slice(0, 10) : "",
+    ends_at: item.ends_at ? item.ends_at.slice(0, 10) : "",
+  };
+}
+
+function createEmptyRightsWindow(): RightsWindowFormState {
+  return {
+    local_id: crypto.randomUUID(),
+    content_format_quality: "",
+    country_code: "",
+    is_allowed: true,
+    starts_at: "",
+    ends_at: "",
+  };
+}
+
+function mapSubtitleTrackToForm(item: AdminSubtitleTrack): SubtitleTrackFormState {
+  return {
+    local_id: `subtitle-${item.id}`,
+    id: item.id,
+    content_format_quality: item.content_format_quality ?? "",
+    locale: item.locale,
+    label: item.label,
+    file_url: item.file_url,
+    is_default: item.is_default,
+    sort_order: item.sort_order,
+  };
+}
+
+function createEmptySubtitleTrack(): SubtitleTrackFormState {
+  return {
+    local_id: crypto.randomUUID(),
+    content_format_quality: "",
+    locale: "ro",
+    label: "",
+    file_url: "",
+    is_default: false,
+    sort_order: 0,
+  };
+}
+
+function mapPremiereEventToForm(item: AdminPremiereEvent): PremiereEventFormState {
+  return {
+    local_id: `premiere-${item.id}`,
+    id: item.id,
+    title: item.title,
+    starts_at: item.starts_at ? item.starts_at.slice(0, 16) : "",
+    ends_at: item.ends_at ? item.ends_at.slice(0, 16) : "",
+    is_active: item.is_active,
+    is_public: item.is_public,
+  };
+}
+
+function createEmptyPremiereEvent(): PremiereEventFormState {
+  return {
+    local_id: crypto.randomUUID(),
+    title: "",
+    starts_at: "",
+    ends_at: "",
+    is_active: true,
+    is_public: true,
   };
 }
 
@@ -480,6 +638,10 @@ export function ContentEditor() {
   const [options, setOptions] = useState<AdminContentOptions>(FALLBACK_OPTIONS);
   const [formState, setFormState] = useState<ContentFormState>(createEmptyFormState);
   const [offerDrafts, setOfferDrafts] = useState<OfferFormState[]>([]);
+  const [contentFormatDrafts, setContentFormatDrafts] = useState<ContentFormatFormState[]>([]);
+  const [rightsWindowDrafts, setRightsWindowDrafts] = useState<RightsWindowFormState[]>([]);
+  const [subtitleTrackDrafts, setSubtitleTrackDrafts] = useState<SubtitleTrackFormState[]>([]);
+  const [premiereEventDrafts, setPremiereEventDrafts] = useState<PremiereEventFormState[]>([]);
   const [offerValidationErrors, setOfferValidationErrors] = useState<Record<string, Record<string, string[]>>>({});
   const [offerBusyKey, setOfferBusyKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -504,6 +666,10 @@ export function ContentEditor() {
         setOptions(response.options);
         setFormState(mapContentToForm(response.content));
         setOfferDrafts((response.content.offers ?? []).map((offer) => mapOfferToForm(offer)));
+        setContentFormatDrafts((response.content.content_formats ?? []).map((item) => mapContentFormatToForm(item)));
+        setRightsWindowDrafts((response.content.rights_windows ?? []).map((item) => mapRightsWindowToForm(item)));
+        setSubtitleTrackDrafts((response.content.subtitle_tracks ?? []).map((item) => mapSubtitleTrackToForm(item)));
+        setPremiereEventDrafts((response.content.premiere_events ?? []).map((item) => mapPremiereEventToForm(item)));
         setOfferValidationErrors({});
       } else {
         const response = await adminApi.getContentOptions();
@@ -513,6 +679,10 @@ export function ContentEditor() {
           default_locale: currentUser?.preferred_locale ?? "ro",
         }));
         setOfferDrafts([]);
+        setContentFormatDrafts([]);
+        setRightsWindowDrafts([]);
+        setSubtitleTrackDrafts([]);
+        setPremiereEventDrafts([]);
         setOfferValidationErrors({});
       }
     } catch (loadError) {
@@ -630,6 +800,30 @@ export function ContentEditor() {
           : member,
       ),
     }));
+  }
+
+  function updateContentFormatDraft(localId: string, field: keyof ContentFormatFormState, value: string | number | boolean) {
+    setContentFormatDrafts((current) =>
+      current.map((item) => (item.local_id === localId ? { ...item, [field]: value } : item)),
+    );
+  }
+
+  function updateRightsWindowDraft(localId: string, field: keyof RightsWindowFormState, value: string | boolean) {
+    setRightsWindowDrafts((current) =>
+      current.map((item) => (item.local_id === localId ? { ...item, [field]: value } : item)),
+    );
+  }
+
+  function updateSubtitleTrackDraft(localId: string, field: keyof SubtitleTrackFormState, value: string | number | boolean) {
+    setSubtitleTrackDrafts((current) =>
+      current.map((item) => (item.local_id === localId ? { ...item, [field]: value } : item)),
+    );
+  }
+
+  function updatePremiereEventDraft(localId: string, field: keyof PremiereEventFormState, value: string | boolean) {
+    setPremiereEventDrafts((current) =>
+      current.map((item) => (item.local_id === localId ? { ...item, [field]: value } : item)),
+    );
   }
 
   function updateCrewMember(index: number, field: keyof Omit<AdminContentCrewMember, "job_title">, value: string | number | null) {
@@ -937,6 +1131,55 @@ export function ContentEditor() {
             })),
         })),
       subtitle_locales: formState.subtitle_locales,
+      content_formats: contentFormatDrafts
+        .filter((item) => item.bunny_library_id.trim() && item.bunny_video_id.trim())
+        .map((item, index) => ({
+          id: item.id,
+          quality: item.quality,
+          format_type: item.format_type,
+          bunny_library_id: item.bunny_library_id.trim(),
+          bunny_video_id: item.bunny_video_id.trim(),
+          stream_url: item.stream_url.trim() || null,
+          token_path: item.token_path.trim() || null,
+          drm_policy: item.drm_policy.trim() || "tokenized",
+          is_active: item.is_active,
+          is_default: item.is_default,
+          sort_order: item.sort_order === "" ? index : Number(item.sort_order),
+          meta: {},
+        })),
+      rights_windows: rightsWindowDrafts
+        .filter((item) => item.country_code.trim() || item.content_format_quality.trim())
+        .map((item) => ({
+          id: item.id,
+          content_format_quality: item.content_format_quality.trim() || null,
+          country_code: item.country_code.trim() || null,
+          is_allowed: item.is_allowed,
+          starts_at: item.starts_at || null,
+          ends_at: item.ends_at || null,
+          meta: {},
+        })),
+      subtitle_tracks: subtitleTrackDrafts
+        .filter((item) => item.label.trim() && item.file_url.trim())
+        .map((item, index) => ({
+          id: item.id,
+          content_format_quality: item.content_format_quality.trim() || null,
+          locale: item.locale,
+          label: item.label.trim(),
+          file_url: item.file_url.trim(),
+          is_default: item.is_default,
+          sort_order: item.sort_order === "" ? index : Number(item.sort_order),
+        })),
+      premiere_events: premiereEventDrafts
+        .filter((item) => item.title.trim() && item.starts_at)
+        .map((item) => ({
+          id: item.id,
+          title: item.title.trim(),
+          starts_at: item.starts_at,
+          ends_at: item.ends_at || null,
+          is_active: item.is_active,
+          is_public: item.is_public,
+          meta: {},
+        })),
       available_qualities: formState.available_qualities,
       is_featured: formState.is_featured,
       is_trending: formState.is_trending,
@@ -968,10 +1211,6 @@ export function ContentEditor() {
     if (currentOffer.offer_type === "rental" && currentOffer.rental_days === "") {
       localErrors.rental_days = ["Setează numărul de zile pentru rental."];
     }
-    if (formState.type === "movie" && !currentOffer.playback_url.trim()) {
-      localErrors.playback_url = ["URL-ul de playback este obligatoriu pentru filme."];
-    }
-
     if (Object.keys(localErrors).length > 0) {
       setOfferValidationErrors((current) => ({
         ...current,
@@ -1089,6 +1328,10 @@ export function ContentEditor() {
       navigate("editor", String(response.content.id), ["Catalog", response.content.localized_title]);
       setFormState(mapContentToForm(response.content));
       setOfferDrafts((response.content.offers ?? []).map((offer) => mapOfferToForm(offer)));
+      setContentFormatDrafts((response.content.content_formats ?? []).map((item) => mapContentFormatToForm(item)));
+      setRightsWindowDrafts((response.content.rights_windows ?? []).map((item) => mapRightsWindowToForm(item)));
+      setSubtitleTrackDrafts((response.content.subtitle_tracks ?? []).map((item) => mapSubtitleTrackToForm(item)));
+      setPremiereEventDrafts((response.content.premiere_events ?? []).map((item) => mapPremiereEventToForm(item)));
     } catch (saveError) {
       const apiError = saveError as ApiRequestError;
       setValidationErrors(apiError.errors ?? {});
@@ -1175,7 +1418,7 @@ export function ContentEditor() {
       </Card>
 
       <Tabs value={editorTab} onValueChange={setEditorTab} className="space-y-4">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-8">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-9">
           <TabsTrigger value="general" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             General
           </TabsTrigger>
@@ -1187,6 +1430,9 @@ export function ContentEditor() {
           </TabsTrigger>
           <TabsTrigger value="media" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             Media
+          </TabsTrigger>
+          <TabsTrigger value="playback" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+            Bunny & Rights
           </TabsTrigger>
           <TabsTrigger value="credits" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             Distribuție
@@ -1475,6 +1721,7 @@ export function ContentEditor() {
                   error={getFieldError("poster_url")}
                   previewLabel="Poster"
                   aspectClassName="aspect-[2/3]"
+                  uploadDirectory="content/posters"
                   onChange={(value) => setFormState((current) => ({ ...current, poster_url: value }))}
                 />
                 <ImageUploadField
@@ -1482,6 +1729,7 @@ export function ContentEditor() {
                   value={formState.backdrop_url}
                   error={getFieldError("backdrop_url")}
                   previewLabel="Backdrop"
+                  uploadDirectory="content/backdrops"
                   onChange={(value) => setFormState((current) => ({ ...current, backdrop_url: value }))}
                 />
                 <div className="grid gap-4 md:grid-cols-2">
@@ -1489,6 +1737,7 @@ export function ContentEditor() {
                     label="Hero desktop"
                     value={formState.hero_desktop_url}
                     previewLabel="Desktop"
+                    uploadDirectory="content/heroes"
                     onChange={(value) =>
                       setFormState((current) => ({ ...current, hero_desktop_url: value }))
                     }
@@ -1498,6 +1747,7 @@ export function ContentEditor() {
                     value={formState.hero_mobile_url}
                     previewLabel="Mobile"
                     aspectClassName="aspect-[3/4]"
+                    uploadDirectory="content/heroes"
                     onChange={(value) =>
                       setFormState((current) => ({ ...current, hero_mobile_url: value }))
                     }
@@ -1537,6 +1787,7 @@ export function ContentEditor() {
                           label={`Imagine preview ${index + 1}`}
                           value={image}
                           previewLabel={`Galerie ${index + 1}`}
+                          uploadDirectory="content/previews"
                           onChange={(value) => updatePreviewImage(index, value)}
                         />
                       </div>
@@ -1680,6 +1931,7 @@ export function ContentEditor() {
                           label={`Thumbnail ${index + 1}`}
                           value={video.thumbnail_url ?? ""}
                           previewLabel="Thumbnail"
+                          uploadDirectory="content/video-thumbnails"
                           onChange={(value) => updateVideo(index, "thumbnail_url", value)}
                         />
                       </div>
@@ -1720,6 +1972,233 @@ export function ContentEditor() {
                   </Card>
                 ))
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="playback" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+              <div>
+                <CardTitle>Bunny content formats</CardTitle>
+                <CardDescription>Mapezi fiecare calitate din platformă la `Library ID` și `Movie ID` din Bunny.</CardDescription>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setContentFormatDrafts((current) => [...current, { ...createEmptyContentFormat(options), sort_order: current.length }])}>
+                <PlusIcon className="h-4 w-4" />
+                Adaugă format
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {contentFormatDrafts.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                  Nu există încă formate Bunny. Adaugă cel puțin un format principal pentru playback.
+                </div>
+              ) : contentFormatDrafts.map((item, index) => (
+                <Card key={item.local_id}>
+                  <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+                    <div>
+                      <CardTitle className="text-base">{item.quality} · {item.format_type}</CardTitle>
+                      <CardDescription>{item.bunny_library_id || "Library ID neconfigurat"}</CardDescription>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setContentFormatDrafts((current) => current.filter((entry) => entry.local_id !== item.local_id))}>
+                      <TrashIcon className="h-4 w-4" />
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+                    <FormField
+                      label="Calitate"
+                      type="select"
+                      value={item.quality}
+                      options={options.quality_options.map((quality) => ({ label: quality, value: quality }))}
+                      onChange={(event) => updateContentFormatDraft(item.local_id, "quality", event.target.value)}
+                    />
+                  <FormField
+                    label="Tip format"
+                    type="select"
+                    value={item.format_type}
+                    options={(options.format_types ?? FALLBACK_OPTIONS.format_types ?? []).map((option) => ({ label: option.label, value: option.value }))}
+                    onChange={(event) => updateContentFormatDraft(item.local_id, "format_type", event.target.value)}
+                  />
+                    <FormField
+                      label="Bunny Library ID"
+                      value={item.bunny_library_id}
+                      onChange={(event) => updateContentFormatDraft(item.local_id, "bunny_library_id", event.target.value)}
+                    />
+                    <FormField
+                      label="Bunny Movie ID"
+                      value={item.bunny_video_id}
+                      onChange={(event) => updateContentFormatDraft(item.local_id, "bunny_video_id", event.target.value)}
+                    />
+                    <FormField
+                      label="Stream URL override"
+                      value={item.stream_url}
+                      helperText="Lasă gol pentru URL generat automat din Bunny."
+                      onChange={(event) => updateContentFormatDraft(item.local_id, "stream_url", event.target.value)}
+                    />
+                    <FormField
+                      label="Token path"
+                      value={item.token_path}
+                      helperText="Opțional pentru pull zone / semnare custom."
+                      onChange={(event) => updateContentFormatDraft(item.local_id, "token_path", event.target.value)}
+                    />
+                    <FormField
+                      label="DRM policy"
+                      value={item.drm_policy}
+                      onChange={(event) => updateContentFormatDraft(item.local_id, "drm_policy", event.target.value)}
+                    />
+                    <FormField
+                      label="Sort order"
+                      type="number"
+                      value={item.sort_order}
+                      onChange={(event) => updateContentFormatDraft(item.local_id, "sort_order", event.target.value === "" ? "" : Number(event.target.value))}
+                    />
+                    <div className="md:col-span-2 xl:col-span-4 grid gap-4 md:grid-cols-2">
+                      <FormField
+                        label="Activ"
+                        type="toggle"
+                        checked={item.is_active}
+                        helperText="Formatul poate fi ales pentru playback dacă este activ."
+                        onChange={(event) => updateContentFormatDraft(item.local_id, "is_active", event.target.checked)}
+                      />
+                      <FormField
+                        label="Format implicit"
+                        type="toggle"
+                        checked={item.is_default}
+                        helperText="Formatul preferat când utilizatorul nu cere explicit o altă calitate."
+                        onChange={(event) => updateContentFormatDraft(item.local_id, "is_default", event.target.checked)}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+              <div>
+                <CardTitle>Rights windows</CardTitle>
+                <CardDescription>Restricții teritoriale și perioade de disponibilitate per titlu sau per format.</CardDescription>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setRightsWindowDrafts((current) => [...current, createEmptyRightsWindow()])}>
+                <PlusIcon className="h-4 w-4" />
+                Adaugă regulă
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {rightsWindowDrafts.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                  Fără reguli explicite, titlul rămâne disponibil global.
+                </div>
+              ) : rightsWindowDrafts.map((item) => (
+                <div key={item.local_id} className="grid gap-4 rounded-xl border p-4 md:grid-cols-2 xl:grid-cols-6">
+                  <FormField
+                    label="Format"
+                    type="select"
+                    value={item.content_format_quality}
+                    options={[{ label: "Toate formatele", value: "" }, ...contentFormatDrafts.map((format) => ({ label: format.quality, value: format.quality }))]}
+                    onChange={(event) => updateRightsWindowDraft(item.local_id, "content_format_quality", event.target.value)}
+                  />
+                  <FormField
+                    label="Țară"
+                    type="select"
+                    value={item.country_code}
+                    options={[{ label: "Global", value: "" }, ...options.countries]}
+                    onChange={(event) => updateRightsWindowDraft(item.local_id, "country_code", event.target.value)}
+                  />
+                  <FormField
+                    label="Permite acces"
+                    type="toggle"
+                    checked={item.is_allowed}
+                    helperText="Dacă este oprit, regula blochează accesul."
+                    onChange={(event) => updateRightsWindowDraft(item.local_id, "is_allowed", event.target.checked)}
+                  />
+                  <FormField
+                    label="Începe la"
+                    type="date"
+                    value={item.starts_at}
+                    onChange={(event) => updateRightsWindowDraft(item.local_id, "starts_at", event.target.value)}
+                  />
+                  <FormField
+                    label="Se termină la"
+                    type="date"
+                    value={item.ends_at}
+                    onChange={(event) => updateRightsWindowDraft(item.local_id, "ends_at", event.target.value)}
+                  />
+                  <div className="flex items-end justify-end">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setRightsWindowDrafts((current) => current.filter((entry) => entry.local_id !== item.local_id))}>
+                      <TrashIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+              <div>
+                <CardTitle>Subtitle tracks</CardTitle>
+                <CardDescription>Subtitrări multiple, opțional asociate unui format specific.</CardDescription>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setSubtitleTrackDrafts((current) => [...current, { ...createEmptySubtitleTrack(), sort_order: current.length }])}>
+                <PlusIcon className="h-4 w-4" />
+                Adaugă subtitrare
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {subtitleTrackDrafts.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                  Nu există încă subtitrări configurate pentru playback.
+                </div>
+              ) : subtitleTrackDrafts.map((item) => (
+                <div key={item.local_id} className="grid gap-4 rounded-xl border p-4 md:grid-cols-2 xl:grid-cols-6">
+                  <FormField
+                    label="Format"
+                    type="select"
+                    value={item.content_format_quality}
+                    options={[{ label: "Toate formatele", value: "" }, ...contentFormatDrafts.map((format) => ({ label: format.quality, value: format.quality }))]}
+                    onChange={(event) => updateSubtitleTrackDraft(item.local_id, "content_format_quality", event.target.value)}
+                  />
+                  <FormField
+                    label="Locale"
+                    type="select"
+                    value={item.locale}
+                    options={options.locales.map((locale) => ({ label: locale.label, value: locale.value }))}
+                    onChange={(event) => updateSubtitleTrackDraft(item.local_id, "locale", event.target.value)}
+                  />
+                  <FormField
+                    label="Label"
+                    value={item.label}
+                    onChange={(event) => updateSubtitleTrackDraft(item.local_id, "label", event.target.value)}
+                  />
+                  <FormField
+                    label="Subtitle URL"
+                    value={item.file_url}
+                    onChange={(event) => updateSubtitleTrackDraft(item.local_id, "file_url", event.target.value)}
+                  />
+                  <FormField
+                    label="Sort order"
+                    type="number"
+                    value={item.sort_order}
+                    onChange={(event) => updateSubtitleTrackDraft(item.local_id, "sort_order", event.target.value === "" ? "" : Number(event.target.value))}
+                  />
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <FormField
+                        label="Implicit"
+                        type="toggle"
+                        checked={item.is_default}
+                        helperText="Selectat automat în player."
+                        onChange={(event) => updateSubtitleTrackDraft(item.local_id, "is_default", event.target.checked)}
+                      />
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setSubtitleTrackDrafts((current) => current.filter((entry) => entry.local_id !== item.local_id))}>
+                      <TrashIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1821,6 +2300,7 @@ export function ContentEditor() {
                         value={member.avatar_url ?? ""}
                         previewLabel="Avatar"
                         aspectClassName="aspect-square"
+                        uploadDirectory="content/avatars"
                         onChange={(value) => updateCastMember(index, "avatar_url", value)}
                       />
                     </CardContent>
@@ -1878,6 +2358,7 @@ export function ContentEditor() {
                         value={member.avatar_url ?? ""}
                         previewLabel="Avatar"
                         aspectClassName="aspect-square"
+                        uploadDirectory="content/avatars"
                         onChange={(value) => updateCrewMember(index, "avatar_url", value)}
                       />
                     </CardContent>
@@ -2002,6 +2483,7 @@ export function ContentEditor() {
                         value={season.poster_url ?? ""}
                         previewLabel="Poster sezon"
                         aspectClassName="aspect-[2/3]"
+                        uploadDirectory="content/seasons"
                         onChange={(value) => updateSeason(seasonIndex, "poster_url", value)}
                       />
                       <FormField
@@ -2091,6 +2573,7 @@ export function ContentEditor() {
                                 label={`Miniatură episod ${episodeIndex + 1}`}
                                 value={episode.thumbnail_url ?? ""}
                                 previewLabel="Miniatură"
+                                uploadDirectory="content/episodes"
                                 onChange={(value) =>
                                   updateEpisode(seasonIndex, episodeIndex, "thumbnail_url", value)
                                 }
@@ -2101,6 +2584,7 @@ export function ContentEditor() {
                                 label={`Backdrop episod ${episodeIndex + 1}`}
                                 value={episode.backdrop_url ?? ""}
                                 previewLabel="Backdrop"
+                                uploadDirectory="content/episodes"
                                 onChange={(value) =>
                                   updateEpisode(seasonIndex, episodeIndex, "backdrop_url", value)
                                 }
@@ -2239,6 +2723,86 @@ export function ContentEditor() {
                   </div>
                 </CardContent>
               </Card>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+              <div>
+                <CardTitle>Premiere și acces sincronizat</CardTitle>
+                <CardDescription>
+                  Configurezi premiere digitale care blochează playback-ul până la ora de start și afișează countdown în storefront.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setPremiereEventDrafts((current) => [
+                    ...current,
+                    createEmptyPremiereEvent(),
+                  ])
+                }
+              >
+                <PlusIcon className="h-4 w-4" />
+                Adaugă premieră
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {premiereEventDrafts.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                  Nu există încă premiere configurate. Dacă adaugi una publică și activă, playback-ul se va deschide doar după ora de start.
+                </div>
+              ) : (
+                premiereEventDrafts.map((item, index) => (
+                  <div key={item.local_id} className="grid gap-4 rounded-xl border p-4 md:grid-cols-2 xl:grid-cols-6">
+                    <FormField
+                      label="Titlu premieră"
+                      value={item.title}
+                      onChange={(event) => updatePremiereEventDraft(item.local_id, "title", event.target.value)}
+                    />
+                    <FormField
+                      label="Start"
+                      type="datetime-local"
+                      value={item.starts_at}
+                      onChange={(event) => updatePremiereEventDraft(item.local_id, "starts_at", event.target.value)}
+                    />
+                    <FormField
+                      label="Sfârșit"
+                      type="datetime-local"
+                      value={item.ends_at}
+                      onChange={(event) => updatePremiereEventDraft(item.local_id, "ends_at", event.target.value)}
+                    />
+                    <FormField
+                      label="Activ"
+                      type="toggle"
+                      checked={item.is_active}
+                      helperText="Dacă este oprită, premiera nu influențează storefront-ul."
+                      onChange={(event) => updatePremiereEventDraft(item.local_id, "is_active", event.target.checked)}
+                    />
+                    <FormField
+                      label="Public"
+                      type="toggle"
+                      checked={item.is_public}
+                      helperText="Afișează countdown-ul și aplică lock pe playback."
+                      onChange={(event) => updatePremiereEventDraft(item.local_id, "is_public", event.target.checked)}
+                    />
+                    <div className="flex items-end justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setPremiereEventDrafts((current) => current.filter((entry) => entry.local_id !== item.local_id))}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="md:col-span-2 xl:col-span-6 text-xs text-muted-foreground">
+                      Premieră #{index + 1} este folosită și pentru countdown în client. Dacă există mai multe premiere active, storefront-ul o va lua pe următoarea în ordine cronologică.
+                    </div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -2438,9 +3002,7 @@ export function ContentEditor() {
                           label="URL playback"
                           value={offer.playback_url}
                           error={getOfferFieldError(offer.local_id, "playback_url")}
-                          helperText={formState.type === "movie"
-                            ? "Obligatoriu pentru filme, pe fiecare variantă de calitate."
-                            : "Opțional pentru seriale dacă playback-ul vine din episoade."}
+                          helperText="Opțional. Dacă playback-ul este definit prin Bunny content formats, oferta nu are nevoie de URL propriu."
                           onChange={(event) => updateOfferDraft(offer.local_id, "playback_url", event.target.value)}
                         />
                       </div>

@@ -6,6 +6,8 @@ use App\Models\Content;
 use App\Models\Offer;
 use App\Services\ContentSearchService;
 use App\Services\HomePageService;
+use App\Services\IpGeoLocationService;
+use App\Services\PlaybackAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -16,12 +18,15 @@ class PublicCatalogController extends ApiController
     public function __construct(
         protected ContentSearchService $contentSearch,
         protected HomePageService $homePageService,
+        protected PlaybackAccessService $playbackAccess,
+        protected IpGeoLocationService $geoLocation,
     ) {}
 
     public function home(Request $request): JsonResponse
     {
         $locale = $this->resolveLocale($request);
-        $legacyData = $this->legacyHomeData($locale);
+        $countryCode = $this->geoLocation->resolveCountryCode($request);
+        $legacyData = $this->legacyHomeData($locale, $countryCode);
         $resolvedSections = $this->homePageService->activeSections();
         $heroSection = $resolvedSections->firstWhere('section_type', \App\Models\HomePageSection::TYPE_HERO_SLIDER);
         $heroSlides = $heroSection
@@ -44,6 +49,7 @@ class PublicCatalogController extends ApiController
                     'subtitle' => $section->getTranslation('subtitle', $locale, false)
                         ?? $section->getTranslation('subtitle', 'ro', false),
                     'items' => $this->homePageService->resolveCarouselItems($section)
+                        ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
                         ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                         ->values()
                         ->all(),
@@ -65,6 +71,7 @@ class PublicCatalogController extends ApiController
     public function catalog(Request $request): JsonResponse
     {
         $locale = $this->resolveLocale($request);
+        $countryCode = $this->geoLocation->resolveCountryCode($request);
         $page = max((int) $request->integer('page', 1), 1);
         $pageSize = min(max((int) $request->integer('page_size', 24), 1), 100);
         $result = $this->contentSearch->searchCatalog($locale, [
@@ -81,6 +88,7 @@ class PublicCatalogController extends ApiController
 
         return response()->json([
             'items' => collect($result['items'] ?? [])
+                ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                 ->values(),
             'page' => $result['page'] ?? $page,
@@ -94,9 +102,10 @@ class PublicCatalogController extends ApiController
     public function show(Request $request, string $identifier): JsonResponse
     {
         $locale = $this->resolveLocale($request);
+        $countryCode = $this->geoLocation->resolveCountryCode($request);
         $content = Content::query()
             ->published()
-            ->with('taxonomies', 'offers')
+            ->with('taxonomies', 'offers', 'formats', 'rightsWindows', 'premiereEvents')
             ->where(function ($builder) use ($identifier): void {
                 $builder->where('slug', $identifier);
 
@@ -112,7 +121,59 @@ class PublicCatalogController extends ApiController
             ], Response::HTTP_NOT_FOUND);
         }
 
+        if (! $this->isCatalogVisible($content, $countryCode)) {
+            return response()->json([
+                'message' => 'This title is not available in your territory.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         return response()->json($this->publicContentDetailData($content, $locale));
+    }
+
+    public function premiere(Request $request, string $identifier): JsonResponse
+    {
+        $locale = $this->resolveLocale($request);
+        $countryCode = $this->geoLocation->resolveCountryCode($request);
+        $content = Content::query()
+            ->published()
+            ->with('taxonomies', 'offers', 'formats', 'rightsWindows', 'premiereEvents')
+            ->where(function ($builder) use ($identifier): void {
+                $builder->where('slug', $identifier);
+
+                if (ctype_digit($identifier)) {
+                    $builder->orWhere('id', (int) $identifier);
+                }
+            })
+            ->first();
+
+        if ($content === null) {
+            return response()->json([
+                'message' => 'The requested content was not found.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        if (! $this->isCatalogVisible($content, $countryCode)) {
+            return response()->json([
+                'message' => 'This title is not available in your territory.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        $nextPremiere = $this->playbackAccess->nextPublicPremiere($content);
+
+        return response()->json([
+            'content' => $this->publicContentCardData($content, $locale),
+            'premiere_event' => $nextPremiere ? [
+                'id' => $nextPremiere->id,
+                'title' => $nextPremiere->title,
+                'starts_at' => $nextPremiere->starts_at?->toIso8601String(),
+                'ends_at' => $nextPremiere->ends_at?->toIso8601String(),
+                'is_live' => $nextPremiere->starts_at !== null && $nextPremiere->starts_at->isPast(),
+            ] : null,
+            'watch_party' => [
+                'is_locked' => $nextPremiere !== null,
+                'entry_path' => '/watch/'.$content->slug,
+            ],
+        ]);
     }
 
     protected function resolveLocale(Request $request): string
@@ -124,19 +185,26 @@ class PublicCatalogController extends ApiController
             : Content::supportedLocales()[0];
     }
 
-    protected function legacyHomeData(string $locale): array
+    protected function legacyHomeData(string $locale, ?string $countryCode = null): array
     {
         $baseQuery = Content::query()
             ->published()
-            ->with('taxonomies', 'offers')
+            ->with('taxonomies', 'offers', 'formats', 'rightsWindows', 'premiereEvents')
             ->orderByDesc('is_featured')
             ->orderBy('sort_order')
             ->orderByDesc('published_at')
             ->orderByDesc('release_year');
 
-        $featured = (clone $baseQuery)->where('is_featured', true)->limit(8)->get();
-        $hero = $featured->first() ?? (clone $baseQuery)->first();
-        $allPublished = (clone $baseQuery)->limit(24)->get();
+        $featured = (clone $baseQuery)->where('is_featured', true)->limit(16)->get()
+            ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
+            ->take(8)
+            ->values();
+        $hero = $featured->first()
+            ?? (clone $baseQuery)->limit(24)->get()->first(fn (Content $content) => $this->isCatalogVisible($content, $countryCode));
+        $allPublished = (clone $baseQuery)->limit(40)->get()
+            ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
+            ->take(24)
+            ->values();
 
         return [
             'hero' => $hero ? $this->publicContentCardData($hero, $locale) : null,
@@ -147,14 +215,18 @@ class PublicCatalogController extends ApiController
                         ->where('is_free', true)
                         ->orWhereHas('offers', fn ($offerQuery) => $offerQuery->where('offer_type', Offer::TYPE_FREE));
                 })
-                ->limit(8)
+                ->limit(16)
                 ->get()
+                ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
+                ->take(8)
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                 ->values(),
             'latest' => (clone $baseQuery)
                 ->orderByDesc('release_year')
-                ->limit(8)
+                ->limit(16)
                 ->get()
+                ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
+                ->take(8)
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                 ->values(),
             'movies' => $allPublished
@@ -166,6 +238,17 @@ class PublicCatalogController extends ApiController
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                 ->values(),
         ];
+    }
+
+    protected function isCatalogVisible(Content $content, ?string $countryCode): bool
+    {
+        if (! $this->playbackAccess->isContentCurrentlyAvailable($content)) {
+            return false;
+        }
+
+        $format = $this->playbackAccess->resolveAvailableFormat($content, $countryCode);
+
+        return $format !== null;
     }
 
     protected function publicHeroSlideData(array $slide, string $locale): array
