@@ -34,10 +34,37 @@ class AdsController extends ApiController
             return response('', Response::HTTP_NO_CONTENT)->header('Content-Type', 'application/xml');
         }
 
-        $trackingBaseUrl = rtrim((string) config('app.url'), '/').'/api/v1/ads/events';
-        $xml = $this->vast->buildVastXml($campaign, $trackingBaseUrl);
+        $trackingBaseUrl = rtrim((string) config('app.url'), '/').'/api/v1/ads/track';
+        $playbackSessionId = $request->integer('session_id') ?: null;
+        $xml = $this->vast->buildVastXml($campaign, $trackingBaseUrl, $playbackSessionId);
 
         return response($xml, Response::HTTP_OK)->header('Content-Type', 'application/xml');
+    }
+
+    /**
+     * Tracking pixel endpoint hit by VAST-compliant players (GET).
+     * Returns a 1x1 transparent GIF and dispatches the event for buffering.
+     */
+    public function track(Request $request)
+    {
+        ProcessAdAnalyticsEvent::dispatch([
+            'ad_campaign_id' => $request->integer('campaign_id') ?: null,
+            'ad_creative_id' => $request->integer('creative_id') ?: null,
+            'content_id' => $request->integer('content_id') ?: null,
+            'playback_session_id' => $request->integer('session_id') ?: null,
+            'event_type' => (string) $request->query('event', 'unknown'),
+            'country_code' => $request->query('country_code'),
+            'occurred_at' => now()->toIso8601String(),
+            'source_payload' => $request->query(),
+        ]);
+
+        // 1x1 transparent GIF
+        $pixel = base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+
+        return response($pixel, Response::HTTP_OK)
+            ->header('Content-Type', 'image/gif')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     public function event(Request $request)

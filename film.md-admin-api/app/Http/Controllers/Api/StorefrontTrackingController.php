@@ -6,6 +6,8 @@ use App\Jobs\ProcessVideoAnalyticsEvent;
 use App\Models\Content;
 use App\Models\PlaybackSession;
 use App\Models\WatchProgress;
+use App\Services\IpGeoLocationService;
+use App\Services\PlaybackAccessService;
 use App\Services\RecommendationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +18,8 @@ class StorefrontTrackingController extends ApiController
 {
     public function __construct(
         protected RecommendationService $recommendations,
+        protected IpGeoLocationService $geoLocation,
+        protected PlaybackAccessService $playbackAccess,
     ) {}
 
     public function startPlaybackSession(Request $request, string $identifier): JsonResponse
@@ -25,31 +29,67 @@ class StorefrontTrackingController extends ApiController
             ->orWhere('id', ctype_digit($identifier) ? (int) $identifier : 0)
             ->firstOrFail();
 
-        $session = PlaybackSession::query()->create([
-            'user_id' => $request->user()?->id,
-            'content_id' => $content->id,
-            'content_format_id' => $request->integer('content_format_id') ?: null,
-            'offer_id' => $request->integer('offer_id') ?: null,
-            'account_profile_id' => $request->integer('account_profile_id') ?: null,
-            'session_token' => Str::random(40),
-            'country_code' => $request->string('country_code')->toString() ?: null,
-            'device_type' => $request->string('device_type')->toString() ?: null,
-            'status' => PlaybackSession::STATUS_STARTED,
-            'started_at' => now(),
-            'meta' => [
-                'user_agent' => $request->userAgent(),
-                'referrer' => $request->headers->get('referer'),
-            ],
-        ]);
+        $userId = $request->user()?->id;
+        $profileId = $request->integer('account_profile_id') ?: null;
+        $formatId = $request->integer('content_format_id') ?: null;
 
-        ProcessVideoAnalyticsEvent::dispatch([
-            'content_id' => $content->id,
-            'content_format_id' => $session->content_format_id,
-            'playback_session_id' => $session->id,
-            'event_type' => 'play',
-            'country_code' => $session->country_code,
-            'occurred_at' => now()->toIso8601String(),
-        ]);
+        // Geo-restriction: block playback session creation if the user's country
+        // has no rights window for this content.
+        $countryCode = $this->geoLocation->resolveCountryCode($request);
+        $availableFormat = $this->playbackAccess->resolveAvailableFormat($content, $countryCode);
+        if ($availableFormat === null) {
+            return response()->json([
+                'message' => 'Acest conținut nu este disponibil în țara ta.',
+                'country_code' => $countryCode,
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        // Reuse a recent open session for the same (user/profile + content) so a
+        // page refresh or pause/resume cycle does NOT create a new DRM charge.
+        // Cutoff: 5 minutes — long enough to cover refreshes/network drops.
+        $session = PlaybackSession::query()
+            ->where('content_id', $content->id)
+            ->when($userId, fn ($q) => $q->where('user_id', $userId))
+            ->when($profileId, fn ($q) => $q->where('account_profile_id', $profileId))
+            ->where('status', '!=', PlaybackSession::STATUS_STOPPED)
+            ->where('status', '!=', PlaybackSession::STATUS_COMPLETED)
+            ->where('started_at', '>=', now()->subMinutes(5))
+            ->latest('id')
+            ->first();
+
+        $isNewSession = $session === null;
+
+        if ($isNewSession) {
+            $session = PlaybackSession::query()->create([
+                'user_id' => $userId,
+                'content_id' => $content->id,
+                'content_format_id' => $formatId,
+                'offer_id' => $request->integer('offer_id') ?: null,
+                'account_profile_id' => $profileId,
+                'session_token' => Str::random(40),
+                'country_code' => $request->string('country_code')->toString() ?: null,
+                'device_type' => $request->string('device_type')->toString() ?: null,
+                'status' => PlaybackSession::STATUS_STARTED,
+                'started_at' => now(),
+                'meta' => [
+                    'user_agent' => $request->userAgent(),
+                    'referrer' => $request->headers->get('referer'),
+                ],
+            ]);
+        }
+
+        // Only emit a 'play' event for NEW sessions. Refresh/resume reuses the
+        // existing session and should NOT generate another DRM charge.
+        if ($isNewSession) {
+            ProcessVideoAnalyticsEvent::dispatch([
+                'content_id' => $content->id,
+                'content_format_id' => $session->content_format_id,
+                'playback_session_id' => $session->id,
+                'event_type' => 'play',
+                'country_code' => $session->country_code,
+                'occurred_at' => now()->toIso8601String(),
+            ]);
+        }
 
         return response()->json([
             'session' => [

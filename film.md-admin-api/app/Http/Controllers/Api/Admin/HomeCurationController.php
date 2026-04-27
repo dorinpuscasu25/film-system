@@ -8,6 +8,7 @@ use App\Models\Content;
 use App\Models\HomePageSection;
 use App\Models\Taxonomy;
 use App\Services\HomePageService;
+use App\Services\MediaUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 
@@ -15,6 +16,7 @@ class HomeCurationController extends ApiController
 {
     public function __construct(
         protected HomePageService $homePageService,
+        protected MediaUploadService $mediaUpload,
     ) {}
 
     public function index(): JsonResponse
@@ -60,7 +62,9 @@ class HomeCurationController extends ApiController
         $locale = $request->user()?->preferred_locale ?? Content::supportedLocales()[0];
         $contents = $this->contentOptionCollection($locale);
         $contentsById = $contents->keyBy('id');
-        $sections = $this->homePageService->replaceSections($request->normalizedSections());
+
+        $normalized = $this->uploadInlineImages($request->normalizedSections());
+        $sections = $this->homePageService->replaceSections($normalized);
 
         return response()->json([
             'sections' => $sections
@@ -125,6 +129,36 @@ class HomeCurationController extends ApiController
                     ?? $taxonomy->slug,
             ])->values()->all())
             ->all();
+    }
+
+    /**
+     * Walk normalized sections and convert any base64 data-URIs in hero slide
+     * image fields into Cloudflare R2 URLs. URLs already on R2 (or any http)
+     * are passed through unchanged.
+     *
+     * @param  array<int, array<string, mixed>>  $sections
+     * @return array<int, array<string, mixed>>
+     */
+    protected function uploadInlineImages(array $sections): array
+    {
+        return array_map(function (array $section): array {
+            if (! isset($section['hero_slides']) || ! is_array($section['hero_slides'])) {
+                return $section;
+            }
+
+            $section['hero_slides'] = array_map(function (array $slide): array {
+                foreach (['desktop_image_url', 'mobile_image_url'] as $field) {
+                    $value = $slide[$field] ?? null;
+                    if (is_string($value) && $value !== '') {
+                        $slide[$field] = $this->mediaUpload->resolveImageUrl($value, 'home-sections');
+                    }
+                }
+
+                return $slide;
+            }, $section['hero_slides']);
+
+            return $section;
+        }, $sections);
     }
 
     protected function sectionData(HomePageSection $section, string $locale, Collection $contentsById): array

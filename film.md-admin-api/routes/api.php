@@ -2,12 +2,14 @@
 
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ContentController;
+use App\Http\Controllers\Api\Admin\ContentFinancialsController;
 use App\Http\Controllers\Api\Admin\CostSettingsController;
 use App\Http\Controllers\Api\Admin\HomeCurationController;
 use App\Http\Controllers\Api\Admin\OfferController;
 use App\Http\Controllers\Api\Admin\AdCampaignController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\ExportController;
+use App\Http\Controllers\Api\Admin\FinancialSummaryController;
 use App\Http\Controllers\Api\Admin\PlaybackOpsController;
 use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\TaxonomyController;
@@ -52,6 +54,7 @@ use Illuminate\Support\Facades\Route;
     });
 
     Route::get('ads/vast', [AdsController::class, 'vast'])->middleware('throttle:240,1');
+    Route::get('ads/track', [AdsController::class, 'track'])->middleware('throttle:600,1');
     Route::post('ads/events', [AdsController::class, 'event'])->middleware('throttle:240,1');
     Route::get('docs/openapi.json', [OpenApiController::class, 'show']);
 
@@ -83,6 +86,7 @@ use Illuminate\Support\Facades\Route;
 
         Route::prefix('admin')->middleware('admin.panel')->group(function (): void {
             Route::get('dashboard', [DashboardController::class, 'index']);
+            Route::get('financial-summary', [FinancialSummaryController::class, 'show'])->middleware('permission:commerce.view_billing');
             Route::get('cost-settings', [CostSettingsController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::post('cost-settings', [CostSettingsController::class, 'store'])->middleware('permission:commerce.manage_costs');
             Route::get('exports', [ExportController::class, 'index'])->middleware('permission:commerce.view_billing');
@@ -112,6 +116,7 @@ use Illuminate\Support\Facades\Route;
             Route::get('content', [ContentController::class, 'index'])->middleware('permission:content.view');
             Route::get('content/options', [ContentController::class, 'options'])->middleware('permission:content.view');
             Route::get('content/{content}', [ContentController::class, 'show'])->middleware('permission:content.view');
+            Route::get('content/{content}/financials', [ContentFinancialsController::class, 'show'])->middleware('permission:commerce.view_billing');
             Route::post('content', [ContentController::class, 'store'])->middleware('permission:content.create');
             Route::patch('content/{content}', [ContentController::class, 'update'])->middleware('permission:content.edit');
             Route::delete('content/{content}', [ContentController::class, 'destroy'])->middleware('permission:content.delete');

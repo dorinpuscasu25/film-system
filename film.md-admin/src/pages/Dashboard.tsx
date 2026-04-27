@@ -16,7 +16,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs } from "../components/shared/Tabs";
 import { adminApi } from "../lib/api";
-import { DashboardResponse } from "../types";
+import { DashboardResponse, FinancialSummaryResponse } from "../types";
 import { useAdmin } from "../hooks/useAdmin";
 
 type RangeValue = "7days" | "30days" | "3months";
@@ -146,6 +146,7 @@ export function Dashboard() {
   const { navigate } = useAdmin();
   const [range, setRange] = React.useState<RangeValue>("30days");
   const [dashboard, setDashboard] = React.useState<DashboardResponse>(EMPTY_DASHBOARD);
+  const [financial, setFinancial] = React.useState<FinancialSummaryResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -177,6 +178,23 @@ export function Dashboard() {
     };
   }, [range]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    adminApi
+      .getFinancialSummary()
+      .then((response) => {
+        if (!cancelled) setFinancial(response);
+      })
+      .catch(() => {
+        if (!cancelled) setFinancial(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -197,6 +215,59 @@ export function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {financial ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs">Costuri {financial.current_month.label}</CardDescription>
+              <CardTitle className="text-2xl">
+                {financial.current_month.cost_mdl.toFixed(2)} MDL
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Luna curentă</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs">Costuri {financial.previous_month.label}</CardDescription>
+              <CardTitle className="text-2xl">
+                {financial.previous_month.cost_mdl.toFixed(2)} MDL
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Luna precedentă</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs">Costuri totale</CardDescription>
+              <CardTitle className="text-2xl">{financial.total_costs_mdl.toFixed(2)} MDL</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Venit total: {financial.total_revenue_mdl.toFixed(2)} MDL
+              </p>
+            </CardContent>
+          </Card>
+          <Card className={financial.total_profit_mdl >= 0 ? "border-emerald-500/40" : "border-destructive/40"}>
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs">Profit total</CardDescription>
+              <CardTitle
+                className={`text-2xl ${financial.total_profit_mdl >= 0 ? "text-emerald-500" : "text-destructive"}`}
+              >
+                {financial.total_profit_mdl.toFixed(2)} MDL
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Curs USD/MDL: {financial.usd_to_mdl_rate.toFixed(2)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard

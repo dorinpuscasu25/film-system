@@ -248,6 +248,93 @@ export interface CostSettingsPayload {
   usd_to_mdl_rate: number;
 }
 
+export interface ContentFinancialsRow {
+  format_id: number | null;
+  quality: string | null;
+  format_type: string | null;
+  storage_cost_usd: number;
+  delivery_cost_usd: number;
+  drm_cost_usd: number;
+  revenue_usd: number;
+  profit_usd: number;
+  is_locked: boolean;
+}
+
+export interface ContentFinancialsTotals {
+  storage_cost_usd: number;
+  delivery_cost_usd: number;
+  drm_cost_usd: number;
+  revenue_usd: number;
+  profit_usd: number;
+}
+
+export interface ContentFinancialsMonth {
+  month: string;
+  rows: ContentFinancialsRow[];
+  totals: ContentFinancialsTotals;
+}
+
+export interface FinancialSummaryMonthlyChartItem {
+  month: string;
+  total_cost_mdl: number;
+  revenue_mdl: number;
+  profit_mdl: number;
+}
+
+export interface FinancialSummaryTopMovie {
+  content_id: number;
+  title: string | null;
+  slug: string | null;
+  poster_url: string | null;
+  cost_mdl: number;
+  revenue_mdl: number;
+  profit_mdl: number;
+}
+
+export interface FinancialSummaryResponse {
+  currency: string;
+  usd_to_mdl_rate: number;
+  current_month: { label: string; cost_mdl: number };
+  previous_month: { label: string; cost_mdl: number };
+  total_costs_mdl: number;
+  total_revenue_mdl: number;
+  total_profit_mdl: number;
+  monthly_chart: FinancialSummaryMonthlyChartItem[];
+  top_movies_current_month: FinancialSummaryTopMovie[];
+}
+
+export interface ContentFinancialsResponse {
+  content_id: number;
+  content_title: string | null;
+  usd_to_mdl_rate: number;
+  months: ContentFinancialsMonth[];
+  totals: ContentFinancialsTotals;
+  totals_mdl: {
+    storage_cost: number;
+    delivery_cost: number;
+    drm_cost: number;
+    total_cost: number;
+    revenue: number;
+    profit: number;
+  };
+  sales_count: number;
+  offers: Array<{
+    id: number;
+    quality: string;
+    price: number;
+    currency: string;
+    is_active: boolean;
+  }>;
+  formats: Array<{
+    id: number;
+    quality: string;
+    format_type: string;
+    bunny_library_id: string;
+    bunny_video_id: string;
+    is_active: boolean;
+  }>;
+}
+
 export interface ExportJobItem {
   id: number;
   format: string;

@@ -39,6 +39,12 @@ return [
         'stream_base_url' => env('BUNNY_STREAM_BASE_URL'),
         'token_key' => env('BUNNY_STREAM_TOKEN_KEY'),
         'webhook_secret' => env('BUNNY_WEBHOOK_SECRET'),
+        'stream_api_key' => env('BUNNY_STREAM_API_KEY'),
+        'cdn_api_key' => env('BUNNY_CDN_API_KEY'),
+        'cdn_pull_zone_id' => env('BUNNY_CDN_PULL_ZONE_ID'),
+        'storage_zone_name' => env('BUNNY_STORAGE_ZONE_NAME'),
+        'storage_api_key' => env('BUNNY_STORAGE_API_KEY'),
+        'stats_api_base' => env('BUNNY_STATS_API_BASE', 'https://api.bunny.net'),
     ],
 
 ];

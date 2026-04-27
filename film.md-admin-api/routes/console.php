@@ -1,8 +1,11 @@
 <?php
 
 use App\Services\AnalyticsBufferService;
+use App\Services\BunnyStatsService;
 use App\Services\ContentSearchService;
+use App\Services\FormatCleanupService;
 use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
@@ -42,5 +45,38 @@ Artisan::command('analytics:recalculate-costs {month?}', function (AnalyticsBuff
     return self::SUCCESS;
 })->purpose('Recalculate monthly content costs and creator statements from analytics aggregates');
 
+Artisan::command('bunny:pull-stats {date? : YYYY-MM-DD, defaults to yesterday}', function (BunnyStatsService $stats, ?string $date = null) {
+    $target = $date !== null ? Carbon::parse($date) : Carbon::yesterday();
+
+    $stream = $stats->pullStreamStatsForDate($target);
+    $cdn = $stats->pullCdnStatsForDate($target);
+    $storage = $stats->pullStorageSnapshotForDate($target);
+
+    $this->info(sprintf(
+        'Bunny stats for %s — stream: %d videos synced, cdn: %s, storage: %s',
+        $target->toDateString(),
+        $stream,
+        $cdn ? 'ok' : 'skipped/failed',
+        $storage ? 'ok' : 'skipped/failed',
+    ));
+
+    return self::SUCCESS;
+})->purpose('Pull daily Bunny stats (Stream + CDN + Storage) and store snapshots');
+
+Artisan::command('content:cleanup-unused-formats {--days=30} {--delete-remote}', function (FormatCleanupService $cleanup) {
+    $result = $cleanup->run((int) $this->option('days'), (bool) $this->option('delete-remote'));
+
+    $this->info(sprintf(
+        'Format cleanup: %d candidates, %d deactivated, %d remote videos deleted.',
+        $result['candidates'],
+        $result['deactivated'],
+        $result['deleted_remote'],
+    ));
+
+    return self::SUCCESS;
+})->purpose('Deactivate content formats with zero views in the lookback window');
+
 Schedule::command('analytics:flush-buffers')->everyTenMinutes();
 Schedule::command('analytics:recalculate-costs')->hourly();
+Schedule::command('bunny:pull-stats')->dailyAt('01:30');
+Schedule::command('content:cleanup-unused-formats --days=30')->weekly()->sundays()->at('02:00');

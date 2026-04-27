@@ -40,14 +40,49 @@ class VastService
         return null;
     }
 
-    public function buildVastXml(AdCampaign $campaign, string $trackingBaseUrl): string
+    public function buildVastXml(AdCampaign $campaign, string $trackingBaseUrl, ?int $playbackSessionId = null): string
     {
         $creative = $campaign->creatives->where('is_active', true)->sortByDesc('id')->first();
         $duration = gmdate('H:i:s', max(1, (int) ($creative?->duration_seconds ?? 1)));
         $mediaUrl = htmlspecialchars((string) $creative?->media_url, ENT_XML1);
         $clickUrl = htmlspecialchars((string) ($campaign->click_through_url ?: $campaign->vast_tag_url ?: ''), ENT_XML1);
-        $impressionUrl = htmlspecialchars("{$trackingBaseUrl}?event=impression&campaign_id={$campaign->id}", ENT_XML1);
-        $completeUrl = htmlspecialchars("{$trackingBaseUrl}?event=complete&campaign_id={$campaign->id}", ENT_XML1);
+
+        $url = function (string $event) use ($trackingBaseUrl, $campaign, $creative, $playbackSessionId): string {
+            $params = [
+                'event' => $event,
+                'campaign_id' => $campaign->id,
+            ];
+            if ($creative !== null) {
+                $params['creative_id'] = $creative->id;
+            }
+            if ($playbackSessionId !== null) {
+                $params['session_id'] = $playbackSessionId;
+            }
+            return htmlspecialchars($trackingBaseUrl.'?'.http_build_query($params), ENT_XML1);
+        };
+
+        $impression = $url('impression');
+        $tracking = collect([
+            'start',
+            'firstQuartile',
+            'midpoint',
+            'thirdQuartile',
+            'complete',
+            'pause',
+            'resume',
+            'mute',
+            'unmute',
+            'skip',
+            'close',
+        ])
+            ->map(fn (string $event): string => '              <Tracking event="'.$event.'">'.$url($event).'</Tracking>')
+            ->implode("\n");
+
+        $skipOffset = $campaign->skip_offset_seconds !== null
+            ? sprintf('skipoffset="00:00:%02d"', max(0, (int) $campaign->skip_offset_seconds))
+            : '';
+
+        $clickTrack = $url('click');
 
         return <<<XML
 <?xml version="1.0" encoding="UTF-8"?>
@@ -56,16 +91,17 @@ class VastService
     <InLine>
       <AdSystem>filmoteca.md</AdSystem>
       <AdTitle>{$campaign->name}</AdTitle>
-      <Impression>{$impressionUrl}</Impression>
+      <Impression>{$impression}</Impression>
       <Creatives>
         <Creative>
-          <Linear skipoffset="00:00:{$campaign->skip_offset_seconds}">
+          <Linear {$skipOffset}>
             <Duration>{$duration}</Duration>
             <TrackingEvents>
-              <Tracking event="complete">{$completeUrl}</Tracking>
+{$tracking}
             </TrackingEvents>
             <VideoClicks>
               <ClickThrough>{$clickUrl}</ClickThrough>
+              <ClickTracking>{$clickTrack}</ClickTracking>
             </VideoClicks>
             <MediaFiles>
               <MediaFile delivery="progressive" type="{$creative?->mime_type}" width="{$creative?->width}" height="{$creative?->height}">

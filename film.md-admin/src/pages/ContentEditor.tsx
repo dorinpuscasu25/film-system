@@ -6,6 +6,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { Badge } from "../components/shared/Badge";
+import { ContentCostsTab } from "../components/content/ContentCostsTab";
 import { FormField } from "../components/shared/FormField";
 import { ImageUploadField } from "../components/shared/ImageUploadField";
 import { Button } from "../components/ui/button";
@@ -1455,7 +1456,7 @@ export function ContentEditor() {
       </Card>
 
       <Tabs value={editorTab} onValueChange={setEditorTab} className="space-y-4">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-9">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-10">
           <TabsTrigger value="general" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             General
           </TabsTrigger>
@@ -1482,6 +1483,9 @@ export function ContentEditor() {
           </TabsTrigger>
           <TabsTrigger value="commerce" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             Oferte
+          </TabsTrigger>
+          <TabsTrigger value="costs" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+            Costuri
           </TabsTrigger>
         </TabsList>
 
@@ -3053,6 +3057,18 @@ export function ContentEditor() {
               })}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="costs" className="space-y-4">
+          {numericContentId ? (
+            <ContentCostsTab contentId={numericContentId} />
+          ) : (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Salvează filmul pentru a vedea costurile.
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

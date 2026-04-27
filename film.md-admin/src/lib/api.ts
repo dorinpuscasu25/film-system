@@ -13,7 +13,9 @@ import {
   AdminUser,
   AdCampaignPayload,
   AdCampaignsResponse,
+  ContentFinancialsResponse,
   ContentPayload,
+  FinancialSummaryResponse,
   CostSettingsPayload,
   CostSettingsResponse,
   DashboardResponse,
@@ -264,6 +266,17 @@ export const adminApi = {
 
   deleteContent(contentId: number) {
     return request<void>("DELETE", `/admin/content/${contentId}`);
+  },
+
+  getContentFinancials(contentId: number, months = 12) {
+    return request<ContentFinancialsResponse>(
+      "GET",
+      `/admin/content/${contentId}/financials?months=${months}`,
+    );
+  },
+
+  getFinancialSummary() {
+    return request<FinancialSummaryResponse>("GET", "/admin/financial-summary");
   },
 
   uploadFile(file: File, directory?: string) {

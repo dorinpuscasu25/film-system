@@ -8,6 +8,7 @@ import { Badge } from "../components/Badge";
 import { Carousel } from "../components/Carousel";
 import { HomeHeroSlide, HomeSections, getHomeSections } from "../lib/storefront";
 import { fetchContinueWatching } from "../lib/session";
+import { HomeSkeleton } from "../components/HomeSkeleton";
 
 const EMPTY_HOME: HomeSections = {
   hero: null,
@@ -150,11 +151,7 @@ export function HomePage() {
   }, [heroSlides.length]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[70vh] items-center justify-center bg-background text-gray-400">
-        Loading storefront...
-      </div>
-    );
+    return <HomeSkeleton />;
   }
 
   if (error) {

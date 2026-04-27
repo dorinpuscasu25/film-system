@@ -195,8 +195,18 @@ class AnalyticsBufferService
                 $row->content_format_id ?? '0',
             ]));
 
+        $bunnyStreamRows = collect(DB::connection('analytics')->table('bunny_stream_stats_daily')
+            ->whereBetween('date', [$dateStart->toDateString(), $dateEnd->toDateString()])
+            ->whereNotNull('content_id')
+            ->get())
+            ->groupBy(fn ($row) => implode(':', [
+                $row->content_id,
+                $row->content_format_id ?? '0',
+            ]));
+
         $contentIds = $dailyRows
             ->map(fn (Collection $group) => (int) data_get($group->first(), 'content_id'))
+            ->merge($bunnyStreamRows->map(fn (Collection $group) => (int) data_get($group->first(), 'content_id')))
             ->unique()
             ->values();
 
@@ -216,8 +226,16 @@ class AnalyticsBufferService
         $upserts = [];
         $creatorTotals = [];
 
-        foreach ($dailyRows as $key => $rows) {
-            $first = $rows->first();
+        // Union of keys from internal aggregates and Bunny stream stats
+        $allKeys = $dailyRows->keys()->merge($bunnyStreamRows->keys())->unique();
+
+        foreach ($allKeys as $key) {
+            $rows = $dailyRows->get($key, collect());
+            $bunnyKeyRows = $bunnyStreamRows->get($key, collect());
+            $first = $rows->first() ?? $bunnyKeyRows->first();
+            if ($first === null) {
+                continue;
+            }
             $contentId = (int) $first->content_id;
             $contentFormatId = $this->nullableInt($first->content_format_id);
             $content = $contentMap->get($contentId);
@@ -232,6 +250,17 @@ class AnalyticsBufferService
             $bandwidth = (float) $rows->sum('bandwidth_gb');
             $watchTimeSeconds = (int) $rows->sum('watch_time_seconds');
             $views = (int) $rows->sum('views');
+
+            // Bunny snapshots are authoritative — overlay if available
+            if ($bunnyKeyRows->isNotEmpty()) {
+                $bunnyBandwidthGb = (float) $bunnyKeyRows->sum('bandwidth_bytes') / (1024 ** 3);
+                $bunnyViews = (int) $bunnyKeyRows->sum('views');
+                $bunnyWatchTime = (int) $bunnyKeyRows->sum('watch_time_seconds');
+
+                $bandwidth = max($bandwidth, $bunnyBandwidthGb);
+                $views = max($views, $bunnyViews);
+                $watchTimeSeconds = max($watchTimeSeconds, $bunnyWatchTime);
+            }
             $storageDays = $dateEnd->diffInDays($dateStart) + 1;
             $storageGb = (float) data_get($format?->meta ?? [], 'storage_gb', 1);
             $storageCost = round($storageGb * $storageDays * (float) $settings->storage_cost_per_gb_day, 4);
@@ -357,8 +386,24 @@ class AnalyticsBufferService
         Redis::hincrby($key, 'requests_count', (int) data_get($payload, 'requests_count', 0));
         Redis::hset($key, 'last_event_type', (string) data_get($payload, 'event_type', 'unknown'));
 
+        // Count a view at most once per playback session (DRM charge rule).
+        // play/start in a fresh session = +1 view (= +1 DRM charge).
+        // Refresh, pause/resume, repeated play in same session = NOT counted.
         if (in_array((string) data_get($payload, 'event_type'), ['play', 'start', 'session_started', 'bunny_video_webhook'], true)) {
-            Redis::hincrby($key, 'views', 1);
+            $sessionId = $this->nullableInt(data_get($payload, 'playback_session_id'));
+
+            if ($sessionId === null) {
+                // No session id = legacy/anonymous event, count it once.
+                Redis::hincrby($key, 'views', 1);
+            } else {
+                $sessionsKey = $key.':sessions';
+                $added = Redis::sadd($sessionsKey, (string) $sessionId);
+                Redis::expire($sessionsKey, 60 * 60 * 24 * 45);
+
+                if ((int) $added === 1) {
+                    Redis::hincrby($key, 'views', 1);
+                }
+            }
         }
 
         if (data_get($payload, 'cache_hit_rate') !== null) {
