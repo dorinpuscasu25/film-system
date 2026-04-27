@@ -36,7 +36,7 @@ class PublicCatalogController extends ApiController
             : collect();
         $carouselSections = $resolvedSections
             ->where('section_type', \App\Models\HomePageSection::TYPE_CONTENT_CAROUSEL)
-            ->map(function (\App\Models\HomePageSection $section) use ($locale): array {
+            ->map(function (\App\Models\HomePageSection $section) use ($locale, $countryCode): array {
                 return [
                     'id' => (string) $section->id,
                     'name' => $section->name,
