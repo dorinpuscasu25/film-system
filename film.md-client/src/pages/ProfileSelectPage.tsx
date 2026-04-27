@@ -148,7 +148,7 @@ export function ProfileSelectPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="absolute left-8 top-8">
         <h1 className="text-3xl font-bold tracking-tighter text-white">
-          film<span className="text-accent">.</span>md
+          filmoteca<span className="text-accent">.</span>md
         </h1>
       </div>
 

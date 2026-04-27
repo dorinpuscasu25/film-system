@@ -54,7 +54,7 @@ class VastService
 <VAST version="3.0">
   <Ad id="{$campaign->id}">
     <InLine>
-      <AdSystem>film.md</AdSystem>
+      <AdSystem>filmoteca.md</AdSystem>
       <AdTitle>{$campaign->name}</AdTitle>
       <Impression>{$impressionUrl}</Impression>
       <Creatives>

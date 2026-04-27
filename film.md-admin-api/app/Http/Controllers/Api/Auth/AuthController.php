@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends ApiController
@@ -185,6 +186,26 @@ class AuthController extends ApiController
             'token' => $plainTextToken,
             'user' => $this->userData($user),
         ]);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $email = strtolower($validated['email']);
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user !== null && $user->hasAdminPanelAccess()) {
+            Password::broker()->sendResetLink([
+                'email' => $email,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Dacă există un cont admin asociat acestui email, vei primi instrucțiuni pentru resetarea parolei.',
+        ], Response::HTTP_ACCEPTED);
     }
 
     public function me(Request $request): JsonResponse

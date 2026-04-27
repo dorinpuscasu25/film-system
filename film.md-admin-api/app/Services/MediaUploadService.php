@@ -98,6 +98,12 @@ final class MediaUploadService
 
     private function publicUrl(string $path): string
     {
+        $cdnBase = rtrim((string) config('filesystems.disks.s3.url'), '/');
+
+        if ($cdnBase !== '') {
+            return $cdnBase.'/'.ltrim($path, '/');
+        }
+
         return Storage::disk(self::DISK)->url($path);
     }
 

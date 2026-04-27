@@ -192,7 +192,7 @@ class ExportGenerationService
             ->get();
 
         $lines = [
-            'Film.md Creator Statements',
+            'Filmoteca.md Creator Statements',
             sprintf('Month: %s', $month),
             sprintf('Generated at: %s', now()->toDateTimeString()),
             '',

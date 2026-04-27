@@ -28,7 +28,11 @@ import {
   TaxonomyPayload,
 } from "../types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+const configuredApiUrl = import.meta.env.VITE_API_URL;
+const API_URL =
+  import.meta.env.DEV && configuredApiUrl?.startsWith("http://localhost:8000/api/")
+    ? "/api/v1"
+    : configuredApiUrl ?? "http://localhost:8000/api/v1";
 
 let getAccessToken: (() => string | null) | null = null;
 
@@ -98,6 +102,13 @@ export const adminApi = {
     return request<{ token: string; user: AdminUser }>("POST", "/auth/login", {
       withAuth: false,
       data: { email, password, app: "admin" },
+    });
+  },
+
+  forgotPassword(email: string) {
+    return request<{ message: string }>("POST", "/auth/forgot-password", {
+      withAuth: false,
+      data: { email },
     });
   },
 

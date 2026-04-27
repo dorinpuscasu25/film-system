@@ -485,6 +485,16 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
+function contentUploadDirectory(baseDirectory: string, slug: string, fallbackName?: string) {
+  const normalizedSlug = slugify(slug.trim()) || slugify(fallbackName?.trim() ?? "");
+
+  if (!normalizedSlug) {
+    return baseDirectory;
+  }
+
+  return `${baseDirectory}/${normalizedSlug}`;
+}
+
 function mapContentToForm(content: AdminContent): ContentFormState {
   return {
     type: content.type,
@@ -649,6 +659,33 @@ export function ContentEditor() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
+
+  const contentMediaDirectories = useMemo(() => {
+    const fallbackName =
+      formState.title[formState.default_locale] ||
+      formState.title.ro ||
+      formState.original_title;
+
+    return {
+      posters: contentUploadDirectory("content/posters", formState.slug, fallbackName),
+      backdrops: contentUploadDirectory("content/backdrops", formState.slug, fallbackName),
+      heroes: contentUploadDirectory("content/heroes", formState.slug, fallbackName),
+      previews: contentUploadDirectory("content/previews", formState.slug, fallbackName),
+      videoThumbnails: contentUploadDirectory("content/video-thumbnails", formState.slug, fallbackName),
+      avatars: contentUploadDirectory("content/avatars", formState.slug, fallbackName),
+      episodes: contentUploadDirectory("content/episodes", formState.slug, fallbackName),
+    };
+  }, [formState.default_locale, formState.original_title, formState.slug, formState.title]);
+
+  const activeMainFormatQualities = useMemo(
+    () =>
+      new Set(
+        contentFormatDrafts
+          .filter((item) => item.format_type === "main" && item.is_active)
+          .map((item) => item.quality),
+      ),
+    [contentFormatDrafts],
+  );
 
   useEffect(() => {
     if (currentUser?.preferred_locale) {
@@ -1721,7 +1758,7 @@ export function ContentEditor() {
                   error={getFieldError("poster_url")}
                   previewLabel="Poster"
                   aspectClassName="aspect-[2/3]"
-                  uploadDirectory="content/posters"
+                  uploadDirectory={contentMediaDirectories.posters}
                   onChange={(value) => setFormState((current) => ({ ...current, poster_url: value }))}
                 />
                 <ImageUploadField
@@ -1729,7 +1766,7 @@ export function ContentEditor() {
                   value={formState.backdrop_url}
                   error={getFieldError("backdrop_url")}
                   previewLabel="Backdrop"
-                  uploadDirectory="content/backdrops"
+                  uploadDirectory={contentMediaDirectories.backdrops}
                   onChange={(value) => setFormState((current) => ({ ...current, backdrop_url: value }))}
                 />
                 <div className="grid gap-4 md:grid-cols-2">
@@ -1737,7 +1774,7 @@ export function ContentEditor() {
                     label="Hero desktop"
                     value={formState.hero_desktop_url}
                     previewLabel="Desktop"
-                    uploadDirectory="content/heroes"
+                    uploadDirectory={contentMediaDirectories.heroes}
                     onChange={(value) =>
                       setFormState((current) => ({ ...current, hero_desktop_url: value }))
                     }
@@ -1747,7 +1784,7 @@ export function ContentEditor() {
                     value={formState.hero_mobile_url}
                     previewLabel="Mobile"
                     aspectClassName="aspect-[3/4]"
-                    uploadDirectory="content/heroes"
+                    uploadDirectory={contentMediaDirectories.heroes}
                     onChange={(value) =>
                       setFormState((current) => ({ ...current, hero_mobile_url: value }))
                     }
@@ -1787,7 +1824,7 @@ export function ContentEditor() {
                           label={`Imagine preview ${index + 1}`}
                           value={image}
                           previewLabel={`Galerie ${index + 1}`}
-                          uploadDirectory="content/previews"
+                          uploadDirectory={contentMediaDirectories.previews}
                           onChange={(value) => updatePreviewImage(index, value)}
                         />
                       </div>
@@ -1931,7 +1968,7 @@ export function ContentEditor() {
                           label={`Thumbnail ${index + 1}`}
                           value={video.thumbnail_url ?? ""}
                           previewLabel="Thumbnail"
-                          uploadDirectory="content/video-thumbnails"
+                          uploadDirectory={contentMediaDirectories.videoThumbnails}
                           onChange={(value) => updateVideo(index, "thumbnail_url", value)}
                         />
                       </div>
@@ -1980,8 +2017,10 @@ export function ContentEditor() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <div>
-                <CardTitle>Bunny content formats</CardTitle>
-                <CardDescription>Mapezi fiecare calitate din platformă la `Library ID` și `Movie ID` din Bunny.</CardDescription>
+                <CardTitle>Calități video din Bunny</CardTitle>
+                <CardDescription>
+                  Pentru fiecare calitate disponibilă completezi doar `Library ID` și `Movie ID`. Platforma preia automat streamul corect din Bunny.
+                </CardDescription>
               </div>
               <Button type="button" variant="outline" onClick={() => setContentFormatDrafts((current) => [...current, { ...createEmptyContentFormat(options), sort_order: current.length }])}>
                 <PlusIcon className="h-4 w-4" />
@@ -1991,7 +2030,7 @@ export function ContentEditor() {
             <CardContent className="space-y-4 pt-6">
               {contentFormatDrafts.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                  Nu există încă formate Bunny. Adaugă cel puțin un format principal pentru playback.
+                  Nu există încă formate Bunny. Adaugă calitățile pe care vrei să le poată cumpăra utilizatorii.
                 </div>
               ) : contentFormatDrafts.map((item, index) => (
                 <Card key={item.local_id}>
@@ -2028,23 +2067,6 @@ export function ContentEditor() {
                       label="Bunny Movie ID"
                       value={item.bunny_video_id}
                       onChange={(event) => updateContentFormatDraft(item.local_id, "bunny_video_id", event.target.value)}
-                    />
-                    <FormField
-                      label="Stream URL override"
-                      value={item.stream_url}
-                      helperText="Lasă gol pentru URL generat automat din Bunny."
-                      onChange={(event) => updateContentFormatDraft(item.local_id, "stream_url", event.target.value)}
-                    />
-                    <FormField
-                      label="Token path"
-                      value={item.token_path}
-                      helperText="Opțional pentru pull zone / semnare custom."
-                      onChange={(event) => updateContentFormatDraft(item.local_id, "token_path", event.target.value)}
-                    />
-                    <FormField
-                      label="DRM policy"
-                      value={item.drm_policy}
-                      onChange={(event) => updateContentFormatDraft(item.local_id, "drm_policy", event.target.value)}
                     />
                     <FormField
                       label="Sort order"
@@ -2300,7 +2322,7 @@ export function ContentEditor() {
                         value={member.avatar_url ?? ""}
                         previewLabel="Avatar"
                         aspectClassName="aspect-square"
-                        uploadDirectory="content/avatars"
+                        uploadDirectory={contentMediaDirectories.avatars}
                         onChange={(value) => updateCastMember(index, "avatar_url", value)}
                       />
                     </CardContent>
@@ -2358,7 +2380,7 @@ export function ContentEditor() {
                         value={member.avatar_url ?? ""}
                         previewLabel="Avatar"
                         aspectClassName="aspect-square"
-                        uploadDirectory="content/avatars"
+                        uploadDirectory={contentMediaDirectories.avatars}
                         onChange={(value) => updateCrewMember(index, "avatar_url", value)}
                       />
                     </CardContent>
@@ -2573,7 +2595,7 @@ export function ContentEditor() {
                                 label={`Miniatură episod ${episodeIndex + 1}`}
                                 value={episode.thumbnail_url ?? ""}
                                 previewLabel="Miniatură"
-                                uploadDirectory="content/episodes"
+                                uploadDirectory={contentMediaDirectories.episodes}
                                 onChange={(value) =>
                                   updateEpisode(seasonIndex, episodeIndex, "thumbnail_url", value)
                                 }
@@ -2584,7 +2606,7 @@ export function ContentEditor() {
                                 label={`Backdrop episod ${episodeIndex + 1}`}
                                 value={episode.backdrop_url ?? ""}
                                 previewLabel="Backdrop"
-                                uploadDirectory="content/episodes"
+                                uploadDirectory={contentMediaDirectories.episodes}
                                 onChange={(value) =>
                                   updateEpisode(seasonIndex, episodeIndex, "backdrop_url", value)
                                 }
@@ -2812,7 +2834,7 @@ export function ContentEditor() {
             <CardHeader>
               <CardTitle>Acces și oferte</CardTitle>
               <CardDescription>
-                Toată logica de monetizare stă aici: free, rental, forever și URL-ul video pentru fiecare calitate.
+                Aici configurezi doar oferta comercială: calitatea, prețul, durata și disponibilitatea. Streamul este luat automat din Bunny după calitatea aleasă.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -2836,7 +2858,7 @@ export function ContentEditor() {
               <div>
                 <CardTitle className="text-lg">Variante de ofertă</CardTitle>
                 <CardDescription>
-                  Pentru filme, fiecare offer trebuie să aibă `playback URL` pentru calitatea respectivă. Pentru seriale îl poți lăsa gol și folosești URL-urile pe episoade.
+                  Creezi oferte pe calități și durate. Dacă există formatul Bunny pentru calitatea respectivă, utilizatorul primește automat streamul corect după cumpărare.
                 </CardDescription>
               </div>
               <Button
@@ -2860,7 +2882,7 @@ export function ContentEditor() {
             <CardContent className="space-y-4 pt-6">
               {!numericContentId ? (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                  Salvează mai întâi filmul sau serialul, apoi poți adăuga offer-urile pe calități și tipuri de acces.
+                  Salvează mai întâi filmul sau serialul, apoi poți adăuga ofertele comerciale.
                 </div>
               ) : null}
 
@@ -2874,6 +2896,7 @@ export function ContentEditor() {
                 const isBusy = offerBusyKey === offer.local_id;
                 const isRental = offer.offer_type === "rental";
                 const isFreeOffer = offer.offer_type === "free";
+                const hasLinkedBunnyFormat = activeMainFormatQualities.has(offer.quality);
 
                 return (
                   <Card key={offer.local_id}>
@@ -2997,14 +3020,10 @@ export function ContentEditor() {
                         error={getOfferFieldError(offer.local_id, "ends_at")}
                         onChange={(event) => updateOfferDraft(offer.local_id, "ends_at", event.target.value)}
                       />
-                      <div className="md:col-span-2 xl:col-span-3">
-                        <FormField
-                          label="URL playback"
-                          value={offer.playback_url}
-                          error={getOfferFieldError(offer.local_id, "playback_url")}
-                          helperText="Opțional. Dacă playback-ul este definit prin Bunny content formats, oferta nu are nevoie de URL propriu."
-                          onChange={(event) => updateOfferDraft(offer.local_id, "playback_url", event.target.value)}
-                        />
+                      <div className="md:col-span-2 xl:col-span-3 rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                        {hasLinkedBunnyFormat
+                          ? `Calitatea ${offer.quality} este deja legată la Bunny. Nu trebuie să completezi nimic suplimentar pentru playback.`
+                          : `Pentru oferta pe ${offer.quality} trebuie să existe un format Bunny activ cu aceeași calitate în tabul "Bunny & Rights".`}
                       </div>
                       <FormField
                         label="Ordine de sortare"

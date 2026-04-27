@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Route;
             Route::post('register/verify', [AuthController::class, 'verifyRegistration']);
             Route::post('register/resend', [AuthController::class, 'resendRegistrationCode']);
             Route::post('login', [AuthController::class, 'login']);
+            Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
         });
 
     Route::prefix('invites')->group(function (): void {

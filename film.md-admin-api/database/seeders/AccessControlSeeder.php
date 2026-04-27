@@ -182,9 +182,9 @@ class AccessControlSeeder extends Seeder
             );
 
             $adminUser = User::query()->updateOrCreate(
-                ['email' => 'admin@film.md'],
+                ['email' => 'admin@filmoteca.md'],
                 [
-                    'name' => 'Film.md Admin',
+                    'name' => 'Filmoteca.md Admin',
                     'password' => 'password',
                     'preferred_locale' => 'ro',
                     'status' => 'active',

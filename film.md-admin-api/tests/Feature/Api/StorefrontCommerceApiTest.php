@@ -112,7 +112,7 @@ class StorefrontCommerceApiTest extends TestCase
             'Authorization' => 'Bearer '.$token,
         ])
             ->assertOk()
-            ->assertJsonPath('playback.url', 'https://storage.film.md/playback/carbon-fullhd.mp4')
+            ->assertJsonPath('playback.url', 'https://storage.filmoteca.md/playback/carbon-fullhd.mp4')
             ->assertJsonPath('playback.quality', 'Full HD');
     }
 

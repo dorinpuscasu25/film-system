@@ -50,6 +50,22 @@ class StoreOfferRequest extends FormRequest
                 $validator->errors()->add('quality', 'The selected quality is not enabled for this title.');
             }
 
+            if ($content !== null) {
+                $selectedQuality = (string) $this->input('quality');
+                $hasMatchingFormat = $content->formats()
+                    ->where('format_type', 'main')
+                    ->where('quality', $selectedQuality)
+                    ->where('is_active', true)
+                    ->exists();
+
+                if (! $hasMatchingFormat && ! $this->filled('playback_url')) {
+                    $validator->errors()->add(
+                        'quality',
+                        'This offer needs either an active Bunny main format with the same quality or a playback URL override.'
+                    );
+                }
+            }
+
             $duplicateQuery = Offer::query()
                 ->where('content_id', $this->integer('content_id'))
                 ->where('offer_type', $offerType)

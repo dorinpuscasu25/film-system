@@ -12,7 +12,7 @@ class OpenApiController extends Controller
         return response()->json([
             'openapi' => '3.1.0',
             'info' => [
-                'title' => 'film.md API',
+                'title' => 'filmoteca.md API',
                 'version' => '1.0.0',
                 'description' => 'Public, storefront and admin endpoints currently exposed by the platform.',
             ],

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import Hls from 'hls.js';
 import { ArrowLeftIcon } from 'lucide-react';
 import { Movie } from '../types';
 import { useWallet } from '../contexts/WalletContext';
@@ -40,8 +41,48 @@ export function VideoPlayer({
   const { getTimeRemaining } = useWallet();
   const timeRemaining = getTimeRemaining(movie.id);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const watchSecondsRef = useRef(0);
   const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !sourceUrl) {
+      return;
+    }
+
+    const sourceIsHls = /\.m3u8($|\?)/i.test(sourceUrl);
+    const canPlayNativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (sourceIsHls && !canPlayNativeHls && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+
+      hls.loadSource(sourceUrl);
+      hls.attachMedia(video);
+      hlsRef.current = hls;
+    } else {
+      video.src = sourceUrl;
+      video.load();
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [sourceUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -100,11 +141,11 @@ export function VideoPlayer({
       <video
         ref={videoRef}
         key={sourceUrl}
-        src={sourceUrl}
         className="h-full w-full bg-black object-contain"
         controls
         autoPlay
         playsInline
+        crossOrigin="anonymous"
         poster={movie.backdropUrl || movie.posterUrl}
       >
         {subtitles.map((track) => (

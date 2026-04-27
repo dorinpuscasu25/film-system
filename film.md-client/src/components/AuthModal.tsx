@@ -122,7 +122,7 @@ export function AuthModal() {
 
         <div className="mb-8 text-center">
           <h2 className="mb-2 text-3xl font-bold tracking-tighter text-white">
-            film<span className="text-accent">.</span>md
+            filmoteca<span className="text-accent">.</span>md
           </h2>
           <p className="text-sm text-gray-400">{modalTitle}</p>
         </div>

@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return response()->json([
-        'name' => config('app.name', 'film.md API'),
+        'name' => config('app.name', 'filmoteca.md API'),
         'status' => 'ok',
         'message' => 'This service is running in API-only mode.',
         'api_prefix' => '/api/v1',

@@ -190,7 +190,7 @@ export const mockUsers = [
 {
   id: 'u3',
   name: 'Andrei Ciobanu',
-  email: 'andrei.c@admin.film.md',
+  email: 'andrei.c@admin.filmoteca.md',
   role: 'super-admin',
   status: 'active',
   registered: '2022-11-01',
@@ -208,7 +208,7 @@ export const mockUsers = [
 {
   id: 'u5',
   name: 'Vasile Munteanu',
-  email: 'vasile.m@moderator.film.md',
+  email: 'vasile.m@moderator.filmoteca.md',
   role: 'moderator',
   status: 'active',
   registered: '2022-12-05',

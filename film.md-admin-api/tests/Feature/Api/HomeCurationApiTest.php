@@ -32,7 +32,7 @@ class HomeCurationApiTest extends TestCase
             HomePageSectionSeeder::class,
         ]);
 
-        $this->admin = User::query()->where('email', 'admin@film.md')->firstOrFail();
+        $this->admin = User::query()->where('email', 'admin@filmoteca.md')->firstOrFail();
         [, $this->token] = PersonalAccessToken::issue($this->admin, 'test-admin');
     }
 

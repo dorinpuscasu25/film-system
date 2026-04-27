@@ -80,7 +80,7 @@ export function Sidebar() {
           </div>
           {!sidebarCollapsed ? (
             <div>
-              <div className="text-sm font-semibold">film.md</div>
+              <div className="text-sm font-semibold">filmoteca.md</div>
               <div className="text-xs text-white/60">Workspace administrare</div>
             </div>
           ) : null}

@@ -30,7 +30,7 @@ class ContentApiTest extends TestCase
             ContentSeeder::class,
         ]);
 
-        $this->admin = User::query()->where('email', 'admin@film.md')->firstOrFail();
+        $this->admin = User::query()->where('email', 'admin@filmoteca.md')->firstOrFail();
         [, $this->token] = PersonalAccessToken::issue($this->admin, 'test-admin');
     }
 
@@ -81,9 +81,9 @@ class ContentApiTest extends TestCase
                 'en' => 'Editorial note.',
             ],
             'meta_title' => [
-                'ro' => 'Milika film.md',
-                'ru' => 'Milika film.md',
-                'en' => 'Milika film.md',
+                'ro' => 'Milika filmoteca.md',
+                'ru' => 'Milika filmoteca.md',
+                'en' => 'Milika filmoteca.md',
             ],
             'meta_description' => [
                 'ro' => 'Meta RO',

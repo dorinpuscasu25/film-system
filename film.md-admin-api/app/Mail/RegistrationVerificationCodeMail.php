@@ -23,7 +23,7 @@ class RegistrationVerificationCodeMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Confirm your film.md account',
+            subject: 'Confirm your filmoteca.md account',
         );
     }
 

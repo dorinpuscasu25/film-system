@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Confirm your film.md account</title>
+    <title>Confirm your filmoteca.md account</title>
 </head>
 <body style="margin:0;padding:32px;background:#09090b;color:#f4f4f5;font-family:Arial,sans-serif;">
     <div style="max-width:560px;margin:0 auto;background:#111114;border:1px solid #27272a;border-radius:20px;padding:32px;">
-        <p style="margin:0 0 12px;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#a1a1aa;">film.md</p>
+        <p style="margin:0 0 12px;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#a1a1aa;">filmoteca.md</p>
         <h1 style="margin:0 0 16px;font-size:28px;line-height:1.2;">Confirm your account</h1>
         <p style="margin:0 0 24px;font-size:16px;line-height:1.7;color:#d4d4d8;">
             Hi {{ $userName }}, use the verification code below to finish creating your account.

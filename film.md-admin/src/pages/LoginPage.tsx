@@ -1,17 +1,38 @@
 import React, { useState } from "react";
-import { FilmIcon, GithubIcon } from "lucide-react";
+import { FilmIcon } from "lucide-react";
 import { useAdmin } from "../hooks/useAdmin";
+import { adminApi } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
 export function LoginPage() {
   const { login, authError, isAuthLoading } = useAdmin();
-  const [email, setEmail] = useState("admin@film.md");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [isResetLoading, setIsResetLoading] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await login(email, password);
+  }
+
+  async function handlePasswordReset(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setResetError(null);
+    setResetMessage(null);
+    setIsResetLoading(true);
+
+    try {
+      const response = await adminApi.forgotPassword(email);
+      setResetMessage(response.message);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : "Nu am putut trimite emailul de resetare.");
+    } finally {
+      setIsResetLoading(false);
+    }
   }
 
   return (
@@ -22,7 +43,7 @@ export function LoginPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background">
               <FilmIcon className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold">film.md</span>
+            <span className="text-sm font-semibold">filmoteca.md</span>
           </div>
           <Button variant="ghost" size="sm">
             Autentificare
@@ -38,7 +59,7 @@ export function LoginPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-md border">
                 <FilmIcon className="h-4 w-4" />
               </div>
-              <span className="text-sm font-semibold">film.md</span>
+              <span className="text-sm font-semibold">filmoteca.md</span>
             </div>
             <Button variant="ghost" size="sm">
               Autentificare
@@ -46,13 +67,12 @@ export function LoginPage() {
           </div>
 
           <div className="space-y-2 text-center">
-            <h1 className="text-3xl font-semibold tracking-tight">Autentificare admin</h1>
-            <p className="text-sm text-muted-foreground">
-              Intră cu contul care are permisiunea <code>admin.access</code>.
-            </p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              {isResetMode ? "Resetează parola" : "Autentificare admin"}
+            </h1>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={isResetMode ? handlePasswordReset : handleSubmit} className="space-y-4">
             <Input
               type="email"
               value={email}
@@ -60,47 +80,52 @@ export function LoginPage() {
               placeholder="name@example.com"
               required
             />
-            <Input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Parolă"
-              required
-            />
+            {!isResetMode ? (
+              <Input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Parolă"
+                required
+              />
+            ) : null}
 
-            {authError ? (
+            {!isResetMode && authError ? (
               <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                 {authError}
               </div>
             ) : null}
 
-            <Button type="submit" className="w-full" disabled={isAuthLoading}>
-              {isAuthLoading ? "Se autentifică..." : "Intră cu email"}
+            {isResetMode && resetError ? (
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {resetError}
+              </div>
+            ) : null}
+
+            {isResetMode && resetMessage ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {resetMessage}
+              </div>
+            ) : null}
+
+            <Button type="submit" className="w-full" disabled={isResetMode ? isResetLoading : isAuthLoading}>
+              {isResetMode
+                ? (isResetLoading ? "Se trimite..." : "Trimite link de resetare")
+                : (isAuthLoading ? "Se autentifică..." : "Intră cu email")}
             </Button>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Cont demo</span>
-              </div>
-            </div>
-
-            <div className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">
-              <div>Email: <span className="font-medium text-foreground">admin@film.md</span></div>
-              <div className="mt-1">Parolă: <span className="font-medium text-foreground">password</span></div>
-            </div>
-
-            <Button type="button" variant="outline" className="w-full">
-              <GithubIcon className="mr-2 h-4 w-4" />
-              GitHub
-            </Button>
+            <button
+              type="button"
+              className="w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => {
+                setIsResetMode((current) => !current);
+                setResetError(null);
+                setResetMessage(null);
+              }}
+            >
+              {isResetMode ? "Înapoi la autentificare" : "Ai uitat parola?"}
+            </button>
           </form>
-
-          <p className="text-center text-xs text-muted-foreground">
-            Continuând, accepți Termenii de utilizare și Politica de confidențialitate.
-          </p>
         </div>
       </div>
     </div>

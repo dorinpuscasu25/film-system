@@ -116,7 +116,7 @@ class AuthApiTest extends TestCase
     public function test_admin_login_returns_a_bearer_token_and_me_payload(): void
     {
         $loginResponse = $this->postJson('/api/v1/auth/login', [
-            'email' => 'admin@film.md',
+            'email' => 'admin@filmoteca.md',
             'password' => 'password',
             'app' => 'admin',
         ]);
@@ -133,13 +133,13 @@ class AuthApiTest extends TestCase
         $this->getJson('/api/v1/auth/me', [
             'Authorization' => 'Bearer '.$token,
         ])->assertOk()
-            ->assertJsonPath('user.email', 'admin@film.md')
+            ->assertJsonPath('user.email', 'admin@filmoteca.md')
             ->assertJsonPath('user.roles.0.name', 'Admin');
     }
 
     public function test_admin_can_invite_a_user_with_roles(): void
     {
-        $admin = User::query()->where('email', 'admin@film.md')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@filmoteca.md')->firstOrFail();
         $viewerRole = Role::query()->where('name', 'Viewer')->firstOrFail();
         [$tokenModel, $plainToken] = PersonalAccessToken::issue($admin, 'test-admin');
 

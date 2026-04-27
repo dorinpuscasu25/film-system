@@ -36,7 +36,7 @@ export function Header() {
               to="/"
               className="text-2xl font-bold tracking-tighter text-white">
               
-              film<span className="text-accent">.</span>md
+              filmoteca<span className="text-accent">.</span>md
             </Link>
 
             {/* Nav links always visible */}
