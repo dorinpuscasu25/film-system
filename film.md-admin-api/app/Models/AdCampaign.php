@@ -19,6 +19,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'ends_at',
     'is_active',
     'meta',
+    'frequency_cap_per_session',
+    'frequency_cap_per_day',
+    'target_countries',
+    'target_groups',
+    'target_content_ids',
+    'target_excluded_content_ids',
+    'mid_roll_offset_seconds',
+    'bunny_webhook_secret',
+    'impressions_count',
+    'completes_count',
+    'clicks_count',
+    'skips_count',
+    'total_spend_usd',
 ])]
 class AdCampaign extends Model
 {
@@ -26,6 +39,10 @@ class AdCampaign extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_PAUSED = 'paused';
     public const STATUS_COMPLETED = 'completed';
+
+    public const PLACEMENT_PRE_ROLL = 'pre-roll';
+    public const PLACEMENT_MID_ROLL = 'mid-roll';
+    public const PLACEMENT_POST_ROLL = 'post-roll';
 
     public function creatives(): HasMany
     {
@@ -37,6 +54,16 @@ class AdCampaign extends Model
         return $this->hasMany(AdTargetingRule::class);
     }
 
+    public function events(): HasMany
+    {
+        return $this->hasMany(AdEvent::class);
+    }
+
+    public function eventAggregates(): HasMany
+    {
+        return $this->hasMany(AdEventAggregate::class);
+    }
+
     protected function casts(): array
     {
         return [
@@ -46,6 +73,18 @@ class AdCampaign extends Model
             'ends_at' => 'datetime',
             'is_active' => 'boolean',
             'meta' => 'array',
+            'frequency_cap_per_session' => 'integer',
+            'frequency_cap_per_day' => 'integer',
+            'target_countries' => 'array',
+            'target_groups' => 'array',
+            'target_content_ids' => 'array',
+            'target_excluded_content_ids' => 'array',
+            'mid_roll_offset_seconds' => 'integer',
+            'impressions_count' => 'integer',
+            'completes_count' => 'integer',
+            'clicks_count' => 'integer',
+            'skips_count' => 'integer',
+            'total_spend_usd' => 'float',
         ];
     }
 }

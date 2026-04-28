@@ -1,0 +1,170 @@
+{
+  "nav": {
+    "dashboard": "Tablou de bord",
+    "content": "Conținut",
+    "media": "Bibliotecă media",
+    "commerce": "Comerț",
+    "billing": "Costuri & venituri",
+    "ads": "Reclame",
+    "coupons": "Cupoane",
+    "creators": "Creatori",
+    "watch_parties": "Watch Parties",
+    "users": "Utilizatori",
+    "roles": "Roluri",
+    "taxonomies": "Taxonomii",
+    "home_curation": "Pagina principală",
+    "moderation": "Moderare",
+    "search": "Căutare",
+    "playback_ops": "Sesiuni playback",
+    "settings": "Setări",
+    "geo": "Distribuție geografică"
+  },
+  "common": {
+    "save": "Salvează",
+    "cancel": "Anulează",
+    "delete": "Șterge",
+    "edit": "Editează",
+    "create": "Creează",
+    "search": "Caută",
+    "loading": "Se încarcă…",
+    "yes": "Da",
+    "no": "Nu",
+    "active": "Activ",
+    "inactive": "Inactiv",
+    "actions": "Acțiuni",
+    "status": "Status",
+    "name": "Nume",
+    "language": "Limbă",
+    "logout": "Ieșire",
+    "export_pdf": "Exportă PDF",
+    "export_excel": "Exportă Excel",
+    "export_csv": "Exportă CSV"
+  },
+  "ads": {
+    "title": "Campanii publicitare",
+    "create": "Creează campanie",
+    "form": {
+      "name": "Nume campanie",
+      "company": "Companie",
+      "click_through": "URL click",
+      "placement": "Poziție",
+      "placements": {
+        "pre-roll": "Pre-roll",
+        "mid-roll": "Mid-roll",
+        "post-roll": "Post-roll"
+      },
+      "bid_amount": "Bid",
+      "skip_offset": "Skip după (sec)",
+      "frequency_per_session": "Frecvență max/sesiune",
+      "frequency_per_day": "Frecvență max/zi",
+      "mid_roll_offset": "Mid-roll la secunda",
+      "starts_at": "Începe la",
+      "ends_at": "Se termină la",
+      "target_countries": "Țări (codes ISO)",
+      "target_groups": "Grupuri (movies, trailers, premium)",
+      "target_content_ids": "Filme țintă",
+      "target_excluded_content_ids": "Filme excluse",
+      "creatives": "Creative-uri (videoclipuri)"
+    },
+    "stats": {
+      "impressions": "Impressions",
+      "completes": "Completes",
+      "clicks": "Clicks",
+      "skips": "Skips",
+      "ctr": "CTR",
+      "completion_rate": "Rată completare",
+      "events_chart": "Evenimente VAST",
+      "country_chart": "Distribuție pe țări",
+      "daily_chart": "Pe zile",
+      "events_log": "Evenimente recente"
+    }
+  },
+  "coupons": {
+    "title": "Cupoane promoționale",
+    "create": "Creează cupon",
+    "form": {
+      "code": "Cod (UPPERCASE)",
+      "name": "Nume",
+      "description": "Descriere",
+      "discount_type": "Tip reducere",
+      "discount_types": {
+        "percent": "Procent",
+        "fixed": "Sumă fixă",
+        "free_access": "Gratuit"
+      },
+      "discount_value": "Valoare reducere",
+      "currency": "Monedă",
+      "max_redemptions": "Folosiri maxime totale",
+      "per_user_limit": "Folosiri pe utilizator",
+      "starts_at": "Valabil de la",
+      "ends_at": "Valabil până la",
+      "applicable_content_ids": "Filme aplicabile (gol = toate)",
+      "applicable_offer_ids": "Oferte aplicabile (gol = toate)"
+    }
+  },
+  "creators": {
+    "title": "Creatori de conținut",
+    "create": "Adaugă creator",
+    "form": {
+      "user": "Utilizator (cont login)",
+      "name": "Nume",
+      "email": "Email",
+      "company_name": "Companie",
+      "platform_fee_percent": "Comision platformă (%)",
+      "content_ids": "Filme alocate"
+    },
+    "statements": "Statemente lunare"
+  },
+  "watch_parties": {
+    "title": "Watch Parties",
+    "create": "Programează watch party",
+    "form": {
+      "content": "Film",
+      "title": "Titlu eveniment",
+      "scheduled_start_at": "Data start",
+      "is_public": "Public",
+      "chat_enabled": "Chat activ",
+      "max_participants": "Participanți max"
+    },
+    "statuses": {
+      "scheduled": "Programat",
+      "live": "În direct",
+      "ended": "Încheiat",
+      "cancelled": "Anulat"
+    },
+    "actions": {
+      "start": "Pornește",
+      "end": "Încheie"
+    }
+  },
+  "subtitles": {
+    "title": "Subtitrări",
+    "create": "Adaugă subtitrare",
+    "form": {
+      "locale": "Limbă (ro/ru/en)",
+      "label": "Etichetă",
+      "file_url": "Fișier WebVTT/SRT",
+      "is_default": "Implicit"
+    }
+  },
+  "availability": {
+    "title": "Drepturi & disponibilitate",
+    "create": "Adaugă regulă",
+    "form": {
+      "country_code": "Cod țară (gol = global)",
+      "is_allowed": "Permis",
+      "starts_at": "De la",
+      "ends_at": "Până la"
+    }
+  },
+  "geo": {
+    "title": "Distribuție geografică",
+    "total_views": "Total vizualizări",
+    "unique_countries": "Țări unice",
+    "country": "Țară",
+    "sessions": "Sesiuni",
+    "users": "Utilizatori",
+    "views": "Vizualizări",
+    "percent": "Pondere"
+  }
+}

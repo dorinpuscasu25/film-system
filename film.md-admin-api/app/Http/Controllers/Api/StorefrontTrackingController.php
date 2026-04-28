@@ -170,6 +170,35 @@ class StorefrontTrackingController extends ApiController
         ]);
     }
 
+    /**
+     * Lightweight ping every ~30s during active playback. Updates
+     * watch_time_seconds + max_position incrementally without spawning a full
+     * analytics event per beat. Used for accurate watch_time + DRM keep-alive.
+     */
+    public function heartbeat(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'session_token' => ['required', 'string', 'max:80'],
+            'position_seconds' => ['required', 'integer', 'min:0'],
+            'watch_time_delta_seconds' => ['nullable', 'integer', 'min:0', 'max:120'],
+        ]);
+
+        $session = PlaybackSession::query()->where('session_token', $payload['session_token'])->firstOrFail();
+        $delta = (int) ($payload['watch_time_delta_seconds'] ?? 30);
+
+        $session->forceFill([
+            'watch_time_seconds' => (int) $session->watch_time_seconds + $delta,
+            'max_position_seconds' => max((int) $session->max_position_seconds, (int) $payload['position_seconds']),
+            'status' => PlaybackSession::STATUS_STARTED,
+        ])->save();
+
+        return response()->json([
+            'session_id' => $session->id,
+            'watch_time_seconds' => $session->watch_time_seconds,
+            'next_heartbeat_in_seconds' => 30,
+        ]);
+    }
+
     public function continueWatching(Request $request): JsonResponse
     {
         $items = WatchProgress::query()

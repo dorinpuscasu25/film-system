@@ -103,18 +103,47 @@ class User extends Authenticatable
 
     public function assignedContentIds(): array
     {
-        if ($this->relationLoaded('contentAccesses')) {
-            return $this->contentAccesses
+        $direct = $this->relationLoaded('contentAccesses')
+            ? $this->contentAccesses
                 ->where('can_view', true)
                 ->pluck('content_id')
                 ->map(fn (mixed $value): int => (int) $value)
                 ->values()
+                ->all()
+            : $this->contentAccesses()
+                ->where('can_view', true)
+                ->pluck('content_id')
+                ->map(fn (mixed $value): int => (int) $value)
                 ->all();
+
+        $creatorIds = $this->creatorAssignedContentIds();
+
+        return array_values(array_unique(array_merge($direct, $creatorIds)));
+    }
+
+    /**
+     * Resolves content IDs assigned via the creator portal:
+     * users linked to a content_creators row inherit all contents assigned
+     * to that creator through content_creator_assignments.
+     *
+     * @return array<int, int>
+     */
+    public function creatorAssignedContentIds(): array
+    {
+        $creator = \App\Models\ContentCreator::query()
+            ->where('user_id', $this->getKey())
+            ->where('is_active', true)
+            ->first();
+
+        if ($creator === null) {
+            return [];
         }
 
-        return $this->contentAccesses()
-            ->where('can_view', true)
-            ->pluck('content_id')
+        return \App\Models\ContentCreator::query()
+            ->where('id', $creator->id)
+            ->with('contents:id')
+            ->get()
+            ->flatMap(fn (\App\Models\ContentCreator $c) => $c->contents->pluck('id'))
             ->map(fn (mixed $value): int => (int) $value)
             ->all();
     }

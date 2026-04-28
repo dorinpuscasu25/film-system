@@ -1,0 +1,170 @@
+{
+  "nav": {
+    "dashboard": "Панель управления",
+    "content": "Контент",
+    "media": "Медиа-библиотека",
+    "commerce": "Коммерция",
+    "billing": "Затраты и доходы",
+    "ads": "Реклама",
+    "coupons": "Купоны",
+    "creators": "Авторы",
+    "watch_parties": "Совместный просмотр",
+    "users": "Пользователи",
+    "roles": "Роли",
+    "taxonomies": "Таксономии",
+    "home_curation": "Главная страница",
+    "moderation": "Модерация",
+    "search": "Поиск",
+    "playback_ops": "Сессии воспроизведения",
+    "settings": "Настройки",
+    "geo": "География"
+  },
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "create": "Создать",
+    "search": "Поиск",
+    "loading": "Загрузка…",
+    "yes": "Да",
+    "no": "Нет",
+    "active": "Активен",
+    "inactive": "Неактивен",
+    "actions": "Действия",
+    "status": "Статус",
+    "name": "Название",
+    "language": "Язык",
+    "logout": "Выход",
+    "export_pdf": "Экспорт PDF",
+    "export_excel": "Экспорт Excel",
+    "export_csv": "Экспорт CSV"
+  },
+  "ads": {
+    "title": "Рекламные кампании",
+    "create": "Создать кампанию",
+    "form": {
+      "name": "Название кампании",
+      "company": "Компания",
+      "click_through": "URL клика",
+      "placement": "Размещение",
+      "placements": {
+        "pre-roll": "Pre-roll",
+        "mid-roll": "Mid-roll",
+        "post-roll": "Post-roll"
+      },
+      "bid_amount": "Ставка",
+      "skip_offset": "Пропуск через (сек)",
+      "frequency_per_session": "Макс. частота/сессия",
+      "frequency_per_day": "Макс. частота/день",
+      "mid_roll_offset": "Mid-roll на секунде",
+      "starts_at": "Начало",
+      "ends_at": "Конец",
+      "target_countries": "Страны (ISO коды)",
+      "target_groups": "Группы (movies, trailers, premium)",
+      "target_content_ids": "Целевые фильмы",
+      "target_excluded_content_ids": "Исключённые фильмы",
+      "creatives": "Креативы (видео)"
+    },
+    "stats": {
+      "impressions": "Показы",
+      "completes": "Просмотры до конца",
+      "clicks": "Клики",
+      "skips": "Пропуски",
+      "ctr": "CTR",
+      "completion_rate": "Доля просмотров до конца",
+      "events_chart": "VAST события",
+      "country_chart": "По странам",
+      "daily_chart": "По дням",
+      "events_log": "Последние события"
+    }
+  },
+  "coupons": {
+    "title": "Промокоды",
+    "create": "Создать промокод",
+    "form": {
+      "code": "Код (UPPERCASE)",
+      "name": "Название",
+      "description": "Описание",
+      "discount_type": "Тип скидки",
+      "discount_types": {
+        "percent": "Процент",
+        "fixed": "Фиксированная сумма",
+        "free_access": "Бесплатно"
+      },
+      "discount_value": "Размер скидки",
+      "currency": "Валюта",
+      "max_redemptions": "Макс. использований всего",
+      "per_user_limit": "Макс. на пользователя",
+      "starts_at": "Действует с",
+      "ends_at": "Действует до",
+      "applicable_content_ids": "Применимо к фильмам (пусто = все)",
+      "applicable_offer_ids": "Применимо к офферам (пусто = все)"
+    }
+  },
+  "creators": {
+    "title": "Авторы контента",
+    "create": "Добавить автора",
+    "form": {
+      "user": "Пользователь (учётка)",
+      "name": "Имя",
+      "email": "Email",
+      "company_name": "Компания",
+      "platform_fee_percent": "Комиссия платформы (%)",
+      "content_ids": "Назначенные фильмы"
+    },
+    "statements": "Ежемесячные отчёты"
+  },
+  "watch_parties": {
+    "title": "Совместный просмотр",
+    "create": "Запланировать сеанс",
+    "form": {
+      "content": "Фильм",
+      "title": "Название мероприятия",
+      "scheduled_start_at": "Время начала",
+      "is_public": "Публичный",
+      "chat_enabled": "Чат включён",
+      "max_participants": "Макс. участников"
+    },
+    "statuses": {
+      "scheduled": "Запланирован",
+      "live": "В эфире",
+      "ended": "Завершён",
+      "cancelled": "Отменён"
+    },
+    "actions": {
+      "start": "Запустить",
+      "end": "Завершить"
+    }
+  },
+  "subtitles": {
+    "title": "Субтитры",
+    "create": "Добавить субтитры",
+    "form": {
+      "locale": "Язык (ro/ru/en)",
+      "label": "Метка",
+      "file_url": "Файл WebVTT/SRT",
+      "is_default": "По умолчанию"
+    }
+  },
+  "availability": {
+    "title": "Права и доступность",
+    "create": "Добавить правило",
+    "form": {
+      "country_code": "Код страны (пусто = глобально)",
+      "is_allowed": "Разрешено",
+      "starts_at": "С",
+      "ends_at": "По"
+    }
+  },
+  "geo": {
+    "title": "География",
+    "total_views": "Всего просмотров",
+    "unique_countries": "Уникальных стран",
+    "country": "Страна",
+    "sessions": "Сессии",
+    "users": "Пользователи",
+    "views": "Просмотры",
+    "percent": "Доля"
+  }
+}

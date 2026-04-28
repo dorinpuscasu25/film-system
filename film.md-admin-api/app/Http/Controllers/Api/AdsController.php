@@ -17,25 +17,32 @@ class AdsController extends ApiController
     public function vast(Request $request)
     {
         $content = null;
-        $contentId = $request->query('content_id');
+        $contentId = $request->query('content', $request->query('content_id'));
 
         if ($contentId !== null) {
             $content = Content::query()->find($contentId);
         }
 
-        $campaign = $this->vast->resolveCampaign(
-            $content,
-            $request->query('country_code'),
-            (string) $request->query('group', 'movies'),
-            (string) $request->query('placement', 'pre-roll'),
-        );
+        // Direct campaign lookup (used by BunnyAdWebhookService when it has
+        // already chosen the campaign upstream, with frequency caps applied).
+        $explicitCampaignId = $request->integer('campaign') ?: null;
+        if ($explicitCampaignId !== null) {
+            $campaign = \App\Models\AdCampaign::query()->with('creatives')->find($explicitCampaignId);
+        } else {
+            $campaign = $this->vast->resolveCampaign(
+                $content,
+                $request->query('country_code'),
+                (string) $request->query('group', 'movies'),
+                (string) $request->query('placement', 'pre-roll'),
+            );
+        }
 
         if ($campaign === null) {
             return response('', Response::HTTP_NO_CONTENT)->header('Content-Type', 'application/xml');
         }
 
         $trackingBaseUrl = rtrim((string) config('app.url'), '/').'/api/v1/ads/track';
-        $playbackSessionId = $request->integer('session_id') ?: null;
+        $playbackSessionId = $request->query('session') ?: ($request->integer('session_id') ?: null);
         $xml = $this->vast->buildVastXml($campaign, $trackingBaseUrl, $playbackSessionId);
 
         return response($xml, Response::HTTP_OK)->header('Content-Type', 'application/xml');

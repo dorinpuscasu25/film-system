@@ -1,0 +1,170 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "content": "Content",
+    "media": "Media library",
+    "commerce": "Commerce",
+    "billing": "Costs & revenue",
+    "ads": "Ads",
+    "coupons": "Coupons",
+    "creators": "Creators",
+    "watch_parties": "Watch parties",
+    "users": "Users",
+    "roles": "Roles",
+    "taxonomies": "Taxonomies",
+    "home_curation": "Home page",
+    "moderation": "Moderation",
+    "search": "Search",
+    "playback_ops": "Playback sessions",
+    "settings": "Settings",
+    "geo": "Geographic distribution"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "loading": "Loading…",
+    "yes": "Yes",
+    "no": "No",
+    "active": "Active",
+    "inactive": "Inactive",
+    "actions": "Actions",
+    "status": "Status",
+    "name": "Name",
+    "language": "Language",
+    "logout": "Logout",
+    "export_pdf": "Export PDF",
+    "export_excel": "Export Excel",
+    "export_csv": "Export CSV"
+  },
+  "ads": {
+    "title": "Ad campaigns",
+    "create": "Create campaign",
+    "form": {
+      "name": "Campaign name",
+      "company": "Company",
+      "click_through": "Click-through URL",
+      "placement": "Placement",
+      "placements": {
+        "pre-roll": "Pre-roll",
+        "mid-roll": "Mid-roll",
+        "post-roll": "Post-roll"
+      },
+      "bid_amount": "Bid",
+      "skip_offset": "Skip after (sec)",
+      "frequency_per_session": "Max frequency/session",
+      "frequency_per_day": "Max frequency/day",
+      "mid_roll_offset": "Mid-roll at second",
+      "starts_at": "Starts at",
+      "ends_at": "Ends at",
+      "target_countries": "Countries (ISO codes)",
+      "target_groups": "Groups (movies, trailers, premium)",
+      "target_content_ids": "Target movies",
+      "target_excluded_content_ids": "Excluded movies",
+      "creatives": "Creatives (videos)"
+    },
+    "stats": {
+      "impressions": "Impressions",
+      "completes": "Completes",
+      "clicks": "Clicks",
+      "skips": "Skips",
+      "ctr": "CTR",
+      "completion_rate": "Completion rate",
+      "events_chart": "VAST events",
+      "country_chart": "Country distribution",
+      "daily_chart": "Daily breakdown",
+      "events_log": "Recent events"
+    }
+  },
+  "coupons": {
+    "title": "Promotional coupons",
+    "create": "Create coupon",
+    "form": {
+      "code": "Code (UPPERCASE)",
+      "name": "Name",
+      "description": "Description",
+      "discount_type": "Discount type",
+      "discount_types": {
+        "percent": "Percent",
+        "fixed": "Fixed amount",
+        "free_access": "Free access"
+      },
+      "discount_value": "Discount value",
+      "currency": "Currency",
+      "max_redemptions": "Max total redemptions",
+      "per_user_limit": "Per-user limit",
+      "starts_at": "Valid from",
+      "ends_at": "Valid until",
+      "applicable_content_ids": "Applicable movies (empty = all)",
+      "applicable_offer_ids": "Applicable offers (empty = all)"
+    }
+  },
+  "creators": {
+    "title": "Content creators",
+    "create": "Add creator",
+    "form": {
+      "user": "User (login account)",
+      "name": "Name",
+      "email": "Email",
+      "company_name": "Company",
+      "platform_fee_percent": "Platform fee (%)",
+      "content_ids": "Assigned movies"
+    },
+    "statements": "Monthly statements"
+  },
+  "watch_parties": {
+    "title": "Watch parties",
+    "create": "Schedule watch party",
+    "form": {
+      "content": "Movie",
+      "title": "Event title",
+      "scheduled_start_at": "Start time",
+      "is_public": "Public",
+      "chat_enabled": "Chat enabled",
+      "max_participants": "Max participants"
+    },
+    "statuses": {
+      "scheduled": "Scheduled",
+      "live": "Live",
+      "ended": "Ended",
+      "cancelled": "Cancelled"
+    },
+    "actions": {
+      "start": "Start",
+      "end": "End"
+    }
+  },
+  "subtitles": {
+    "title": "Subtitles",
+    "create": "Add subtitle",
+    "form": {
+      "locale": "Language (ro/ru/en)",
+      "label": "Label",
+      "file_url": "WebVTT/SRT file",
+      "is_default": "Default"
+    }
+  },
+  "availability": {
+    "title": "Rights & availability",
+    "create": "Add rule",
+    "form": {
+      "country_code": "Country code (empty = global)",
+      "is_allowed": "Allowed",
+      "starts_at": "From",
+      "ends_at": "Until"
+    }
+  },
+  "geo": {
+    "title": "Geographic distribution",
+    "total_views": "Total views",
+    "unique_countries": "Unique countries",
+    "country": "Country",
+    "sessions": "Sessions",
+    "users": "Users",
+    "views": "Views",
+    "percent": "Share"
+  }
+}

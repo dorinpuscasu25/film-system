@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\AdEventTrackingService;
 use App\Services\AnalyticsBufferService;
 use App\Services\BunnyStatsService;
 use App\Services\ContentSearchService;
@@ -76,7 +77,26 @@ Artisan::command('content:cleanup-unused-formats {--days=30} {--delete-remote}',
     return self::SUCCESS;
 })->purpose('Deactivate content formats with zero views in the lookback window');
 
+Artisan::command('analytics:flush-ad-aggregates', function (AdEventTrackingService $tracking) {
+    $count = $tracking->flushAggregatesToDatabase();
+    $this->info("Flushed {$count} ad aggregate keys from Redis to ad_event_aggregates.");
+
+    return self::SUCCESS;
+})->purpose('Flush buffered ad event aggregates from Redis into ad_event_aggregates');
+
+Artisan::command('ad-events:prune {--days=7}', function () {
+    $days = (int) $this->option('days');
+    $deleted = \App\Models\AdEvent::query()
+        ->where('occurred_at', '<', now()->subDays($days))
+        ->delete();
+    $this->info("Pruned {$deleted} ad_events older than {$days} days.");
+
+    return self::SUCCESS;
+})->purpose('Prune raw ad_events older than N days (default 7)');
+
 Schedule::command('analytics:flush-buffers')->everyTenMinutes();
+Schedule::command('analytics:flush-ad-aggregates')->everyTenMinutes();
+Schedule::command('ad-events:prune --days=7')->dailyAt('03:00');
 Schedule::command('analytics:recalculate-costs')->hourly();
 Schedule::command('bunny:pull-stats')->dailyAt('01:30');
 Schedule::command('content:cleanup-unused-formats --days=30')->weekly()->sundays()->at('02:00');

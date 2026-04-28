@@ -441,4 +441,248 @@ export const adminApi = {
       data: payload,
     });
   },
+
+  // === Coupons ===
+  getCoupons(query?: { q?: string }) {
+    const qs = query?.q ? `?q=${encodeURIComponent(query.q)}` : "";
+    return request<{
+      items: Array<{
+        id: number;
+        code: string;
+        name: string;
+        description: string | null;
+        discount_type: "percent" | "fixed" | "free_access";
+        discount_value: number;
+        currency: string;
+        max_redemptions: number | null;
+        redemptions_count: number;
+        per_user_limit: number;
+        starts_at: string | null;
+        ends_at: string | null;
+        is_active: boolean;
+        is_currently_valid: boolean;
+        applicable_content_ids: number[] | null;
+        applicable_offer_ids: number[] | null;
+        created_at: string | null;
+      }>;
+      pagination: { page: number; per_page: number; total: number };
+    }>("GET", `/admin/coupons${qs}`);
+  },
+  createCoupon(payload: Record<string, unknown>) {
+    return request<{ coupon: unknown }>("POST", "/admin/coupons", { data: payload });
+  },
+  updateCoupon(id: number, payload: Record<string, unknown>) {
+    return request<{ coupon: unknown }>("PATCH", `/admin/coupons/${id}`, { data: payload });
+  },
+  deleteCoupon(id: number) {
+    return request<void>("DELETE", `/admin/coupons/${id}`);
+  },
+
+  // === Content creators ===
+  getContentCreators() {
+    return request<{
+      items: Array<{
+        id: number;
+        name: string;
+        email: string | null;
+        company_name: string | null;
+        platform_fee_percent: number;
+        is_active: boolean;
+        user: { id: number; name: string; email: string } | null;
+        content_count: number;
+        contents: Array<{ id: number; title: string }>;
+      }>;
+    }>("GET", "/admin/content-creators");
+  },
+  createContentCreator(payload: Record<string, unknown>) {
+    return request<{ creator: unknown }>("POST", "/admin/content-creators", { data: payload });
+  },
+  updateContentCreator(id: number, payload: Record<string, unknown>) {
+    return request<{ creator: unknown }>("PATCH", `/admin/content-creators/${id}`, { data: payload });
+  },
+  deleteContentCreator(id: number) {
+    return request<void>("DELETE", `/admin/content-creators/${id}`);
+  },
+  getCreatorStatements(creatorId: number) {
+    return request<{
+      creator_id: number;
+      items: Array<{
+        id: number;
+        month: string;
+        revenue_usd: number;
+        costs_usd: number;
+        payout_usd: number;
+        profit_usd: number;
+        is_locked: boolean;
+      }>;
+    }>("GET", `/admin/content-creators/${creatorId}/statements`);
+  },
+
+  // === Watch parties ===
+  getWatchParties() {
+    return request<{
+      items: Array<{
+        id: number;
+        content_id: number;
+        content_title: string | null;
+        title: string;
+        room_code: string;
+        scheduled_start_at: string | null;
+        actual_start_at: string | null;
+        ended_at: string | null;
+        status: string;
+        is_public: boolean;
+        chat_enabled: boolean;
+        max_participants: number | null;
+        created_at: string | null;
+      }>;
+    }>("GET", "/admin/watch-parties");
+  },
+  createWatchParty(payload: {
+    content_id: number;
+    title: string;
+    scheduled_start_at: string;
+    is_public?: boolean;
+    chat_enabled?: boolean;
+    max_participants?: number;
+  }) {
+    return request<{ party: unknown }>("POST", "/admin/watch-parties", { data: payload });
+  },
+  startWatchParty(id: number) {
+    return request<{ party: unknown }>("POST", `/admin/watch-parties/${id}/start`);
+  },
+  endWatchParty(id: number) {
+    return request<{ party: unknown }>("POST", `/admin/watch-parties/${id}/end`);
+  },
+  deleteWatchParty(id: number) {
+    return request<void>("DELETE", `/admin/watch-parties/${id}`);
+  },
+
+  // === Ad campaign stats ===
+  getAdCampaignStats(campaignId: number, days = 30) {
+    return request<{
+      campaign: {
+        id: number;
+        name: string;
+        company_name: string | null;
+        placement: string;
+        status: string;
+        bid_amount: number;
+        click_through_url: string | null;
+        is_active: boolean;
+        starts_at: string | null;
+        ends_at: string | null;
+        rollups: {
+          impressions: number;
+          completes: number;
+          clicks: number;
+          skips: number;
+          ctr: number;
+          completion_rate: number;
+        };
+      };
+      events_chart: Array<{ event: string; count: number }>;
+      country_chart: Array<{ country: string; count: number; percent: number }>;
+      daily_chart: Array<{
+        date: string;
+        impressions: number;
+        completes: number;
+        clicks: number;
+        skips: number;
+      }>;
+    }>("GET", `/admin/ad-campaigns/${campaignId}/stats?days=${days}`);
+  },
+  getAdCampaignEvents(campaignId: number, params?: { event_type?: string; country_code?: string; per_page?: number }) {
+    const qs = new URLSearchParams();
+    if (params?.event_type) qs.set("event_type", params.event_type);
+    if (params?.country_code) qs.set("country_code", params.country_code);
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request<{
+      items: Array<{
+        id: number;
+        event_type: string;
+        country_code: string | null;
+        occurred_at: string | null;
+        ip_address: string | null;
+        playback_session_id: string | null;
+        content_id: number | null;
+      }>;
+      pagination: { page: number; per_page: number; total: number };
+    }>("GET", `/admin/ad-campaigns/${campaignId}/events${suffix}`);
+  },
+
+  // === Subtitles per content ===
+  getSubtitles(contentId: number) {
+    return request<{
+      content_id: number;
+      items: Array<{
+        id: number;
+        locale: string;
+        label: string;
+        file_url: string;
+        is_default: boolean;
+        sort_order: number;
+        content_format_id: number | null;
+      }>;
+    }>("GET", `/admin/content/${contentId}/subtitles`);
+  },
+  createSubtitle(contentId: number, payload: Record<string, unknown>) {
+    return request<{ track: unknown }>("POST", `/admin/content/${contentId}/subtitles`, { data: payload });
+  },
+  updateSubtitle(contentId: number, trackId: number, payload: Record<string, unknown>) {
+    return request<{ track: unknown }>("PATCH", `/admin/content/${contentId}/subtitles/${trackId}`, { data: payload });
+  },
+  deleteSubtitle(contentId: number, trackId: number) {
+    return request<void>("DELETE", `/admin/content/${contentId}/subtitles/${trackId}`);
+  },
+
+  // === Availability windows per content ===
+  getAvailabilityWindows(contentId: number) {
+    return request<{
+      content_id: number;
+      items: Array<{
+        id: number;
+        content_format_id: number | null;
+        country_code: string | null;
+        is_allowed: boolean;
+        starts_at: string | null;
+        ends_at: string | null;
+      }>;
+    }>("GET", `/admin/content/${contentId}/availability`);
+  },
+  createAvailabilityWindow(contentId: number, payload: Record<string, unknown>) {
+    return request<{ window: unknown }>("POST", `/admin/content/${contentId}/availability`, { data: payload });
+  },
+  updateAvailabilityWindow(contentId: number, windowId: number, payload: Record<string, unknown>) {
+    return request<{ window: unknown }>("PATCH", `/admin/content/${contentId}/availability/${windowId}`, { data: payload });
+  },
+  deleteAvailabilityWindow(contentId: number, windowId: number) {
+    return request<void>("DELETE", `/admin/content/${contentId}/availability/${windowId}`);
+  },
+
+  // === Geo distribution ===
+  getGeoStats(days = 30) {
+    return request<{
+      days: number;
+      totals: { total_views: number; unique_countries: number };
+      countries: Array<{
+        country: string;
+        sessions: number;
+        users: number;
+        views: number;
+        percent: number;
+      }>;
+    }>("GET", `/admin/geo-stats?days=${days}`);
+  },
+
+  // === Platform settings ===
+  getPlatformSettings() {
+    return request<{ settings: Record<string, unknown> }>("GET", "/admin/platform-settings");
+  },
+  savePlatformSettings(settings: Record<string, unknown>) {
+    return request<{ settings: Record<string, unknown> }>("PUT", "/admin/platform-settings", {
+      data: { settings },
+    });
+  },
 };

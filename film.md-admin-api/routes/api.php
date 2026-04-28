@@ -1,30 +1,42 @@
 <?php
 
-use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\AdCampaignController;
+use App\Http\Controllers\Api\Admin\AdStatsController;
+use App\Http\Controllers\Api\Admin\AuditLogController;
+use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
 use App\Http\Controllers\Api\Admin\ContentController;
+use App\Http\Controllers\Api\Admin\ContentCreatorController;
 use App\Http\Controllers\Api\Admin\ContentFinancialsController;
 use App\Http\Controllers\Api\Admin\CostSettingsController;
-use App\Http\Controllers\Api\Admin\HomeCurationController;
-use App\Http\Controllers\Api\Admin\OfferController;
-use App\Http\Controllers\Api\Admin\AdCampaignController;
-use App\Http\Controllers\Api\Admin\AuditLogController;
+use App\Http\Controllers\Api\Admin\CouponController;
+use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ExportController;
 use App\Http\Controllers\Api\Admin\FinancialSummaryController;
+use App\Http\Controllers\Api\Admin\GeoStatsController;
+use App\Http\Controllers\Api\Admin\HomeCurationController;
+use App\Http\Controllers\Api\Admin\OfferController;
+use App\Http\Controllers\Api\Admin\PlatformSettingsController;
 use App\Http\Controllers\Api\Admin\PlaybackOpsController;
 use App\Http\Controllers\Api\Admin\RoleController;
+use App\Http\Controllers\Api\Admin\SubtitleController;
 use App\Http\Controllers\Api\Admin\TaxonomyController;
 use App\Http\Controllers\Api\Admin\UploadController;
 use App\Http\Controllers\Api\Admin\UserController;
+use App\Http\Controllers\Api\Admin\WatchPartyController;
 use App\Http\Controllers\Api\AdsController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\BunnyWebhookController;
 use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\PublicCatalogController;
+use App\Http\Controllers\Api\PublicPlatformSettingsController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StorefrontController;
-use App\Http\Controllers\Api\StorefrontTrackingController;
+use App\Http\Controllers\Api\StorefrontCouponController;
+use App\Http\Controllers\Api\StorefrontParentalController;
 use App\Http\Controllers\Api\StorefrontProfileController;
+use App\Http\Controllers\Api\StorefrontTrackingController;
+use App\Http\Controllers\Api\StorefrontWatchPartyController;
 use Illuminate\Support\Facades\Route;
 
     Route::prefix('v1')->group(function (): void {
@@ -46,14 +58,21 @@ use Illuminate\Support\Facades\Route;
         Route::get('catalog', [PublicCatalogController::class, 'catalog']);
         Route::get('content/{slug}', [PublicCatalogController::class, 'show']);
         Route::get('content/{slug}/premiere', [PublicCatalogController::class, 'premiere']);
+        Route::get('settings', [PublicPlatformSettingsController::class, 'show']);
+
+        // Watch parties — public room read access (anonymous viewers can see room state)
+        Route::get('watch-parties/{roomCode}', [StorefrontWatchPartyController::class, 'show']);
+        Route::get('watch-parties/{roomCode}/chat', [StorefrontWatchPartyController::class, 'chatHistory']);
     });
 
     Route::prefix('webhooks/bunny')->middleware('throttle:240,1')->group(function (): void {
         Route::post('video', [BunnyWebhookController::class, 'video']);
         Route::post('ads', [BunnyWebhookController::class, 'ads']);
+        // Bunny Stream calls this on videoStart to fetch ad payload (pre/mid/post-roll)
+        Route::any('ad-injection', [BunnyWebhookController::class, 'adInjection']);
     });
 
-    Route::get('ads/vast', [AdsController::class, 'vast'])->middleware('throttle:240,1');
+    Route::get('ads/vast', [AdsController::class, 'vast'])->middleware('throttle:240,1')->name('ads.vast');
     Route::get('ads/track', [AdsController::class, 'track'])->middleware('throttle:600,1');
     Route::post('ads/events', [AdsController::class, 'event'])->middleware('throttle:240,1');
     Route::get('docs/openapi.json', [OpenApiController::class, 'show']);
@@ -76,12 +95,26 @@ use Illuminate\Support\Facades\Route;
             Route::delete('profiles/{profile}', [StorefrontProfileController::class, 'destroy'])->middleware('permission:profile.manage');
             Route::put('profiles/{profile}/favorites/{identifier}', [StorefrontProfileController::class, 'favorite'])->middleware('permission:profile.manage');
             Route::delete('profiles/{profile}/favorites/{identifier}', [StorefrontProfileController::class, 'unfavorite'])->middleware('permission:profile.manage');
+
+            // Parental control
+            Route::post('profiles/{profile}/parental/pin', [StorefrontParentalController::class, 'setPin'])->middleware('permission:profile.manage');
+            Route::delete('profiles/{profile}/parental/pin', [StorefrontParentalController::class, 'clearPin'])->middleware('permission:profile.manage');
+            Route::post('profiles/{profile}/parental/unlock', [StorefrontParentalController::class, 'unlock'])->middleware(['permission:profile.manage', 'throttle:10,1']);
+
+            // Coupons
+            Route::post('coupons/preview', [StorefrontCouponController::class, 'preview'])->middleware(['permission:content.purchase', 'throttle:30,1']);
+
             Route::post('offers/{offer}/purchase', [StorefrontController::class, 'purchase'])->middleware('permission:content.purchase');
             Route::get('content/{identifier}/playback', [StorefrontController::class, 'playback'])->middleware('permission:content.watch');
             Route::post('content/{identifier}/playback/session', [StorefrontTrackingController::class, 'startPlaybackSession'])->middleware(['permission:content.watch', 'throttle:180,1']);
             Route::post('tracking/watch-progress', [StorefrontTrackingController::class, 'updateWatchProgress'])->middleware(['permission:content.watch', 'throttle:240,1']);
+            Route::post('tracking/heartbeat', [StorefrontTrackingController::class, 'heartbeat'])->middleware(['permission:content.watch', 'throttle:240,1']);
             Route::get('continue-watching', [StorefrontTrackingController::class, 'continueWatching'])->middleware('permission:content.watch');
             Route::get('content/{identifier}/recommendations', [StorefrontTrackingController::class, 'recommendations'])->middleware('permission:content.watch');
+
+            // Watch party participation
+            Route::post('watch-parties/{roomCode}/join', [StorefrontWatchPartyController::class, 'join'])->middleware('permission:content.watch');
+            Route::post('watch-parties/{roomCode}/chat', [StorefrontWatchPartyController::class, 'postChat'])->middleware(['permission:content.watch', 'throttle:60,1']);
         });
 
         Route::prefix('admin')->middleware('admin.panel')->group(function (): void {
@@ -101,6 +134,49 @@ use Illuminate\Support\Facades\Route;
             Route::patch('ad-campaigns/{campaign}', [AdCampaignController::class, 'update'])->middleware('permission:advertising.manage');
             Route::delete('ad-campaigns/{campaign}', [AdCampaignController::class, 'destroy'])->middleware('permission:advertising.manage');
             Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('permission:moderation.view_audit_log');
+
+            // Geo distribution (caiet §8)
+            Route::get('geo-stats', [GeoStatsController::class, 'dashboard'])->middleware('permission:commerce.view_billing');
+
+            // Platform settings (GA4, locales, etc.)
+            Route::get('platform-settings', [PlatformSettingsController::class, 'index'])->middleware('permission:settings.edit_home_curation');
+            Route::put('platform-settings', [PlatformSettingsController::class, 'update'])->middleware('permission:settings.edit_home_curation');
+
+            // Coupons (caiet §9)
+            Route::get('coupons', [CouponController::class, 'index'])->middleware('permission:commerce.view');
+            Route::post('coupons', [CouponController::class, 'store'])->middleware('permission:commerce.create_offers');
+            Route::patch('coupons/{coupon}', [CouponController::class, 'update'])->middleware('permission:commerce.edit_offers');
+            Route::delete('coupons/{coupon}', [CouponController::class, 'destroy'])->middleware('permission:commerce.edit_offers');
+
+            // Watch parties (caiet §14.4)
+            Route::get('watch-parties', [WatchPartyController::class, 'index'])->middleware('permission:content.view');
+            Route::post('watch-parties', [WatchPartyController::class, 'store'])->middleware('permission:content.edit');
+            Route::post('watch-parties/{party}/start', [WatchPartyController::class, 'start'])->middleware('permission:content.edit');
+            Route::post('watch-parties/{party}/end', [WatchPartyController::class, 'end'])->middleware('permission:content.edit');
+            Route::delete('watch-parties/{party}', [WatchPartyController::class, 'destroy'])->middleware('permission:content.edit');
+
+            // Content creators (admin)
+            Route::get('content-creators', [ContentCreatorController::class, 'index'])->middleware('permission:users.view');
+            Route::post('content-creators', [ContentCreatorController::class, 'store'])->middleware('permission:users.invite');
+            Route::patch('content-creators/{creator}', [ContentCreatorController::class, 'update'])->middleware('permission:users.edit');
+            Route::delete('content-creators/{creator}', [ContentCreatorController::class, 'destroy'])->middleware('permission:users.edit');
+            Route::get('content-creators/{creator}/statements', [ContentCreatorController::class, 'statements'])->middleware('permission:commerce.view_billing');
+
+            // Per-campaign stats (caiet §3 enhanced)
+            Route::get('ad-campaigns/{campaign}/stats', [AdStatsController::class, 'show'])->middleware('permission:advertising.view');
+            Route::get('ad-campaigns/{campaign}/events', [AdStatsController::class, 'events'])->middleware('permission:advertising.view');
+
+            // Per-content subtitles (caiet §13)
+            Route::get('content/{content}/subtitles', [SubtitleController::class, 'index'])->middleware('permission:content.view');
+            Route::post('content/{content}/subtitles', [SubtitleController::class, 'store'])->middleware('permission:content.edit');
+            Route::patch('content/{content}/subtitles/{track}', [SubtitleController::class, 'update'])->middleware('permission:content.edit');
+            Route::delete('content/{content}/subtitles/{track}', [SubtitleController::class, 'destroy'])->middleware('permission:content.edit');
+
+            // Per-content availability windows (caiet §4)
+            Route::get('content/{content}/availability', [AvailabilityWindowController::class, 'index'])->middleware('permission:content.view');
+            Route::post('content/{content}/availability', [AvailabilityWindowController::class, 'store'])->middleware('permission:content.edit');
+            Route::patch('content/{content}/availability/{window}', [AvailabilityWindowController::class, 'update'])->middleware('permission:content.edit');
+            Route::delete('content/{content}/availability/{window}', [AvailabilityWindowController::class, 'destroy'])->middleware('permission:content.edit');
 
             Route::get('users', [UserController::class, 'index'])->middleware('permission:users.view');
             Route::post('users/invite', [UserController::class, 'invite'])->middleware('permission:users.invite');
