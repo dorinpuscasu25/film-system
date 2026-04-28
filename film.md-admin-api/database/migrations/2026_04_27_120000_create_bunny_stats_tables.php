@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected string $connection = 'analytics';
+    protected $connection = 'analytics';
 
     public function up(): void
     {
