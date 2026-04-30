@@ -151,8 +151,10 @@ class StorefrontController extends ApiController
             'episode' => $playback['episode'],
             'playback' => [
                 'url' => $playback['url'],
+                'embed_url' => $playback['embed_url'],
                 'quality' => $playback['quality'],
                 'content_format_id' => $playback['content_format_id'],
+                'drm' => $playback['drm'],
                 'offer_type' => $entitlement?->access_type ?? ($hasFreeAccess ? Offer::TYPE_FREE : null),
                 'expires_at' => $entitlement?->expires_at?->toIso8601String(),
                 'is_lifetime' => $entitlement?->expires_at === null,
@@ -208,7 +210,7 @@ class StorefrontController extends ApiController
     }
 
     /**
-     * @return array{url: ?string, quality: ?string, content_format_id: ?int, subtitles: array<int, array<string, mixed>>, episode: ?array<string, mixed>, message?: string, status?: int}
+     * @return array{url: ?string, embed_url: ?string, quality: ?string, content_format_id: ?int, drm: array<string, mixed>, subtitles: array<int, array<string, mixed>>, episode: ?array<string, mixed>, message?: string, status?: int}
      */
     protected function resolvePlaybackPayload(
         Content $content,
@@ -232,7 +234,9 @@ class StorefrontController extends ApiController
             return [
                 'url' => null,
                 'quality' => null,
+                'embed_url' => null,
                 'content_format_id' => null,
+                'drm' => [],
                 'subtitles' => [],
                 'episode' => null,
                 'message' => 'This title is not available yet.',
@@ -245,7 +249,9 @@ class StorefrontController extends ApiController
             return [
                 'url' => null,
                 'quality' => null,
+                'embed_url' => null,
                 'content_format_id' => null,
+                'drm' => [],
                 'subtitles' => [],
                 'episode' => null,
                 'message' => 'This title is locked until its scheduled premiere starts.',
@@ -263,7 +269,9 @@ class StorefrontController extends ApiController
             return [
                 'url' => null,
                 'quality' => null,
+                'embed_url' => null,
                 'content_format_id' => null,
+                'drm' => [],
                 'subtitles' => [],
                 'episode' => null,
                 'message' => 'This title is not available in your territory or format.',
@@ -316,8 +324,10 @@ class StorefrontController extends ApiController
                         ?: data_get($episode, 'trailer_url')
                         ?: $this->bunnyToken->signedStreamUrl($resolvedFormat)
                         ?: $primaryVideoUrl,
+                    'embed_url' => $this->bunnyEmbedUrl($resolvedFormat),
                     'quality' => $resolvedFormat->quality,
                     'content_format_id' => $resolvedFormat->id,
+                    'drm' => $this->formatDrmData($resolvedFormat),
                     'subtitles' => $subtitles,
                     'episode' => [
                         'id' => (string) data_get($episode, 'id'),
@@ -335,11 +345,55 @@ class StorefrontController extends ApiController
 
         return [
             'url' => $this->bunnyToken->signedStreamUrl($resolvedFormat) ?: $primaryVideoUrl,
+            'embed_url' => $this->bunnyEmbedUrl($resolvedFormat),
             'quality' => $resolvedFormat->quality,
             'content_format_id' => $resolvedFormat->id,
+            'drm' => $this->formatDrmData($resolvedFormat),
             'subtitles' => $subtitles,
             'episode' => null,
         ];
+    }
+
+    protected function bunnyEmbedUrl(\App\Models\ContentFormat $format): ?string
+    {
+        if ($format->stream_url && str_contains($format->stream_url, 'iframe.mediadelivery.net/embed/')) {
+            return $format->stream_url;
+        }
+
+        if ($format->bunny_library_id === null || $format->bunny_video_id === null) {
+            return null;
+        }
+
+        if (! ctype_digit((string) $format->bunny_library_id)) {
+            return null;
+        }
+
+        return sprintf(
+            'https://iframe.mediadelivery.net/embed/%s/%s?autoplay=true&responsive=true',
+            rawurlencode((string) $format->bunny_library_id),
+            rawurlencode((string) $format->bunny_video_id),
+        );
+    }
+
+    protected function formatDrmData(\App\Models\ContentFormat $format): array
+    {
+        $meta = is_array($format->meta) ? $format->meta : [];
+
+        return [
+            'policy' => $format->drm_policy,
+            'servers' => $this->jsonObjectMap(data_get($meta, 'drm.servers', data_get($meta, 'license_servers', []))),
+            'headers' => $this->jsonObjectMap(data_get($meta, 'drm.headers', [])),
+            'clear_keys' => $this->jsonObjectMap(data_get($meta, 'drm.clear_keys', [])),
+        ];
+    }
+
+    protected function jsonObjectMap(mixed $value): object|array
+    {
+        if (! is_array($value) || $value === [] || array_is_list($value)) {
+            return (object) [];
+        }
+
+        return $value;
     }
 
     protected function continueWatchingData(?int $userId, int $contentId, ?string $episodeId): ?array

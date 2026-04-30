@@ -121,8 +121,15 @@ export interface StorefrontPlaybackPayload {
   } | null;
   playback: {
     url: string;
+    embed_url?: string | null;
     quality?: string | null;
     content_format_id?: number | null;
+    drm?: {
+      policy?: string | null;
+      servers?: Record<string, string>;
+      headers?: Record<string, string>;
+      clear_keys?: Record<string, string>;
+    };
     offer_type?: "free" | "rental" | "lifetime" | null;
     expires_at?: string | null;
     is_lifetime: boolean;

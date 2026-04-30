@@ -79,7 +79,7 @@ class StoreContentRequest extends FormRequest
             'content_formats.*.id' => ['nullable', 'integer'],
             'content_formats.*.quality' => ['required', Rule::in(Content::availableQualities())],
             'content_formats.*.format_type' => ['required', Rule::in(['main', 'trailer'])],
-            'content_formats.*.bunny_library_id' => ['required', 'string', 'max:64'],
+            'content_formats.*.bunny_library_id' => ['required', 'string', 'max:64', 'regex:/^\d+$/'],
             'content_formats.*.bunny_video_id' => ['required', 'string', 'max:128'],
             'content_formats.*.stream_url' => ['nullable', 'url', 'max:2048'],
             'content_formats.*.token_path' => ['nullable', 'string', 'max:255'],

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { initGA4 } from './lib/ga4';
 import { AuthProvider } from './contexts/AuthContext';
 import { WalletProvider } from './contexts/WalletContext';
@@ -15,6 +15,31 @@ import { SearchPage } from './pages/SearchPage';
 import { UserDashboardPage } from './pages/UserDashboardPage';
 import { WatchPartyPage } from './pages/WatchPartyPage';
 import { stripHashRouteFromUrl } from './lib/url';
+
+function AppFrame() {
+  const location = useLocation();
+  const isPlayerRoute = location.pathname.startsWith('/watch/');
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background text-white font-sans selection:bg-accent selection:text-white">
+      {!isPlayerRoute ? <Header /> : null}
+      {!isPlayerRoute ? <AuthModal /> : null}
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/profiles" element={<ProfileSelectPage />} />
+          <Route path="/movie/:id" element={<MovieDetailPage />} />
+          <Route path="/watch/:id" element={<PlayerPage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/dashboard" element={<UserDashboardPage />} />
+          <Route path="/watch-party/:roomCode" element={<WatchPartyPage />} />
+        </Routes>
+      </main>
+      {!isPlayerRoute ? <Footer /> : null}
+    </div>
+  );
+}
+
 export function App() {
   useEffect(() => {
     void initGA4();
@@ -28,29 +53,14 @@ export function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <LanguageProvider>
-        <WalletProvider>
-          <Router>
-            <div className="min-h-screen flex flex-col bg-background text-white font-sans selection:bg-accent selection:text-white">
-              <Header />
-              <AuthModal />
-              <main className="flex-grow">
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/profiles" element={<ProfileSelectPage />} />
-                  <Route path="/movie/:id" element={<MovieDetailPage />} />
-                  <Route path="/watch/:id" element={<PlayerPage />} />
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/dashboard" element={<UserDashboardPage />} />
-                  <Route path="/watch-party/:roomCode" element={<WatchPartyPage />} />
-                </Routes>
-              </main>
-              <Footer />
-            </div>
-          </Router>
-        </WalletProvider>
-      </LanguageProvider>
-    </AuthProvider>);
-
+    <Router>
+      <AuthProvider>
+        <LanguageProvider>
+          <WalletProvider>
+            <AppFrame />
+          </WalletProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </Router>
+  );
 }

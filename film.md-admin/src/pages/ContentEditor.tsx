@@ -141,6 +141,8 @@ type PremiereEventFormState = {
   is_public: boolean;
 };
 
+const SHOW_SUBTITLE_TRACKS_EDITOR = false;
+
 const FALLBACK_OPTIONS: AdminContentOptions = {
   locales: [
     { value: "ro", label: "RO" },
@@ -2161,6 +2163,7 @@ export function ContentEditor() {
             </CardContent>
           </Card>
 
+          {SHOW_SUBTITLE_TRACKS_EDITOR ? (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <div>
@@ -2227,6 +2230,7 @@ export function ContentEditor() {
               ))}
             </CardContent>
           </Card>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="credits" className="space-y-4">

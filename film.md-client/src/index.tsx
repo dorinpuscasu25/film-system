@@ -1,9 +1,8 @@
 import "./index.css";
 import "./i18n";
-import React from "react";
-import { render } from "react-dom";
+import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { stripHashRouteFromUrl } from "./lib/url";
 
 stripHashRouteFromUrl();
-render(<App />, document.getElementById("root"));
+createRoot(document.getElementById("root") as HTMLElement).render(<App />);

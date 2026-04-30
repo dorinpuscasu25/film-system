@@ -20,6 +20,15 @@ export function PlayerPage() {
   const { currentLanguage } = useLanguage();
   const [movie, setMovie] = useState<Movie | null>(null);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [playbackQuality, setPlaybackQuality] = useState<string | null>(null);
+  const [playbackContentId, setPlaybackContentId] = useState<number | null>(null);
+  const [playbackDrm, setPlaybackDrm] = useState<{
+    policy?: string | null;
+    servers?: Record<string, string>;
+    headers?: Record<string, string>;
+    clear_keys?: Record<string, string>;
+  } | null>(null);
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [contentFormatId, setContentFormatId] = useState<number | null>(null);
@@ -72,7 +81,12 @@ export function PlayerPage() {
         setPremiereLock(null);
         setPlaybackError(null);
         setMovie(detail);
+        const numericContentId = Number(playback.content.id);
+        setPlaybackContentId(Number.isFinite(numericContentId) ? numericContentId : null);
         setPlaybackUrl(playback.playback.url);
+        setEmbedUrl(playback.playback.embed_url ?? null);
+        setPlaybackQuality(playback.playback.quality ?? null);
+        setPlaybackDrm(playback.playback.drm ?? null);
         setEpisodeTitle(playback.episode?.title ?? null);
         setSessionToken(playback.playback.session_token ?? null);
         setContentFormatId(playback.playback.content_format_id ?? null);
@@ -108,11 +122,13 @@ export function PlayerPage() {
             message: requestError.message,
           });
           setPlaybackUrl(null);
+          setEmbedUrl(null);
           setPlaybackError(null);
           return;
         }
 
         setPlaybackError(requestError.message || "Playback could not be started.");
+        setPlaybackContentId(null);
       } finally {
         if (active) {
           setIsLoading(false);
@@ -202,10 +218,11 @@ export function PlayerPage() {
       <VideoPlayer
         movie={movie}
         sourceUrl={playbackUrl}
+        embedUrl={embedUrl}
+        quality={playbackQuality}
+        drm={playbackDrm}
         episodeTitle={episodeTitle}
         sessionToken={sessionToken}
-        contentFormatId={contentFormatId}
-        episodeId={episodeId ?? null}
         initialPositionSeconds={initialPositionSeconds}
         subtitles={subtitles}
         onProgress={(payload) => {
@@ -213,9 +230,13 @@ export function PlayerPage() {
             return;
           }
 
+          if (playbackContentId === null) {
+            return;
+          }
+
           void updateStorefrontWatchProgress({
             session_token: sessionToken,
-            content_id: movie.id,
+            content_id: playbackContentId,
             content_format_id: contentFormatId,
             episode_id: episodeId ?? null,
             position_seconds: payload.position_seconds,
