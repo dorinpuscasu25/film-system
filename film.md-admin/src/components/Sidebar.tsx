@@ -1,4 +1,3 @@
-import React from "react";
 import { useTranslation } from "react-i18next";
 import {
   ChevronLeftIcon,
@@ -18,24 +17,32 @@ import {
   MegaphoneIcon,
   PlayCircleIcon,
   SearchIcon,
-  ShieldAlertIcon,
   TagsIcon,
   TicketIcon,
   UserCircleIcon,
   UsersIcon,
   Video as VideoIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAdmin } from "../hooks/useAdmin";
+import type { AdminPage } from "../hooks/useAdmin";
 import { Button } from "./ui/button";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+
+type MenuItem = {
+  id: AdminPage;
+  label: string;
+  icon: LucideIcon;
+  show: boolean;
+};
 
 export function Sidebar() {
   const { currentPage, navigate, sidebarCollapsed, toggleSidebar, can } =
     useAdmin();
   const { t } = useTranslation();
 
-  const menuGroups = [
+  const menuGroups: Array<{ title: string; items: MenuItem[] }> = [
     {
       title: t("nav.dashboard"),
       items: [

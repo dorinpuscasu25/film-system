@@ -642,8 +642,9 @@ function TaxonomyPicker({
   );
 }
 
-export function ContentEditor() {
-  const { currentUser, selectedContentId, navigate } = useAdmin();
+export function ContentEditor({ contentId }: { contentId?: string | null } = {}) {
+  const { currentUser, selectedContentId: contextSelectedContentId, navigate } = useAdmin();
+  const selectedContentId = contentId ?? contextSelectedContentId;
   const isNew = selectedContentId === "new" || !selectedContentId;
   const numericContentId = !isNew && selectedContentId ? Number(selectedContentId) : null;
   const [editorTab, setEditorTab] = useState("general");

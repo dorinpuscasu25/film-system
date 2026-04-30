@@ -1,10 +1,11 @@
-import React, { ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { useLocation, useNavigate as useRouterNavigate } from 'react-router-dom';
 import { adminApi, setAccessTokenGetter } from '../lib/api';
 import { AdminUser } from '../types';
 
 const ACCESS_TOKEN_STORAGE_KEY = 'film_admin_access_token';
 
-type AdminPage =
+export type AdminPage =
   | 'dashboard'
   | 'catalog'
   | 'editor'
@@ -12,6 +13,13 @@ type AdminPage =
   | 'taxonomies'
   | 'collections'
   | 'billing'
+  | 'price-settings'
+  | 'coupons'
+  | 'geo-stats'
+  | 'ads'
+  | 'ad-test'
+  | 'watch-parties'
+  | 'content-creators'
   | 'home-curation'
   | 'discovery'
   | 'cms'
@@ -19,9 +27,73 @@ type AdminPage =
   | 'users'
   | 'roles'
   | 'moderation'
+  | 'bunny-health'
   | 'account';
 
-function canAccessPage(page: AdminPage, user: AdminUser | null): boolean {
+export function adminPathForPage(page: AdminPage, contentId: string | null = null): string {
+  if (page === 'editor') {
+    return contentId && contentId !== 'new' ? `/movies/${contentId}` : '/movies/new';
+  }
+
+  const paths: Record<Exclude<AdminPage, 'editor'>, string> = {
+    dashboard: '/dashboard',
+    catalog: '/movies',
+    media: '/media',
+    taxonomies: '/taxonomies',
+    collections: '/collections',
+    billing: '/billing',
+    'price-settings': '/prices',
+    coupons: '/coupons',
+    'geo-stats': '/geo-stats',
+    ads: '/ads',
+    'ad-test': '/ads/test',
+    'watch-parties': '/watch-parties',
+    'content-creators': '/creators',
+    'home-curation': '/home-curation',
+    discovery: '/discovery',
+    cms: '/cms',
+    playback: '/playback',
+    users: '/users',
+    roles: '/roles',
+    moderation: '/moderation',
+    'bunny-health': '/bunny-health',
+    account: '/account',
+  };
+
+  return paths[page];
+}
+
+function defaultBreadcrumb(page: AdminPage): string[] {
+  const labels: Record<AdminPage, string> = {
+    dashboard: 'Tablou de bord',
+    catalog: 'Filme',
+    editor: 'Filme',
+    media: 'Bibliotecă media',
+    taxonomies: 'Taxonomii',
+    collections: 'Colecții',
+    billing: 'Costuri & venituri',
+    'price-settings': 'Prețuri',
+    coupons: 'Cupoane',
+    'geo-stats': 'Distribuție geografică',
+    ads: 'Reclame',
+    'ad-test': 'VAST Test',
+    'watch-parties': 'Watch Parties',
+    'content-creators': 'Creatori',
+    'home-curation': 'Pagina principală',
+    discovery: 'Căutare',
+    cms: 'CMS',
+    playback: 'Playback',
+    users: 'Utilizatori',
+    roles: 'Roluri',
+    moderation: 'Moderare',
+    'bunny-health': 'Bunny Health',
+    account: 'Setări cont',
+  };
+
+  return [labels[page]];
+}
+
+export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boolean {
   if (!user) {
     return false;
   }
@@ -43,19 +115,27 @@ function canAccessPage(page: AdminPage, user: AdminUser | null): boolean {
     taxonomies: 'taxonomies.view',
     collections: 'taxonomies.view',
     billing: 'commerce.view_billing',
+    'price-settings': 'commerce.view_billing',
+    coupons: 'commerce.view',
+    'geo-stats': 'commerce.view_billing',
+    ads: 'advertising.view',
+    'ad-test': 'advertising.view',
+    'watch-parties': 'content.view',
+    'content-creators': 'users.view',
     'home-curation': 'settings.edit_home_curation',
     discovery: 'settings.edit_search_config',
     cms: 'cms.view',
     playback: 'playback.view_sessions',
     users: 'users.view',
     moderation: 'moderation.view_queue',
+    'bunny-health': 'settings.edit_home_curation',
   };
 
   const requiredPermission = mapping[page];
   return requiredPermission ? permissions.has(requiredPermission) : false;
 }
 
-function firstAvailablePage(user: AdminUser | null): AdminPage {
+export function firstAvailablePage(user: AdminUser | null): AdminPage {
   const candidates: AdminPage[] = [
     'dashboard',
     'users',
@@ -67,7 +147,7 @@ function firstAvailablePage(user: AdminUser | null): AdminPage {
     'account',
   ];
 
-  return candidates.find((page) => canAccessPage(page, user)) ?? 'dashboard';
+  return candidates.find((page) => canAccessAdminPage(page, user)) ?? 'dashboard';
 }
 
 interface AdminContextType {
@@ -90,11 +170,20 @@ interface AdminContextType {
   logout: () => Promise<void>;
   refreshCurrentUser: () => Promise<void>;
   can: (permission: string) => boolean;
+  canAccessPage: (page: AdminPage) => boolean;
+  setRouteState: (
+  page: AdminPage,
+  contentId?: string | null,
+  breadcrumbs?: string[])
+  => void;
+  firstAvailablePath: () => string;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: {children: ReactNode;}) {
+  const routerNavigate = useRouterNavigate();
+  const routerLocation = useLocation();
   const [currentPage, setCurrentPage] = useState<AdminPage>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedContentId, setSelectedContentId] = useState<string | null>(
@@ -131,7 +220,7 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
       const response = await adminApi.me();
       setCurrentUser(response.user);
       setCurrentPage((page) =>
-        canAccessPage(page, response.user) ? page : firstAvailablePage(response.user),
+        canAccessAdminPage(page, response.user) ? page : firstAvailablePage(response.user),
       );
     } catch (error) {
       localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
@@ -152,7 +241,7 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
   contentId: string | null = null,
   newBreadcrumbs?: string[]) =>
   {
-    if (!canAccessPage(page, currentUser)) {
+    if (!canAccessAdminPage(page, currentUser)) {
       return;
     }
     setCurrentPage(page);
@@ -160,19 +249,24 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
     if (newBreadcrumbs) {
       setBreadcrumbs(newBreadcrumbs);
     } else {
-      // Auto-generate basic breadcrumb if not provided
-      const pageName =
-      page.charAt(0).toUpperCase() +
-      page.
-      slice(1).
-      replace(/([A-Z])/g, ' $1').
-      trim();
-      setBreadcrumbs([pageName]);
+      setBreadcrumbs(defaultBreadcrumb(page));
     }
+    routerNavigate(adminPathForPage(page, contentId));
   };
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
   const can = (permission: string) =>
   currentUser?.permission_codes.includes(permission) ?? false;
+  const canAccessPage = (page: AdminPage) => canAccessAdminPage(page, currentUser);
+  const setRouteState = (
+  page: AdminPage,
+  contentId: string | null = null,
+  newBreadcrumbs?: string[]) =>
+  {
+    setCurrentPage(page);
+    setSelectedContentId(contentId);
+    setBreadcrumbs(newBreadcrumbs ?? defaultBreadcrumb(page));
+  };
+  const firstAvailablePath = () => adminPathForPage(firstAvailablePage(currentUser));
 
   async function login(email: string, password: string) {
     setIsAuthLoading(true);
@@ -183,8 +277,14 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
       localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, response.token);
       setAccessToken(response.token);
       setCurrentUser(response.user);
-      setCurrentPage(firstAvailablePage(response.user));
-      setBreadcrumbs(['Panou']);
+      const nextPage = firstAvailablePage(response.user);
+      setCurrentPage(nextPage);
+      setBreadcrumbs(defaultBreadcrumb(nextPage));
+      if (routerLocation.pathname === '/' || routerLocation.pathname === '/login') {
+        routerNavigate(adminPathForPage(nextPage), { replace: true });
+      } else {
+        routerNavigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true });
+      }
     } catch (error) {
       setAuthError(
         error instanceof Error ? error.message : 'Autentificarea a eșuat.',
@@ -206,7 +306,9 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
     setAccessToken(null);
     setCurrentUser(null);
     setCurrentPage('dashboard');
-    setBreadcrumbs(['Panou']);
+    setSelectedContentId(null);
+    setBreadcrumbs(defaultBreadcrumb('dashboard'));
+    routerNavigate('/login', { replace: true });
   }
 
   return (
@@ -226,7 +328,10 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
         login,
         logout,
         refreshCurrentUser,
-        can
+        can,
+        canAccessPage,
+        setRouteState,
+        firstAvailablePath
       }}>
       
       {children}
