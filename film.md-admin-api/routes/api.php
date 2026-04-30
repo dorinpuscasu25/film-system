@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
 use App\Http\Controllers\Api\Admin\ContentController;
 use App\Http\Controllers\Api\Admin\ContentCreatorController;
 use App\Http\Controllers\Api\Admin\ContentFinancialsController;
+use App\Http\Controllers\Api\Admin\ContentReviewController as AdminContentReviewController;
 use App\Http\Controllers\Api\Admin\CostSettingsController;
 use App\Http\Controllers\Api\Admin\CouponController;
 use App\Http\Controllers\Api\Admin\DashboardController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\Api\AdsController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\BunnyWebhookController;
+use App\Http\Controllers\Api\ContentReviewController;
 use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\PublicCatalogController;
 use App\Http\Controllers\Api\PublicPlatformSettingsController;
@@ -59,6 +61,7 @@ use Illuminate\Support\Facades\Route;
         Route::get('home', [PublicCatalogController::class, 'home']);
         Route::get('catalog', [PublicCatalogController::class, 'catalog']);
         Route::get('content/{slug}', [PublicCatalogController::class, 'show']);
+        Route::get('content/{slug}/reviews', [ContentReviewController::class, 'index']);
         Route::get('content/{slug}/premiere', [PublicCatalogController::class, 'premiere']);
         Route::get('settings', [PublicPlatformSettingsController::class, 'show']);
 
@@ -113,6 +116,7 @@ use Illuminate\Support\Facades\Route;
             Route::post('tracking/heartbeat', [StorefrontTrackingController::class, 'heartbeat'])->middleware(['permission:content.watch', 'throttle:240,1']);
             Route::get('continue-watching', [StorefrontTrackingController::class, 'continueWatching'])->middleware('permission:content.watch');
             Route::get('content/{identifier}/recommendations', [StorefrontTrackingController::class, 'recommendations'])->middleware('permission:content.watch');
+            Route::post('content/{identifier}/reviews', [ContentReviewController::class, 'store'])->middleware(['permission:storefront.access', 'throttle:20,1']);
 
             // Watch party participation
             Route::post('watch-parties/{roomCode}/join', [StorefrontWatchPartyController::class, 'join'])->middleware('permission:content.watch');
@@ -201,9 +205,13 @@ use Illuminate\Support\Facades\Route;
             Route::get('content/options', [ContentController::class, 'options'])->middleware('permission:content.view');
             Route::get('content/{content}', [ContentController::class, 'show'])->middleware('permission:content.view');
             Route::get('content/{content}/financials', [ContentFinancialsController::class, 'show'])->middleware('permission:commerce.view_billing');
+            Route::get('content/{content}/reviews', [AdminContentReviewController::class, 'index'])->middleware('permission:content.view');
             Route::post('content', [ContentController::class, 'store'])->middleware('permission:content.create');
             Route::patch('content/{content}', [ContentController::class, 'update'])->middleware('permission:content.edit');
             Route::delete('content/{content}', [ContentController::class, 'destroy'])->middleware('permission:content.delete');
+            Route::get('reviews', [AdminContentReviewController::class, 'index'])->middleware('permission:content.view');
+            Route::patch('reviews/{review}', [AdminContentReviewController::class, 'update'])->middleware('permission:content.edit');
+            Route::delete('reviews/{review}', [AdminContentReviewController::class, 'destroy'])->middleware('permission:content.edit');
 
             Route::get('offers', [OfferController::class, 'index'])->middleware('permission:commerce.view');
             Route::post('offers', [OfferController::class, 'store'])->middleware('permission:commerce.create_offers');

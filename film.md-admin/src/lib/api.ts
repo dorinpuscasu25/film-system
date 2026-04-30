@@ -5,6 +5,8 @@ import {
   AdminContent,
   AdminContentFilters,
   AdminContentOptions,
+  AdminContentReview,
+  AdminContentReviewsResponse,
   AdminUserContentOption,
   AdminOffer,
   AdminPermission,
@@ -273,6 +275,32 @@ export const adminApi = {
       "GET",
       `/admin/content/${contentId}/financials?months=${months}`,
     );
+  },
+
+  getReviews(query?: { contentId?: number; status?: "published" | "hidden" }) {
+    const params = new URLSearchParams();
+    if (query?.contentId) {
+      params.set("content_id", String(query.contentId));
+    }
+    if (query?.status) {
+      params.set("status", query.status);
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return request<AdminContentReviewsResponse>("GET", `/admin/reviews${suffix}`);
+  },
+
+  getContentReviews(contentId: number) {
+    return request<AdminContentReviewsResponse>("GET", `/admin/content/${contentId}/reviews`);
+  },
+
+  updateReview(reviewId: number, payload: { status: "published" | "hidden" }) {
+    return request<{ review: AdminContentReview }>("PATCH", `/admin/reviews/${reviewId}`, {
+      data: payload,
+    });
+  },
+
+  deleteReview(reviewId: number) {
+    return request<void>("DELETE", `/admin/reviews/${reviewId}`);
   },
 
   getFinancialSummary() {

@@ -189,6 +189,26 @@ export interface RecommendationsResponsePayload {
   items: RecommendationItemPayload[];
 }
 
+export interface StorefrontReviewPayload {
+  id: string | number;
+  user_id: string | number;
+  user_name: string;
+  user_avatar: string;
+  rating: number;
+  comment: string;
+  status: "published" | "hidden";
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface StorefrontReviewResponsePayload {
+  review: StorefrontReviewPayload;
+  summary: {
+    count: number;
+    average_rating: number;
+  };
+}
+
 export interface RequestErrorWithPayload extends Error {
   status?: number;
   payload?: Record<string, unknown>;
@@ -463,6 +483,26 @@ export async function fetchStorefrontRecommendations(
   return requestJson<RecommendationsResponsePayload>(`/storefront/content/${identifier}/recommendations`, {}, {
     locale,
   }, true);
+}
+
+export async function submitStorefrontReview(
+  identifier: string,
+  payload: {
+    rating: number;
+    comment: string;
+    locale?: "en" | "ro" | "ru";
+    accountProfileId?: string | number | null;
+  },
+) {
+  return requestJson<StorefrontReviewResponsePayload>(`/storefront/content/${identifier}/reviews`, {
+    method: "POST",
+    body: JSON.stringify({
+      rating: payload.rating,
+      comment: payload.comment,
+      locale: payload.locale,
+      account_profile_id: payload.accountProfileId,
+    }),
+  }, undefined, true);
 }
 
 export async function createStorefrontProfile(payload: {

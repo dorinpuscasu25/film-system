@@ -57,6 +57,11 @@ class User extends Authenticatable
         return $this->hasMany(UserContentAccess::class)->orderBy('content_id');
     }
 
+    public function contentReviews(): HasMany
+    {
+        return $this->hasMany(ContentReview::class);
+    }
+
     public function assignedContents(): BelongsToMany
     {
         return $this->belongsToMany(Content::class, 'user_content_accesses')

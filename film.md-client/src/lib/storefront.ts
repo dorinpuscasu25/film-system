@@ -113,6 +113,26 @@ interface PublicContentDetail extends PublicContentCard {
   offers: PublicOffer[];
 }
 
+export interface PublicReview {
+  id: string | number;
+  user_id: string | number;
+  user_name: string;
+  user_avatar: string;
+  rating: number;
+  comment: string;
+  status: "published" | "hidden";
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface PublicReviewsResponse {
+  items: PublicReview[];
+  summary: {
+    count: number;
+    average_rating: number;
+  };
+}
+
 interface HomeResponse {
   hero: PublicContentCard | null;
   hero_slides?: Array<{
@@ -499,4 +519,8 @@ export async function getFullCatalog(locale: LocaleCode, query: Omit<CatalogQuer
 export async function getContentDetail(locale: LocaleCode, slug: string): Promise<Movie> {
   const response = await fetchJson<PublicContentDetail>(`/public/content/${slug}`, { locale });
   return mapDetailToMovie(response);
+}
+
+export async function fetchContentReviews(slug: string): Promise<PublicReviewsResponse> {
+  return fetchJson<PublicReviewsResponse>(`/public/content/${slug}/reviews`);
 }

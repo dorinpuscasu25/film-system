@@ -480,8 +480,7 @@ export const MOCK_REVIEWS: Review[] = [
   rating: 5,
   comment:
   'Absolutely stunning visuals and incredible sound design. A masterpiece of modern cinema.',
-  date: '2024-03-15',
-  likes: 124
+  date: '2024-03-15'
 },
 {
   id: 'r2',
@@ -491,8 +490,7 @@ export const MOCK_REVIEWS: Review[] = [
   rating: 4,
   comment:
   'Great pacing and acting, though the third act felt a bit rushed. Still highly recommended.',
-  date: '2024-03-10',
-  likes: 89
+  date: '2024-03-10'
 },
 {
   id: 'r3',
@@ -502,8 +500,7 @@ export const MOCK_REVIEWS: Review[] = [
   rating: 5,
   comment:
   'Worth every penny. The 48h access gave me enough time to rewatch my favorite scenes.',
-  date: '2024-03-05',
-  likes: 42
+  date: '2024-03-05'
 }];
 
 

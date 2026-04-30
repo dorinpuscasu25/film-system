@@ -905,6 +905,38 @@ export interface AdminOffer {
   updated_at: string | null;
 }
 
+export interface AdminContentReview {
+  id: number;
+  content_id: number;
+  content_slug: string | null;
+  content_title: string | null;
+  content_type: AdminContentType | null;
+  user_id: number;
+  user_name: string;
+  user_email: string | null;
+  user_avatar: string;
+  rating: number;
+  comment: string;
+  status: "published" | "hidden";
+  locale: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminContentReviewsResponse {
+  items: AdminContentReview[];
+  stats: {
+    total: number;
+    published: number;
+    hidden: number;
+  };
+  pagination: {
+    page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
 export interface OfferPayload {
   content_id: number;
   name?: string;

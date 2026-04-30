@@ -1,5 +1,4 @@
 import React from 'react';
-import { ThumbsUpIcon } from 'lucide-react';
 import { Review } from '../types';
 import { StarRating } from './StarRating';
 interface ReviewCardProps {
@@ -24,13 +23,6 @@ export function ReviewCard({ review }: ReviewCardProps) {
       </div>
 
       <p className="text-gray-300 text-sm leading-relaxed">{review.comment}</p>
-
-      <div className="pt-2 flex items-center">
-        <button className="flex items-center space-x-1 text-xs text-gray-400 hover:text-white transition-colors">
-          <ThumbsUpIcon className="w-4 h-4" />
-          <span>{review.likes}</span>
-        </button>
-      </div>
     </div>);
 
 }

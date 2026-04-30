@@ -15,6 +15,7 @@ import {
   KeyIcon,
   LayoutTemplateIcon,
   MegaphoneIcon,
+  MessageSquareTextIcon,
   PlayCircleIcon,
   SearchIcon,
   TagsIcon,
@@ -56,6 +57,12 @@ export function Sidebar() {
           id: "catalog",
           label: t("nav.content"),
           icon: FilmIcon,
+          show: can("content.view"),
+        },
+        {
+          id: "reviews",
+          label: "Review-uri",
+          icon: MessageSquareTextIcon,
           show: can("content.view"),
         },
         // {

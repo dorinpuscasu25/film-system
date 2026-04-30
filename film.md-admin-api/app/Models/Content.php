@@ -133,6 +133,11 @@ class Content extends Model
         return $this->hasMany(ContentEntitlement::class);
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(ContentReview::class)->latest();
+    }
+
     public function syncTaxonomyIds(array $taxonomyIds): void
     {
         $this->taxonomies()->sync(array_values(array_unique(array_map('intval', $taxonomyIds))));

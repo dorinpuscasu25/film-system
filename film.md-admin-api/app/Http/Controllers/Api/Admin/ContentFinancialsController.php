@@ -86,7 +86,14 @@ class ContentFinancialsController extends ApiController
         $offers = Offer::query()
             ->where('content_id', $content->id)
             ->orderBy('quality')
-            ->get(['id', 'quality', 'price', 'currency', 'is_active']);
+            ->get(['id', 'quality', 'price_amount', 'currency', 'is_active'])
+            ->map(fn (Offer $offer) => [
+                'id' => $offer->id,
+                'quality' => $offer->quality,
+                'price' => round((float) $offer->price_amount, 2),
+                'currency' => $offer->currency,
+                'is_active' => (bool) $offer->is_active,
+            ]);
 
         $formats = ContentFormat::query()
             ->where('content_id', $content->id)

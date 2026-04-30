@@ -134,7 +134,6 @@ export interface Review {
   rating: number;
   comment: string;
   date: string;
-  likes: number;
 }
 
 export interface Purchase {

@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * Validates and redeems promotional coupons.
  *
  * Discount types:
- *  - percent      → percent off offer.price
+ *  - percent      → percent off offer.price_amount
  *  - fixed        → fixed currency amount off
  *  - free_access  → effective price becomes 0
  */
@@ -66,7 +66,7 @@ class CouponService
      */
     private function computeDiscount(Coupon $coupon, Offer $offer): array
     {
-        $price = (float) $offer->price;
+        $price = (float) $offer->price_amount;
         $discount = 0.0;
 
         switch ($coupon->discount_type) {

@@ -9,17 +9,17 @@ import {
   HeartIcon,
   XIcon,
 } from "lucide-react";
-import { MOCK_REVIEWS } from "../data/mockData";
 import { useWallet } from "../contexts/WalletContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Tabs } from "../components/Tabs";
 import { ReviewCard } from "../components/ReviewCard";
+import { StarRating } from "../components/StarRating";
 import { PurchaseModal } from "../components/PurchaseModal";
 import { Carousel } from "../components/Carousel";
-import { getCatalogPage, getContentDetail } from "../lib/storefront";
-import { fetchStorefrontRecommendations } from "../lib/session";
-import { Movie } from "../types";
+import { fetchContentReviews, getCatalogPage, getContentDetail } from "../lib/storefront";
+import { fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/session";
+import { Movie, Review } from "../types";
 
 function formatCountdown(targetDate?: string) {
   if (!targetDate) {
@@ -54,7 +54,7 @@ export function MovieDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasAccess, getTimeRemaining, toggleFavorite, isFavorite } = useWallet();
-  const { isAuthenticated, openAuthModal, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, openAuthModal, isLoading: isAuthLoading, user, activeProfile } = useAuth();
   const { currentLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState("description");
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
@@ -63,6 +63,13 @@ export function MovieDetailPage() {
   const [movie, setMovie] = useState<Movie | null>(null);
   const [catalog, setCatalog] = useState<Movie[]>([]);
   const [recommendedSlugs, setRecommendedSlugs] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsSummary, setReviewsSummary] = useState({ count: 0, averageRating: 0 });
+  const [isReviewsLoading, setIsReviewsLoading] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,6 +162,67 @@ export function MovieDetailPage() {
       active = false;
     };
   }, [currentLanguage.code, id, isAuthenticated]);
+
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+
+    let active = true;
+
+    async function loadReviews() {
+      setIsReviewsLoading(true);
+      try {
+        const response = await fetchContentReviews(id);
+        if (!active) {
+          return;
+        }
+
+        setReviews(response.items.map((review) => ({
+          id: String(review.id),
+          userId: String(review.user_id),
+          userName: review.user_name,
+          userAvatar: review.user_avatar,
+          rating: review.rating,
+          comment: review.comment,
+          date: review.created_at,
+        })));
+        setReviewsSummary({
+          count: response.summary.count,
+          averageRating: response.summary.average_rating,
+        });
+      } catch {
+        if (active) {
+          setReviews([]);
+          setReviewsSummary({ count: 0, averageRating: 0 });
+        }
+      } finally {
+        if (active) {
+          setIsReviewsLoading(false);
+        }
+      }
+    }
+
+    void loadReviews();
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!user) {
+      setReviewRating(5);
+      setReviewComment("");
+      return;
+    }
+
+    const ownReview = reviews.find((review) => review.userId === String(user.id));
+    if (ownReview) {
+      setReviewRating(ownReview.rating);
+      setReviewComment(ownReview.comment);
+    }
+  }, [reviews, user]);
 
   const relatedMovies = useMemo(() => {
     if (!movie) {
@@ -259,6 +327,57 @@ export function MovieDetailPage() {
     }
 
     void toggleFavorite(movie.id);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!id) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+
+    if (reviewComment.trim().length < 3) {
+      setReviewError("Scrie câteva cuvinte despre film.");
+      return;
+    }
+
+    setIsReviewSubmitting(true);
+    setReviewError(null);
+
+    try {
+      const response = await submitStorefrontReview(id, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+        locale: currentLanguage.code,
+        accountProfileId: activeProfile?.id ?? null,
+      });
+
+      const nextReview: Review = {
+        id: String(response.review.id),
+        userId: String(response.review.user_id),
+        userName: response.review.user_name,
+        userAvatar: response.review.user_avatar,
+        rating: response.review.rating,
+        comment: response.review.comment,
+        date: response.review.created_at,
+      };
+
+      setReviews((current) => {
+        const withoutMine = current.filter((review) => review.userId !== String(response.review.user_id));
+        return [nextReview, ...withoutMine];
+      });
+      setReviewsSummary({
+        count: response.summary.count,
+        averageRating: response.summary.average_rating,
+      });
+    } catch (submitError) {
+      setReviewError(submitError instanceof Error ? submitError.message : "Nu am putut salva review-ul.");
+    } finally {
+      setIsReviewSubmitting(false);
+    }
   };
 
   const tabs = [
@@ -523,9 +642,56 @@ export function MovieDetailPage() {
 
                 {activeTab === "reviews" ? (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl space-y-6">
-                    {MOCK_REVIEWS.map((review) => (
-                      <ReviewCard key={review.id} review={review} />
-                    ))}
+                    <div className="glass-panel rounded-xl p-6">
+                      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-white">Reviews</h3>
+                          <p className="text-sm text-gray-400">
+                            {reviewsSummary.count > 0
+                              ? `${reviewsSummary.count} review-uri · media ${reviewsSummary.averageRating.toFixed(1)}`
+                              : "Fii primul care scrie un review."}
+                          </p>
+                        </div>
+                        <StarRating rating={reviewsSummary.averageRating || 0} size="sm" />
+                      </div>
+
+                      <div className="space-y-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="font-medium text-white">
+                              {isAuthenticated ? "Review-ul tău" : "Autentifică-te ca să scrii un review"}
+                            </p>
+                            <p className="text-xs text-gray-500">Poți salva un singur review per film; îl poți actualiza oricând.</p>
+                          </div>
+                          <StarRating rating={reviewRating} interactive onRate={setReviewRating} size="md" />
+                        </div>
+                        <textarea
+                          value={reviewComment}
+                          onChange={(event) => setReviewComment(event.target.value)}
+                          disabled={!isAuthenticated || isReviewSubmitting}
+                          placeholder="Scrie ce ți-a plăcut sau ce ai schimba..."
+                          className="min-h-28 w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-sm text-white outline-none transition focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                        {reviewError ? <p className="text-sm text-red-400">{reviewError}</p> : null}
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => void handleSubmitReview()}
+                            disabled={isReviewSubmitting || isAuthLoading}
+                            className="rounded-lg bg-accent px-5 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
+                          >
+                            {!isAuthenticated ? "Login pentru review" : isReviewSubmitting ? "Se salvează..." : "Salvează review"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isReviewsLoading ? (
+                      <div className="glass-panel rounded-xl p-6 text-center text-sm text-gray-400">Se încarcă review-urile...</div>
+                    ) : reviews.length === 0 ? (
+                      <div className="glass-panel rounded-xl p-6 text-center text-sm text-gray-400">Nu există încă review-uri pentru acest film.</div>
+                    ) : (
+                      reviews.map((review) => <ReviewCard key={review.id} review={review} />)
+                    )}
                   </motion.div>
                 ) : null}
               </div>

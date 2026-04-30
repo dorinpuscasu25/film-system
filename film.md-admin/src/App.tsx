@@ -26,6 +26,7 @@ import { GeoStats } from './pages/GeoStats';
 import { PriceSettings } from './pages/PriceSettings';
 import { AdTest } from './pages/AdTest';
 import { BunnyHealth } from './pages/BunnyHealth';
+import { Reviews } from './pages/Reviews';
 
 function RoutePage({
   page,
@@ -98,6 +99,7 @@ function AdminRouter() {
 
       <Route path="/dashboard" element={<RoutePage page="dashboard" breadcrumbs={['Tablou de bord']}><Dashboard /></RoutePage>} />
       <Route path="/movies" element={<RoutePage page="catalog" breadcrumbs={['Filme']}><ContentCatalog /></RoutePage>} />
+      <Route path="/reviews" element={<RoutePage page="reviews" breadcrumbs={['Review-uri']}><Reviews /></RoutePage>} />
       <Route path="/movies/new" element={<EditorRoute isNew />} />
       <Route path="/movies/:contentId" element={<EditorRoute />} />
       <Route path="/media" element={<RoutePage page="media" breadcrumbs={['Bibliotecă media']}><MediaLibrary /></RoutePage>} />

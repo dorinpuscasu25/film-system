@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Badge } from "../components/shared/Badge";
 import { ContentCostsTab } from "../components/content/ContentCostsTab";
+import { ContentReviewsTab } from "../components/content/ContentReviewsTab";
 import { FormField } from "../components/shared/FormField";
 import { ImageUploadField } from "../components/shared/ImageUploadField";
 import { Button } from "../components/ui/button";
@@ -1459,7 +1460,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       </Card>
 
       <Tabs value={editorTab} onValueChange={setEditorTab} className="space-y-4">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-10">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-6 xl:grid-cols-11">
           <TabsTrigger value="general" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             General
           </TabsTrigger>
@@ -1489,6 +1490,9 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           </TabsTrigger>
           <TabsTrigger value="costs" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
             Costuri
+          </TabsTrigger>
+          <TabsTrigger value="reviews" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+            Review-uri
           </TabsTrigger>
         </TabsList>
 
@@ -3071,6 +3075,18 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
             <Card>
               <CardContent className="py-10 text-center text-sm text-muted-foreground">
                 Salvează filmul pentru a vedea costurile.
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="reviews" className="space-y-4">
+          {numericContentId ? (
+            <ContentReviewsTab contentId={numericContentId} />
+          ) : (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Salvează filmul pentru a vedea review-urile.
               </CardContent>
             </Card>
           )}

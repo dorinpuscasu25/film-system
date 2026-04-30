@@ -9,6 +9,7 @@ export type AdminPage =
   | 'dashboard'
   | 'catalog'
   | 'editor'
+  | 'reviews'
   | 'media'
   | 'taxonomies'
   | 'collections'
@@ -38,6 +39,7 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
   const paths: Record<Exclude<AdminPage, 'editor'>, string> = {
     dashboard: '/dashboard',
     catalog: '/movies',
+    reviews: '/reviews',
     media: '/media',
     taxonomies: '/taxonomies',
     collections: '/collections',
@@ -68,6 +70,7 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     dashboard: 'Tablou de bord',
     catalog: 'Filme',
     editor: 'Filme',
+    reviews: 'Review-uri',
     media: 'Bibliotecă media',
     taxonomies: 'Taxonomii',
     collections: 'Colecții',
@@ -110,6 +113,7 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
 
   const mapping: Partial<Record<AdminPage, string>> = {
     catalog: 'content.view',
+    reviews: 'content.view',
     editor: 'content.create',
     media: 'media.view',
     taxonomies: 'taxonomies.view',
