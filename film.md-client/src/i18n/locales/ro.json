@@ -1,0 +1,83 @@
+{
+  "header": {
+    "home": "Acasă",
+    "catalog": "Catalog",
+    "search": "Căutare",
+    "my_account": "Contul meu",
+    "login": "Autentificare",
+    "logout": "Ieșire",
+    "language": "Limbă"
+  },
+  "common": {
+    "loading": "Se încarcă",
+    "watch": "Vizionează",
+    "buy": "Cumpără",
+    "rent": "Închiriază",
+    "details": "Detalii",
+    "trailer": "Trailer",
+    "back": "Înapoi",
+    "save": "Salvează",
+    "cancel": "Anulează"
+  },
+  "movie": {
+    "duration": "Durată",
+    "year": "An",
+    "rating": "Rating",
+    "cast": "Distribuție",
+    "director": "Regie",
+    "genre": "Gen",
+    "description": "Descriere",
+    "subtitles": "Subtitrări",
+    "languages": "Limbi audio",
+    "premiere_in": "Premieră în",
+    "available_until": "Disponibil până la",
+    "add_to_favorites": "Adaugă la favorite",
+    "remove_from_favorites": "Șterge din favorite",
+    "continue_watching": "Continuă vizionarea"
+  },
+  "checkout": {
+    "title": "Finalizează comanda",
+    "coupon_code": "Cod cupon",
+    "apply": "Aplică",
+    "discount": "Reducere",
+    "total": "Total",
+    "pay": "Plătește",
+    "coupon_invalid": "Cuponul nu este valid"
+  },
+  "parental": {
+    "set_pin_title": "Setează cod parental (PIN)",
+    "set_pin_description": "Pentru profilul kids/familie, setează un PIN de 4-6 cifre. Filmele cu rating mai mare cer deblocare.",
+    "current_pin": "PIN curent",
+    "new_pin": "PIN nou",
+    "max_age_rating": "Vârstă maximă permisă fără PIN",
+    "save": "Salvează PIN",
+    "remove_pin": "Elimină PIN",
+    "unlock_title": "Conținut restricționat",
+    "unlock_description": "Acest conținut depășește vârsta permisă pentru profilul curent. Introdu PIN-ul parental.",
+    "unlock": "Deblochează"
+  },
+  "premiere": {
+    "countdown_to": "Premieră în",
+    "days": "zile",
+    "hours": "ore",
+    "minutes": "min",
+    "seconds": "sec",
+    "live_now": "În direct acum"
+  },
+  "watch_party": {
+    "title": "Watch Party",
+    "scheduled": "Programat",
+    "starts_in": "Începe în",
+    "join": "Intră",
+    "your_name": "Numele tău",
+    "chat_placeholder": "Scrie un mesaj…",
+    "send": "Trimite",
+    "live_position": "Poziție: {{seconds}} sec",
+    "ended": "Încheiat"
+  },
+  "trailer": {
+    "play": "Redă trailer",
+    "mute": "Sunet oprit",
+    "unmute": "Sunet pornit"
+  }
+}

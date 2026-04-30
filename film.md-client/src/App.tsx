@@ -1,5 +1,6 @@
-import React from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { initGA4 } from './lib/ga4';
 import { AuthProvider } from './contexts/AuthContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -12,7 +13,12 @@ import { MovieDetailPage } from './pages/MovieDetailPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { SearchPage } from './pages/SearchPage';
 import { UserDashboardPage } from './pages/UserDashboardPage';
+import { WatchPartyPage } from './pages/WatchPartyPage';
 export function App() {
+  useEffect(() => {
+    void initGA4();
+  }, []);
+
   return (
     <AuthProvider>
       <LanguageProvider>
@@ -29,6 +35,7 @@ export function App() {
                   <Route path="/watch/:id" element={<PlayerPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/dashboard" element={<UserDashboardPage />} />
+                  <Route path="/watch-party/:roomCode" element={<WatchPartyPage />} />
                 </Routes>
               </main>
               <Footer />

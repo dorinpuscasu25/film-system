@@ -36,15 +36,54 @@ return [
     ],
 
     'bunny' => [
-        'stream_base_url' => env('BUNNY_STREAM_BASE_URL'),
+        // === REQUIRED ===
+        // Stream API base (constant, don't change)
+        'stream_base_url' => env('BUNNY_STREAM_BASE_URL', 'https://video.bunnycdn.com'),
+        'stats_api_base' => env('BUNNY_STATS_API_BASE', 'https://video.bunnycdn.com'),
+
+        // Token Authentication Key (Library → Settings → Security)
+        // Used to sign HLS playback URLs so only authorized viewers can play.
         'token_key' => env('BUNNY_STREAM_TOKEN_KEY'),
+
+        // Webhook secret (Library → Webhooks → Secret) — used to validate
+        // HMAC-SHA256 signature on incoming webhook events.
         'webhook_secret' => env('BUNNY_WEBHOOK_SECRET'),
-        'stream_api_key' => env('BUNNY_STREAM_API_KEY'),
-        'cdn_api_key' => env('BUNNY_CDN_API_KEY'),
+
+        // Per-library API Keys (Library → Settings → API).
+        // Filmoteca uses 2 libraries: movies (full feature films, DRM) and
+        // trailers (short previews, no DRM). The right key is auto-selected
+        // by BunnyLibraryResolver based on content_format.format_type.
+        // library_id is NOT stored here — each content_format row carries its
+        // own bunny_library_id, set when the film is added in admin.
+        'libraries' => [
+            'movies' => [
+                'api_key' => env('MOVIES_BUNNY_API_KEY'),
+            ],
+            'trailers' => [
+                'api_key' => env('TRAILERS_BUNNY_API_KEY'),
+            ],
+        ],
+
+        // Default Stream API key for legacy/fallback paths. Resolves to the
+        // movies library key when the format doesn't specify a kind.
+        'stream_api_key' => env('BUNNY_STREAM_API_KEY', env('MOVIES_BUNNY_API_KEY')),
+
+        // === OPTIONAL (only if you want global CDN dashboard) ===
+        // Account API Key (Bunny Dashboard → Account → API).
+        // Needed only for pull-zone-level stats (total bandwidth, cache hit
+        // rate). Per-video bandwidth comes from Stream library stats already.
+        'account_api_key' => env('BUNNY_ACCOUNT_API_KEY'),
+        'cdn_api_key' => env('BUNNY_CDN_API_KEY', env('BUNNY_ACCOUNT_API_KEY')),
         'cdn_pull_zone_id' => env('BUNNY_CDN_PULL_ZONE_ID'),
+        'cdn_api_base' => env('BUNNY_CDN_API_BASE', 'https://api.bunny.net'),
+
+        // === NOT NEEDED for filmoteca ===
+        // Storage Zone is only used when uploading raw files via API.
+        // Filmoteca uploads videos directly through Bunny dashboard, so these
+        // can stay empty. Kept here for completeness if you ever script bulk
+        // poster uploads or migrate to direct uploads.
         'storage_zone_name' => env('BUNNY_STORAGE_ZONE_NAME'),
         'storage_api_key' => env('BUNNY_STORAGE_API_KEY'),
-        'stats_api_base' => env('BUNNY_STATS_API_BASE', 'https://api.bunny.net'),
     ],
 
 ];

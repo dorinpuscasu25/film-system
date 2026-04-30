@@ -1,0 +1,83 @@
+{
+  "header": {
+    "home": "Home",
+    "catalog": "Catalog",
+    "search": "Search",
+    "my_account": "My account",
+    "login": "Sign in",
+    "logout": "Sign out",
+    "language": "Language"
+  },
+  "common": {
+    "loading": "Loading",
+    "watch": "Watch",
+    "buy": "Buy",
+    "rent": "Rent",
+    "details": "Details",
+    "trailer": "Trailer",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "movie": {
+    "duration": "Duration",
+    "year": "Year",
+    "rating": "Rating",
+    "cast": "Cast",
+    "director": "Director",
+    "genre": "Genre",
+    "description": "Description",
+    "subtitles": "Subtitles",
+    "languages": "Audio",
+    "premiere_in": "Premieres in",
+    "available_until": "Available until",
+    "add_to_favorites": "Add to favorites",
+    "remove_from_favorites": "Remove from favorites",
+    "continue_watching": "Continue watching"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "coupon_code": "Coupon code",
+    "apply": "Apply",
+    "discount": "Discount",
+    "total": "Total",
+    "pay": "Pay",
+    "coupon_invalid": "Coupon is not valid"
+  },
+  "parental": {
+    "set_pin_title": "Set parental PIN",
+    "set_pin_description": "Set a 4-6 digit PIN for kids/family profiles. Higher-rated content will require unlocking.",
+    "current_pin": "Current PIN",
+    "new_pin": "New PIN",
+    "max_age_rating": "Max age rating without PIN",
+    "save": "Save PIN",
+    "remove_pin": "Remove PIN",
+    "unlock_title": "Restricted content",
+    "unlock_description": "This content exceeds the age rating for the current profile. Enter the parental PIN.",
+    "unlock": "Unlock"
+  },
+  "premiere": {
+    "countdown_to": "Premiere in",
+    "days": "days",
+    "hours": "hours",
+    "minutes": "min",
+    "seconds": "sec",
+    "live_now": "Live now"
+  },
+  "watch_party": {
+    "title": "Watch Party",
+    "scheduled": "Scheduled",
+    "starts_in": "Starts in",
+    "join": "Join",
+    "your_name": "Your name",
+    "chat_placeholder": "Type a message…",
+    "send": "Send",
+    "live_position": "Position: {{seconds}} sec",
+    "ended": "Ended"
+  },
+  "trailer": {
+    "play": "Play trailer",
+    "mute": "Muted",
+    "unmute": "Unmuted"
+  }
+}

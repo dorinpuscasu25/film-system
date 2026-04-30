@@ -1,0 +1,83 @@
+{
+  "header": {
+    "home": "Главная",
+    "catalog": "Каталог",
+    "search": "Поиск",
+    "my_account": "Мой аккаунт",
+    "login": "Войти",
+    "logout": "Выйти",
+    "language": "Язык"
+  },
+  "common": {
+    "loading": "Загрузка",
+    "watch": "Смотреть",
+    "buy": "Купить",
+    "rent": "Арендовать",
+    "details": "Подробности",
+    "trailer": "Трейлер",
+    "back": "Назад",
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+  "movie": {
+    "duration": "Длительность",
+    "year": "Год",
+    "rating": "Рейтинг",
+    "cast": "В ролях",
+    "director": "Режиссёр",
+    "genre": "Жанр",
+    "description": "Описание",
+    "subtitles": "Субтитры",
+    "languages": "Аудио",
+    "premiere_in": "Премьера через",
+    "available_until": "Доступно до",
+    "add_to_favorites": "В избранное",
+    "remove_from_favorites": "Из избранного",
+    "continue_watching": "Продолжить просмотр"
+  },
+  "checkout": {
+    "title": "Оформление",
+    "coupon_code": "Промокод",
+    "apply": "Применить",
+    "discount": "Скидка",
+    "total": "Итого",
+    "pay": "Оплатить",
+    "coupon_invalid": "Промокод недействителен"
+  },
+  "parental": {
+    "set_pin_title": "Установить PIN-код",
+    "set_pin_description": "Для детских/семейных профилей задайте PIN из 4-6 цифр. Контент с более высоким рейтингом потребует разблокировки.",
+    "current_pin": "Текущий PIN",
+    "new_pin": "Новый PIN",
+    "max_age_rating": "Макс. возраст без PIN",
+    "save": "Сохранить PIN",
+    "remove_pin": "Удалить PIN",
+    "unlock_title": "Контент ограничен",
+    "unlock_description": "Этот контент превышает возрастной рейтинг профиля. Введите PIN.",
+    "unlock": "Разблокировать"
+  },
+  "premiere": {
+    "countdown_to": "Премьера через",
+    "days": "дн",
+    "hours": "ч",
+    "minutes": "мин",
+    "seconds": "сек",
+    "live_now": "В эфире"
+  },
+  "watch_party": {
+    "title": "Совместный просмотр",
+    "scheduled": "Запланирован",
+    "starts_in": "Начало через",
+    "join": "Присоединиться",
+    "your_name": "Ваше имя",
+    "chat_placeholder": "Напишите сообщение…",
+    "send": "Отправить",
+    "live_position": "Позиция: {{seconds}} сек",
+    "ended": "Завершён"
+  },
+  "trailer": {
+    "play": "Смотреть трейлер",
+    "mute": "Без звука",
+    "unmute": "Со звуком"
+  }
+}

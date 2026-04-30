@@ -1,65 +1,99 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  ActivityIcon,
   CreditCardIcon,
+  DollarSignIcon,
   FileTextIcon,
   FilmIcon,
+  FlaskConicalIcon,
   FolderTreeIcon,
+  GlobeIcon,
   HomeIcon,
   Image as ImageIcon,
   KeyIcon,
   LayoutTemplateIcon,
+  MegaphoneIcon,
   PlayCircleIcon,
   SearchIcon,
   ShieldAlertIcon,
   TagsIcon,
+  TicketIcon,
+  UserCircleIcon,
   UsersIcon,
+  Video as VideoIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAdmin } from "../hooks/useAdmin";
 import { Button } from "./ui/button";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 export function Sidebar() {
   const { currentPage, navigate, sidebarCollapsed, toggleSidebar, can } = useAdmin();
+  const { t } = useTranslation();
 
   const menuGroups = [
     {
-      title: "Explorare",
+      title: t("nav.dashboard"),
       items: [
-        { id: "dashboard", label: "Panou", icon: HomeIcon, show: true },
-        { id: "catalog", label: "Catalog", icon: FilmIcon, show: can("content.view") },
-        { id: "media", label: "Bibliotecă media", icon: ImageIcon, show: can("media.view") },
-        { id: "taxonomies", label: "Taxonomii", icon: TagsIcon, show: can("taxonomies.view") },
+        { id: "dashboard", label: t("nav.dashboard"), icon: HomeIcon, show: true },
+        { id: "catalog", label: t("nav.content"), icon: FilmIcon, show: can("content.view") },
+        { id: "media", label: t("nav.media"), icon: ImageIcon, show: can("media.view") },
+        { id: "taxonomies", label: t("nav.taxonomies"), icon: TagsIcon, show: can("taxonomies.view") },
         { id: "collections", label: "Colecții", icon: FolderTreeIcon, show: can("taxonomies.view") },
       ],
     },
     {
-      title: "Operațiuni",
+      title: t("nav.commerce"),
       items: [
-        { id: "billing", label: "Facturare", icon: CreditCardIcon, show: can("commerce.view_billing") },
+        { id: "billing", label: t("nav.billing"), icon: CreditCardIcon, show: can("commerce.view_billing") },
+        { id: "price-settings", label: "Prețuri", icon: DollarSignIcon, show: can("commerce.view_billing") },
+        { id: "coupons", label: t("nav.coupons"), icon: TicketIcon, show: can("commerce.view") },
+        { id: "geo-stats", label: t("nav.geo"), icon: GlobeIcon, show: can("commerce.view_billing") },
+      ],
+    },
+    {
+      title: t("nav.ads"),
+      items: [
+        { id: "ads", label: t("nav.ads"), icon: MegaphoneIcon, show: can("advertising.view") },
+        { id: "ad-test", label: "VAST Test", icon: FlaskConicalIcon, show: can("advertising.view") },
+        { id: "watch-parties", label: t("nav.watch_parties"), icon: VideoIcon, show: can("content.view") },
+      ],
+    },
+    {
+      title: t("nav.users"),
+      items: [
+        { id: "users", label: t("nav.users"), icon: UsersIcon, show: can("users.view") },
+        { id: "content-creators", label: t("nav.creators"), icon: UserCircleIcon, show: can("users.view") },
+        {
+          id: "roles",
+          label: t("nav.roles"),
+          icon: KeyIcon,
+          show: can("settings.manage_roles") || can("users.view"),
+        },
+      ],
+    },
+    {
+      title: t("nav.settings"),
+      items: [
         {
           id: "home-curation",
-          label: "Homepage",
+          label: t("nav.home_curation"),
           icon: LayoutTemplateIcon,
           show: can("settings.edit_home_curation"),
         },
         {
           id: "discovery",
-          label: "Căutare și descoperire",
+          label: t("nav.search"),
           icon: SearchIcon,
           show: can("settings.edit_search_config"),
         },
-        { id: "cms", label: "Pagini CMS", icon: FileTextIcon, show: can("cms.view") },
-        { id: "playback", label: "Operațiuni playback", icon: PlayCircleIcon, show: can("playback.view_sessions") },
-        { id: "users", label: "Utilizatori și acces", icon: UsersIcon, show: can("users.view") },
-        {
-          id: "roles",
-          label: "Roluri și permisiuni",
-          icon: KeyIcon,
-          show: can("settings.manage_roles") || can("users.view"),
-        },
-        { id: "moderation", label: "Moderare", icon: ShieldAlertIcon, show: can("moderation.view_queue") },
+        { id: "cms", label: "CMS", icon: FileTextIcon, show: can("cms.view") },
+        { id: "playback", label: t("nav.playback_ops"), icon: PlayCircleIcon, show: can("playback.view_sessions") },
+        { id: "moderation", label: t("nav.moderation"), icon: ShieldAlertIcon, show: can("moderation.view_queue") },
+        { id: "bunny-health", label: "Bunny Health", icon: ActivityIcon, show: can("settings.edit_home_curation") },
       ],
     },
   ];
@@ -137,7 +171,13 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
+      <div className="border-t border-sidebar-border p-3 space-y-2">
+        {!sidebarCollapsed ? (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-white/50">{t("common.language")}</span>
+            <LanguageSwitcher />
+          </div>
+        ) : null}
         <Button
           variant="ghost"
           className="w-full justify-start border border-sidebar-border text-white/70 hover:bg-sidebar-accent hover:text-white"

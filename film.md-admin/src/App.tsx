@@ -17,6 +17,13 @@ import { Billing } from './pages/Billing';
 import { CMSPages } from './pages/CMSPages';
 import { Moderation } from './pages/Moderation';
 import { RolesPermissions } from './pages/RolesPermissions';
+import { Coupons } from './pages/Coupons';
+import { ContentCreators } from './pages/ContentCreators';
+import { WatchParties } from './pages/WatchParties';
+import { GeoStats } from './pages/GeoStats';
+import { PriceSettings } from './pages/PriceSettings';
+import { AdTest } from './pages/AdTest';
+import { BunnyHealth } from './pages/BunnyHealth';
 function AdminRouter() {
   const { currentPage, isAuthenticated, isBooting } = useAdmin();
 
@@ -64,6 +71,20 @@ function AdminRouter() {
         return <AccountSettings />;
       case 'moderation':
         return <Moderation />;
+      case 'coupons':
+        return <Coupons />;
+      case 'content-creators':
+        return <ContentCreators />;
+      case 'watch-parties':
+        return <WatchParties />;
+      case 'geo-stats':
+        return <GeoStats />;
+      case 'price-settings':
+        return <PriceSettings />;
+      case 'ad-test':
+        return <AdTest />;
+      case 'bunny-health':
+        return <BunnyHealth />;
       default:
         return <Dashboard />;
     }

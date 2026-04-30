@@ -9,7 +9,7 @@ use App\Models\AdEvent;
 use App\Models\AdEventAggregate;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Redis; // phpcs:ignore -- used for hot-path counters
 
 /**
  * Records ad VAST tracking events into per-event aggregates and a raw log.
@@ -121,7 +121,7 @@ class AdEventTrackingService
             DB::transaction(function () use ($campaignId, $contentId, $date, $hash): void {
                 foreach ($hash as $field => $count) {
                     [$eventType, $country] = explode('|', $field);
-                    AdEventAggregate::query()->updateOrCreate(
+                    $aggregate = AdEventAggregate::query()->firstOrCreate(
                         [
                             'ad_campaign_id' => (int) $campaignId,
                             'content_id' => $contentId === '0' ? null : (int) $contentId,
@@ -129,8 +129,9 @@ class AdEventTrackingService
                             'event_type' => $eventType,
                             'country_code' => $country === 'ZZ' ? null : $country,
                         ],
-                        ['count' => DB::raw('count + '.((int) $count))],
+                        ['count' => 0],
                     );
+                    $aggregate->increment('count', (int) $count);
 
                     // Update campaign-level rollup counters
                     $col = match ($eventType) {

@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\Admin\AdCampaignController;
 use App\Http\Controllers\Api\Admin\AdStatsController;
+use App\Http\Controllers\Api\Admin\AdTestController;
+use App\Http\Controllers\Api\Admin\BunnyHealthController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
 use App\Http\Controllers\Api\Admin\ContentController;
@@ -165,6 +167,12 @@ use Illuminate\Support\Facades\Route;
             // Per-campaign stats (caiet §3 enhanced)
             Route::get('ad-campaigns/{campaign}/stats', [AdStatsController::class, 'show'])->middleware('permission:advertising.view');
             Route::get('ad-campaigns/{campaign}/events', [AdStatsController::class, 'events'])->middleware('permission:advertising.view');
+
+            // VAST debug — see which campaign would serve, the resolved XML, and why others were excluded
+            Route::post('ad-test/resolve', [AdTestController::class, 'resolve'])->middleware('permission:advertising.view');
+
+            // Bunny integration health probe (Settings → Bunny Health)
+            Route::get('bunny/health', [BunnyHealthController::class, 'show'])->middleware('permission:settings.edit_home_curation');
 
             // Per-content subtitles (caiet §13)
             Route::get('content/{content}/subtitles', [SubtitleController::class, 'index'])->middleware('permission:content.view');
