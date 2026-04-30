@@ -1,5 +1,8 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+
+const footerButtonClass = 'hover:text-white transition-colors';
+
 export function Footer() {
   const location = useLocation();
   // Hide footer on player page and auth/profile pages
@@ -28,24 +31,24 @@ export function Footer() {
             <h4 className="text-white font-medium mb-4">Navigation</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <Link to="/" className="hover:text-white transition-colors">
                   Home
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <Link to="/search?type=movie" className="hover:text-white transition-colors">
                   Movies
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <Link to="/search?type=series" className="hover:text-white transition-colors">
                   Series
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <Link to="/search" className="hover:text-white transition-colors">
                   Trending
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -54,19 +57,19 @@ export function Footer() {
             <h4 className="text-white font-medium mb-4">Support</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <button type="button" className={footerButtonClass}>
                   FAQ
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <button type="button" className={footerButtonClass}>
                   Contact Us
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <button type="button" className={footerButtonClass}>
                   Wallet Help
-                </a>
+                </button>
               </li>
             </ul>
           </div>
@@ -75,19 +78,19 @@ export function Footer() {
             <h4 className="text-white font-medium mb-4">Legal</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <button type="button" className={footerButtonClass}>
                   Terms of Service
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <button type="button" className={footerButtonClass}>
                   Privacy Policy
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">
+                <button type="button" className={footerButtonClass}>
                   Cookie Policy
-                </a>
+                </button>
               </li>
             </ul>
           </div>

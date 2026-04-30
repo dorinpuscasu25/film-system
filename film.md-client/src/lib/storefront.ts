@@ -473,7 +473,7 @@ export async function getCatalogPage(locale: LocaleCode, query: CatalogQuery = {
 export async function getFullCatalog(locale: LocaleCode, query: Omit<CatalogQuery, "page" | "pageSize"> = {}): Promise<Movie[]> {
   const items: Movie[] = [];
   let page = 1;
-  let total = 0;
+  let total = Number.POSITIVE_INFINITY;
 
   do {
     const response = await getCatalogPage(locale, {
@@ -481,11 +481,17 @@ export async function getFullCatalog(locale: LocaleCode, query: Omit<CatalogQuer
       page,
       pageSize: DEFAULT_PAGE_SIZE,
     });
+    const pageItems = response.items ?? [];
 
-    items.push(...(response.items ?? []));
-    total = response.total ?? items.length;
+    items.push(...pageItems);
+    total = Number.isFinite(response.total) && response.total > 0 ? response.total : items.length;
+
+    if (pageItems.length === 0 || page >= Math.ceil(total / DEFAULT_PAGE_SIZE)) {
+      break;
+    }
+
     page += 1;
-  } while (items.length < total);
+  } while (true);
 
   return items;
 }

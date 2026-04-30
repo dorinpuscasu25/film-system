@@ -14,9 +14,17 @@ import { PlayerPage } from './pages/PlayerPage';
 import { SearchPage } from './pages/SearchPage';
 import { UserDashboardPage } from './pages/UserDashboardPage';
 import { WatchPartyPage } from './pages/WatchPartyPage';
+import { stripHashRouteFromUrl } from './lib/url';
 export function App() {
   useEffect(() => {
     void initGA4();
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('hashchange', stripHashRouteFromUrl);
+    return () => {
+      window.removeEventListener('hashchange', stripHashRouteFromUrl);
+    };
   }, []);
 
   return (

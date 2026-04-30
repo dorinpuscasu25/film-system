@@ -17,7 +17,7 @@ import { Tabs } from "../components/Tabs";
 import { ReviewCard } from "../components/ReviewCard";
 import { PurchaseModal } from "../components/PurchaseModal";
 import { Carousel } from "../components/Carousel";
-import { getContentDetail, getFullCatalog } from "../lib/storefront";
+import { getCatalogPage, getContentDetail } from "../lib/storefront";
 import { fetchStorefrontRecommendations } from "../lib/session";
 import { Movie } from "../types";
 
@@ -82,19 +82,30 @@ export function MovieDetailPage() {
       setError(null);
 
       try {
-        const [detail, allContent] = await Promise.all([
-          getContentDetail(currentLanguage.code, id),
-          getFullCatalog(currentLanguage.code),
-        ]);
+        const detail = await getContentDetail(currentLanguage.code, id);
 
         if (!active) {
           return;
         }
 
         setMovie(detail);
-        setCatalog(allContent);
         setRecommendedSlugs([]);
         setActiveSeason(detail.seasonsData?.[0]?.seasonNumber ?? 1);
+
+        try {
+          const relatedContent = await getCatalogPage(currentLanguage.code, {
+            page: 1,
+            pageSize: 24,
+          });
+
+          if (active) {
+            setCatalog(relatedContent.items);
+          }
+        } catch {
+          if (active) {
+            setCatalog([]);
+          }
+        }
       } catch (loadError) {
         if (!active) {
           return;

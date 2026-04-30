@@ -281,9 +281,9 @@ export function AuthModal() {
 
         {!isVerificationStep && mode === "login" && (
           <div className="mt-6 text-center">
-            <a href="#" className="text-sm text-gray-400 transition-colors hover:text-white">
+            <button type="button" className="text-sm text-gray-400 transition-colors hover:text-white">
               Forgot your password?
-            </a>
+            </button>
           </div>
         )}
       </motion.div>
