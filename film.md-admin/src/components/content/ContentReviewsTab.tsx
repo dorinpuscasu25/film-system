@@ -89,16 +89,21 @@ export function ReviewsTable({
   busyId,
   onStatus,
   onDelete,
+  showContent = false,
 }: {
   reviews: AdminContentReview[];
   busyId: number | null;
   onStatus: (review: AdminContentReview, status: "published" | "hidden") => void;
   onDelete: (review: AdminContentReview) => void;
+  showContent?: boolean;
 }) {
+  const columnCount = showContent ? 7 : 6;
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          {showContent ? <TableHead>Titlu</TableHead> : null}
           <TableHead>Utilizator</TableHead>
           <TableHead>Rating</TableHead>
           <TableHead>Review</TableHead>
@@ -110,13 +115,21 @@ export function ReviewsTable({
       <TableBody>
         {reviews.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+            <TableCell colSpan={columnCount} className="h-24 text-center text-muted-foreground">
               Nu există review-uri.
             </TableCell>
           </TableRow>
         ) : (
           reviews.map((review) => (
             <TableRow key={review.id}>
+              {showContent ? (
+                <TableCell>
+                  <div className="font-medium">{review.content_title ?? `Titlu #${review.content_id}`}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {review.content_type === "series" ? "Serial" : "Film"}
+                  </div>
+                </TableCell>
+              ) : null}
               <TableCell>
                 <div className="font-medium">{review.user_name}</div>
                 <div className="text-xs text-muted-foreground">{review.user_email ?? "Fără email"}</div>

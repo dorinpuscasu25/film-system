@@ -75,7 +75,7 @@ export function Reviews() {
           {isLoading ? (
             <div className="p-10 text-center text-sm text-muted-foreground">Se încarcă review-urile...</div>
           ) : (
-            <ReviewsTable reviews={data?.items ?? []} busyId={busyId} onStatus={setStatus} onDelete={remove} />
+            <ReviewsTable reviews={data?.items ?? []} busyId={busyId} onStatus={setStatus} onDelete={remove} showContent />
           )}
         </CardContent>
       </Card>

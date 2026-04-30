@@ -20,7 +20,10 @@ class ContentReviewController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $contentId = $request->integer('content_id') ?: null;
+        $routeContent = $request->route('content');
+        $contentId = $routeContent instanceof Content
+            ? $routeContent->id
+            : ($request->integer('content_id') ?: null);
         $status = $request->query('status');
 
         $query = ContentReview::query()
@@ -44,15 +47,15 @@ class ContentReviewController extends ApiController
         return response()->json([
             'items' => collect($reviews->items())->map(fn (ContentReview $review) => $this->reviewData($review))->values(),
             'stats' => [
-                'total' => ContentReview::query()->when(
+                'total' => ContentReview::query()->when($contentId !== null, fn ($builder) => $builder->where('content_id', $contentId))->when(
                     $this->contentScope->isScoped($user),
                     fn ($builder) => $builder->whereIn('content_id', $this->contentScope->assignedContentIds($user)),
                 )->count(),
-                'published' => ContentReview::query()->when(
+                'published' => ContentReview::query()->when($contentId !== null, fn ($builder) => $builder->where('content_id', $contentId))->when(
                     $this->contentScope->isScoped($user),
                     fn ($builder) => $builder->whereIn('content_id', $this->contentScope->assignedContentIds($user)),
                 )->where('status', ContentReview::STATUS_PUBLISHED)->count(),
-                'hidden' => ContentReview::query()->when(
+                'hidden' => ContentReview::query()->when($contentId !== null, fn ($builder) => $builder->where('content_id', $contentId))->when(
                     $this->contentScope->isScoped($user),
                     fn ($builder) => $builder->whereIn('content_id', $this->contentScope->assignedContentIds($user)),
                 )->where('status', ContentReview::STATUS_HIDDEN)->count(),
