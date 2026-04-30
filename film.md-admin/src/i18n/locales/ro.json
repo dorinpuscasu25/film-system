@@ -1,7 +1,7 @@
 {
   "nav": {
     "dashboard": "Tablou de bord",
-    "content": "Conținut",
+    "content": "Filme",
     "media": "Bibliotecă media",
     "commerce": "Comerț",
     "billing": "Costuri & venituri",
@@ -39,6 +39,59 @@
     "export_pdf": "Exportă PDF",
     "export_excel": "Exportă Excel",
     "export_csv": "Exportă CSV"
+  },
+  "movies": {
+    "breadcrumb": "Filme",
+    "title": "Filme",
+    "description": "Filme și seriale din backend, cu localizări, bannere desktop/mobile și taxonomii pregătite pentru storefront.",
+    "create": "Adaugă film",
+    "new_title": "Film nou",
+    "all": "Toate filmele",
+    "movies": "Filme",
+    "series": "Seriale",
+    "filters": {
+      "all_statuses": "Toate stările",
+      "all_countries": "Toate țările",
+      "all_genres": "Toate genurile"
+    },
+    "table": {
+      "title": "Titlu",
+      "type": "Tip",
+      "flags": "Etichete",
+      "year": "An",
+      "genres": "Genuri",
+      "status": "Stare"
+    },
+    "status": {
+      "draft": "Ciornă",
+      "ready": "Pregătit",
+      "published": "Publicat",
+      "archived": "Arhivat"
+    },
+    "type": {
+      "movie": "Film",
+      "series": "Serial"
+    },
+    "badges": {
+      "featured": "Promovat",
+      "trending": "În trend",
+      "free": "Gratuit",
+      "offers": "{{count}} oferte"
+    },
+    "messages": {
+      "load_error": "Nu am putut încărca filmele.",
+      "delete_confirm": "Ștergi filmul \"{{title}}\"?",
+      "delete_success": "Filmul a fost șters.",
+      "delete_error": "Nu am putut șterge filmul.",
+      "loading": "Se încarcă filmele...",
+      "no_genres": "Fără genuri"
+    },
+    "actions": {
+      "edit": "Editează filmul",
+      "preview": "Previzualizează filmul",
+      "delete": "Șterge filmul"
+    },
+    "search_placeholder": "Caută după titlu, slug, gen sau țară..."
   },
   "ads": {
     "title": "Campanii publicitare",

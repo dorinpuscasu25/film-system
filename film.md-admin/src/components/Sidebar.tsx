@@ -246,7 +246,7 @@ export function Sidebar() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => navigate(item.id)}
+                    onClick={() => navigate(item.id, null, [item.label])}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                       isActive

@@ -1,7 +1,7 @@
 {
   "nav": {
     "dashboard": "Dashboard",
-    "content": "Content",
+    "content": "Movies",
     "media": "Media library",
     "commerce": "Commerce",
     "billing": "Costs & revenue",
@@ -39,6 +39,59 @@
     "export_pdf": "Export PDF",
     "export_excel": "Export Excel",
     "export_csv": "Export CSV"
+  },
+  "movies": {
+    "breadcrumb": "Movies",
+    "title": "Movies",
+    "description": "Movies and series from the backend, with localizations, desktop/mobile banners, and storefront-ready taxonomies.",
+    "create": "Add movie",
+    "new_title": "New movie",
+    "all": "All movies",
+    "movies": "Movies",
+    "series": "Series",
+    "filters": {
+      "all_statuses": "All statuses",
+      "all_countries": "All countries",
+      "all_genres": "All genres"
+    },
+    "table": {
+      "title": "Title",
+      "type": "Type",
+      "flags": "Labels",
+      "year": "Year",
+      "genres": "Genres",
+      "status": "Status"
+    },
+    "status": {
+      "draft": "Draft",
+      "ready": "Ready",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "type": {
+      "movie": "Movie",
+      "series": "Series"
+    },
+    "badges": {
+      "featured": "Featured",
+      "trending": "Trending",
+      "free": "Free",
+      "offers": "{{count}} offers"
+    },
+    "messages": {
+      "load_error": "Could not load movies.",
+      "delete_confirm": "Delete movie \"{{title}}\"?",
+      "delete_success": "Movie deleted.",
+      "delete_error": "Could not delete movie.",
+      "loading": "Loading movies...",
+      "no_genres": "No genres"
+    },
+    "actions": {
+      "edit": "Edit movie",
+      "preview": "Preview movie",
+      "delete": "Delete movie"
+    },
+    "search_placeholder": "Search by title, slug, genre, or country..."
   },
   "ads": {
     "title": "Ad campaigns",

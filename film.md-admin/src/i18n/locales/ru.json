@@ -1,7 +1,7 @@
 {
   "nav": {
     "dashboard": "Панель управления",
-    "content": "Контент",
+    "content": "Фильмы",
     "media": "Медиа-библиотека",
     "commerce": "Коммерция",
     "billing": "Затраты и доходы",
@@ -39,6 +39,59 @@
     "export_pdf": "Экспорт PDF",
     "export_excel": "Экспорт Excel",
     "export_csv": "Экспорт CSV"
+  },
+  "movies": {
+    "breadcrumb": "Фильмы",
+    "title": "Фильмы",
+    "description": "Фильмы и сериалы из backend, с локализациями, баннерами для desktop/mobile и таксономиями для storefront.",
+    "create": "Добавить фильм",
+    "new_title": "Новый фильм",
+    "all": "Все фильмы",
+    "movies": "Фильмы",
+    "series": "Сериалы",
+    "filters": {
+      "all_statuses": "Все статусы",
+      "all_countries": "Все страны",
+      "all_genres": "Все жанры"
+    },
+    "table": {
+      "title": "Название",
+      "type": "Тип",
+      "flags": "Метки",
+      "year": "Год",
+      "genres": "Жанры",
+      "status": "Статус"
+    },
+    "status": {
+      "draft": "Черновик",
+      "ready": "Готов",
+      "published": "Опубликован",
+      "archived": "Архивирован"
+    },
+    "type": {
+      "movie": "Фильм",
+      "series": "Сериал"
+    },
+    "badges": {
+      "featured": "Продвигается",
+      "trending": "В тренде",
+      "free": "Бесплатно",
+      "offers": "{{count}} предложений"
+    },
+    "messages": {
+      "load_error": "Не удалось загрузить фильмы.",
+      "delete_confirm": "Удалить фильм \"{{title}}\"?",
+      "delete_success": "Фильм удалён.",
+      "delete_error": "Не удалось удалить фильм.",
+      "loading": "Загрузка фильмов...",
+      "no_genres": "Без жанров"
+    },
+    "actions": {
+      "edit": "Редактировать фильм",
+      "preview": "Предпросмотр фильма",
+      "delete": "Удалить фильм"
+    },
+    "search_placeholder": "Поиск по названию, slug, жанру или стране..."
   },
   "ads": {
     "title": "Рекламные кампании",
