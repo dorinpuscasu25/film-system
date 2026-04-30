@@ -104,10 +104,10 @@ function AdminRouter() {
       <Route path="/taxonomies" element={<RoutePage page="taxonomies" breadcrumbs={['Taxonomii']}><Taxonomies /></RoutePage>} />
       <Route path="/collections" element={<RoutePage page="collections" breadcrumbs={['Colecții']}><Taxonomies /></RoutePage>} />
       <Route path="/billing" element={<RoutePage page="billing" breadcrumbs={['Costuri & venituri']}><Billing /></RoutePage>} />
-      <Route path="/prices" element={<RoutePage page="price-settings" breadcrumbs={['Prețuri']}><PriceSettings /></RoutePage>} />
+      <Route path="/prices" element={<RoutePage page="price-settings" breadcrumbs={['Setări prețuri']}><PriceSettings /></RoutePage>} />
       <Route path="/coupons" element={<RoutePage page="coupons" breadcrumbs={['Cupoane']}><Coupons /></RoutePage>} />
       <Route path="/geo-stats" element={<RoutePage page="geo-stats" breadcrumbs={['Distribuție geografică']}><GeoStats /></RoutePage>} />
-      <Route path="/ads" element={<RoutePage page="ads" breadcrumbs={['Reclame']}><AdTest /></RoutePage>} />
+      <Route path="/ads" element={<RoutePage page="ads" breadcrumbs={['Reclame']}><PlaybackOps initialTab="advertising" advertisingOnly /></RoutePage>} />
       <Route path="/ads/test" element={<RoutePage page="ad-test" breadcrumbs={['Reclame', 'VAST Test']}><AdTest /></RoutePage>} />
       <Route path="/watch-parties" element={<RoutePage page="watch-parties" breadcrumbs={['Watch Parties']}><WatchParties /></RoutePage>} />
       <Route path="/users" element={<RoutePage page="users" breadcrumbs={['Utilizatori']}><Users /></RoutePage>} />

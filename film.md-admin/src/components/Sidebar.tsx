@@ -58,12 +58,12 @@ export function Sidebar() {
           icon: FilmIcon,
           show: can("content.view"),
         },
-        {
-          id: "media",
-          label: t("nav.media"),
-          icon: ImageIcon,
-          show: can("media.view"),
-        },
+        // {
+        //   id: "media",
+        //   label: t("nav.media"),
+        //   icon: ImageIcon,
+        //   show: can("media.view"),
+        // },
         {
           id: "taxonomies",
           label: t("nav.taxonomies"),
@@ -89,7 +89,7 @@ export function Sidebar() {
         },
         {
           id: "price-settings",
-          label: "Prețuri",
+          label: "Setări prețuri",
           icon: DollarSignIcon,
           show: can("commerce.view_billing"),
         },

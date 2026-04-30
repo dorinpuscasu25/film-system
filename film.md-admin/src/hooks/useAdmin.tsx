@@ -72,7 +72,7 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     taxonomies: 'Taxonomii',
     collections: 'Colecții',
     billing: 'Costuri & venituri',
-    'price-settings': 'Prețuri',
+    'price-settings': 'Setări prețuri',
     coupons: 'Cupoane',
     'geo-stats': 'Distribuție geografică',
     ads: 'Reclame',

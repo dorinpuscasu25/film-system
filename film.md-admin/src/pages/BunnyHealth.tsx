@@ -1,9 +1,20 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle2Icon, RefreshCwIcon, XCircleIcon, MinusCircleIcon, ActivityIcon } from 'lucide-react';
-import { adminApi } from '../lib/api';
+import { useEffect, useState, type ElementType } from "react";
+import {
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  ClipboardListIcon,
+  MinusCircleIcon,
+  RefreshCwIcon,
+  XCircleIcon,
+} from "lucide-react";
+import { Badge } from "../components/shared/Badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { adminApi } from "../lib/api";
 
-type ProbeStatus = 'pass' | 'fail' | 'skipped';
-type SummaryStatus = 'healthy' | 'degraded' | 'down';
+type ProbeStatus = "pass" | "fail" | "skipped";
+type SummaryStatus = "healthy" | "degraded" | "down";
 
 interface Probe {
   id: string;
@@ -19,10 +30,10 @@ interface HealthData {
   probes: Probe[];
 }
 
-const STATUS_BADGE: Record<SummaryStatus, { label: string; className: string }> = {
-  healthy: { label: '✓ Healthy', className: 'bg-emerald-500/20 text-emerald-300' },
-  degraded: { label: '⚠ Degraded', className: 'bg-amber-500/20 text-amber-300' },
-  down: { label: '✕ Down', className: 'bg-red-500/20 text-red-300' },
+const STATUS_LABEL: Record<SummaryStatus, string> = {
+  healthy: "Healthy",
+  degraded: "Degraded",
+  down: "Down",
 };
 
 export function BunnyHealth() {
@@ -38,8 +49,8 @@ export function BunnyHealth() {
       const res = await adminApi.getBunnyHealth();
       setData(res);
       setLastRunAt(new Date());
-    } catch (e) {
-      setError('Nu s-a putut rula health check.');
+    } catch {
+      setError("Nu s-a putut rula health check.");
     } finally {
       setLoading(false);
     }
@@ -50,106 +61,106 @@ export function BunnyHealth() {
   }, []);
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-orange-500/15 p-2.5 text-orange-400">
-            <ActivityIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold">Bunny Health Check</h1>
-            <p className="text-sm text-zinc-400">
-              Verifică toate cheile API + endpoint-urile Bunny și raportează ce funcționează.
-            </p>
-          </div>
+    <div className="w-full space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="page-header">
+          <h1 className="page-title">Bunny Health Check</h1>
+          <p className="page-description">
+            Verifică cheile API, endpoint-urile Bunny și configurarea necesară pentru streaming și CDN.
+          </p>
         </div>
-        <button
-          onClick={run}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-sm disabled:opacity-50"
-        >
-          <RefreshCwIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+
+        <Button variant="outline" onClick={() => void run()} disabled={loading}>
+          <RefreshCwIcon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Rulează din nou
-        </button>
+        </Button>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-300">{error}</div>
-      )}
+      {error ? (
+        <div className="inline-flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertTriangleIcon className="h-4 w-4" />
+          {error}
+        </div>
+      ) : null}
 
-      {data && (
+      {loading && !data ? (
+        <Card>
+          <CardContent className="p-10 text-center text-sm text-muted-foreground">Se rulează health check…</CardContent>
+        </Card>
+      ) : null}
+
+      {data ? (
         <>
-          <div className="mb-6 rounded-xl border border-zinc-700 bg-zinc-900/60 p-5">
-            <div className="flex items-center justify-between">
+          <Card>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-400 mb-1">Status general</div>
-                <span className={`inline-block px-3 py-1.5 rounded-md text-sm font-medium ${STATUS_BADGE[data.summary.status].className}`}>
-                  {STATUS_BADGE[data.summary.status].label}
-                </span>
+                <CardTitle>Status general</CardTitle>
+                <CardDescription>
+                  {lastRunAt ? `Ultima rulare: ${lastRunAt.toLocaleString()}` : "Health check-ul nu a fost rulat încă."}
+                </CardDescription>
               </div>
-              <div className="grid grid-cols-3 gap-6 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-emerald-400">{data.summary.passing}</div>
-                  <div className="text-xs text-zinc-400">Pass</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-red-400">{data.summary.failing}</div>
-                  <div className="text-xs text-zinc-400">Fail</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-zinc-400">{data.summary.skipped}</div>
-                  <div className="text-xs text-zinc-400">Skipped</div>
-                </div>
+              <Badge variant={summaryVariant(data.summary.status)} className="w-fit">
+                {STATUS_LABEL[data.summary.status]}
+              </Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4">
+                <MetricCard title="Total probe" value={data.summary.total} icon={ClipboardListIcon} />
+                <MetricCard title="Pass" value={data.summary.passing} icon={CheckCircle2Icon} />
+                <MetricCard title="Fail" value={data.summary.failing} icon={XCircleIcon} />
+                <MetricCard title="Skipped" value={data.summary.skipped} icon={MinusCircleIcon} />
               </div>
-            </div>
-            {lastRunAt && (
-              <div className="mt-3 text-xs text-zinc-500">Ultima rulare: {lastRunAt.toLocaleString()}</div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-800/60">
-                <tr>
-                  <th className="text-left p-3 w-10">Status</th>
-                  <th className="text-left p-3">Probă</th>
-                  <th className="text-left p-3">Detaliu</th>
-                  <th className="text-right p-3 w-24">Latență</th>
-                  <th className="text-center p-3 w-24">Cerut?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.probes.map((p) => (
-                  <tr key={p.id} className="border-t border-zinc-700/60">
-                    <td className="p-3">
-                      {p.status === 'pass' && <CheckCircle2Icon className="w-5 h-5 text-emerald-400" />}
-                      {p.status === 'fail' && <XCircleIcon className="w-5 h-5 text-red-400" />}
-                      {p.status === 'skipped' && <MinusCircleIcon className="w-5 h-5 text-zinc-500" />}
-                    </td>
-                    <td className="p-3">
-                      <div className="font-medium">{p.label}</div>
-                      <div className="text-xs text-zinc-500 font-mono">{p.id}</div>
-                    </td>
-                    <td className="p-3 text-zinc-400 text-xs">{p.detail ?? '—'}</td>
-                    <td className="p-3 text-right tabular-nums text-zinc-400">
-                      {p.latency_ms !== null ? `${p.latency_ms}ms` : '—'}
-                    </td>
-                    <td className="p-3 text-center">
-                      {p.required ? (
-                        <span className="text-xs px-2 py-0.5 rounded bg-red-500/15 text-red-300">required</span>
-                      ) : (
-                        <span className="text-xs text-zinc-500">optional</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Rezultate probe</CardTitle>
+              <CardDescription>Fiecare probă arată ce configurare lipsește sau ce endpoint nu răspunde corect.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Probă</TableHead>
+                    <TableHead>Detaliu</TableHead>
+                    <TableHead className="text-right">Latență</TableHead>
+                    <TableHead className="text-center">Cerut?</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.probes.map((probe) => (
+                    <TableRow key={probe.id}>
+                      <TableCell>{probeStatus(probe.status)}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{probe.label}</div>
+                        <div className="mt-1 font-mono text-xs text-muted-foreground">{probe.id}</div>
+                      </TableCell>
+                      <TableCell className="max-w-xl text-sm text-muted-foreground">{probe.detail ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {probe.latency_ms !== null ? `${probe.latency_ms}ms` : "—"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={probe.required ? "archived" : "inactive"}>
+                          {probe.required ? "required" : "optional"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-          <div className="mt-6 rounded-xl border border-zinc-700/60 bg-zinc-900/40 p-4 text-xs text-zinc-400">
-            <div className="font-medium text-zinc-300 mb-2">📋 Setup .env</div>
-            <pre className="bg-black/40 p-3 rounded overflow-x-auto">{`# Required
+          <Card>
+            <CardHeader>
+              <CardTitle>Setup .env</CardTitle>
+              <CardDescription>Variabilele necesare pentru stream libraries, token key și integrarea CDN opțională.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <pre className="admin-scrollbar overflow-x-auto rounded-lg border bg-muted p-4 text-sm text-foreground">
+{`# Required
 MOVIES_BUNNY_API_KEY=...
 TRAILERS_BUNNY_API_KEY=...
 BUNNY_STREAM_TOKEN_KEY=...
@@ -157,10 +168,65 @@ BUNNY_WEBHOOK_SECRET=...
 
 # Optional (only if you want global CDN dashboard)
 BUNNY_ACCOUNT_API_KEY=...
-BUNNY_CDN_PULL_ZONE_ID=...`}</pre>
-          </div>
+BUNNY_CDN_PULL_ZONE_ID=...`}
+              </pre>
+            </CardContent>
+          </Card>
         </>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+function MetricCard({ title, value, icon: Icon }: { title: string; value: number; icon: ElementType }) {
+  return (
+    <div className="rounded-lg border bg-background p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm text-muted-foreground">{title}</div>
+          <div className="mt-2 text-2xl font-semibold">{value.toLocaleString()}</div>
+        </div>
+        <div className="rounded-md border bg-muted p-2">
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function summaryVariant(status: SummaryStatus) {
+  if (status === "healthy") {
+    return "active" as const;
+  }
+  if (status === "degraded") {
+    return "ready" as const;
+  }
+  return "archived" as const;
+}
+
+function probeStatus(status: ProbeStatus) {
+  if (status === "pass") {
+    return (
+      <Badge variant="active" className="gap-1">
+        <CheckCircle2Icon className="h-3 w-3" />
+        Pass
+      </Badge>
+    );
+  }
+
+  if (status === "fail") {
+    return (
+      <Badge variant="archived" className="gap-1">
+        <XCircleIcon className="h-3 w-3" />
+        Fail
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="inactive" className="gap-1">
+      <MinusCircleIcon className="h-3 w-3" />
+      Skipped
+    </Badge>
   );
 }

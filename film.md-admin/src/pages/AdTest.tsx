@@ -1,8 +1,13 @@
-import { useState } from 'react';
-import { CheckCircle2Icon, XCircleIcon, FlaskConicalIcon } from 'lucide-react';
-import { adminApi } from '../lib/api';
+import { useState, type ReactNode } from "react";
+import { AlertTriangleIcon, CheckCircle2Icon, FlaskConicalIcon, PlayIcon, XCircleIcon } from "lucide-react";
+import { Badge } from "../components/shared/Badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { adminApi } from "../lib/api";
 
-type Placement = 'pre-roll' | 'mid-roll' | 'post-roll';
+type Placement = "pre-roll" | "mid-roll" | "post-roll";
 
 interface ResolveResult {
   inputs: { content_id: number; content_title: string; country_code: string | null; placement: string; group: string };
@@ -31,27 +36,22 @@ interface ResolveResult {
   }>;
 }
 
-/**
- * VAST Debug page — pick a film + country + placement and see exactly which
- * campaign will be served, the resolved VAST XML, the tracking pixel URLs,
- * and the breakdown of why other candidates were excluded. Reuses the live
- * AdTargetingService so what you see here is what real users will get.
- */
 export function AdTest() {
-  const [contentId, setContentId] = useState('');
-  const [countryCode, setCountryCode] = useState('MD');
-  const [placement, setPlacement] = useState<Placement>('pre-roll');
-  const [group, setGroup] = useState('movies');
-  const [sessionId, setSessionId] = useState('');
+  const [contentId, setContentId] = useState("");
+  const [countryCode, setCountryCode] = useState("MD");
+  const [placement, setPlacement] = useState<Placement>("pre-roll");
+  const [group, setGroup] = useState("movies");
+  const [sessionId, setSessionId] = useState("");
   const [result, setResult] = useState<ResolveResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function run() {
     if (!contentId) {
-      setError('Introdu un content_id');
+      setError("Introdu un content_id");
       return;
     }
+
     setLoading(true);
     setError(null);
     try {
@@ -63,8 +63,8 @@ export function AdTest() {
         session_id: sessionId || undefined,
       });
       setResult(res);
-    } catch (e) {
-      setError('Eroare la apelarea endpoint-ului. Verifică content_id.');
+    } catch {
+      setError("Eroare la apelarea endpoint-ului. Verifică content_id.");
       setResult(null);
     } finally {
       setLoading(false);
@@ -72,164 +72,199 @@ export function AdTest() {
   }
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="rounded-lg bg-violet-500/15 p-2.5 text-violet-400">
-          <FlaskConicalIcon className="w-5 h-5" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold">VAST Test</h1>
-          <p className="text-sm text-zinc-400">
-            Simulează cererea unui player și vezi care campanie ar fi servită + de ce celelalte au fost excluse.
+    <div className="w-full space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="page-header">
+          <h1 className="page-title">VAST Test</h1>
+          <p className="page-description">
+            Simulează cererea unui player și vezi ce campanie este servită, ce XML se întoarce și de ce au fost excluse celelalte candidate.
           </p>
         </div>
+
+        <div className="rounded-md border bg-muted p-2">
+          <FlaskConicalIcon className="h-5 w-5" />
+        </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 mb-6">
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <Field label="Content ID">
-            <input
-              type="number"
-              className="input"
-              value={contentId}
-              onChange={(e) => setContentId(e.target.value)}
-              placeholder="42"
-            />
-          </Field>
-          <Field label="Țară (ISO)">
-            <input
-              className="input"
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
-              placeholder="MD"
-              maxLength={5}
-            />
-          </Field>
-          <Field label="Placement">
-            <select className="input" value={placement} onChange={(e) => setPlacement(e.target.value as Placement)}>
-              <option value="pre-roll">pre-roll</option>
-              <option value="mid-roll">mid-roll</option>
-              <option value="post-roll">post-roll</option>
-            </select>
-          </Field>
-          <Field label="Grup">
-            <select className="input" value={group} onChange={(e) => setGroup(e.target.value)}>
-              <option value="movies">movies</option>
-              <option value="trailers">trailers</option>
-              <option value="premium">premium</option>
-            </select>
-          </Field>
-          <Field label="Session ID (opțional)">
-            <input className="input" value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="auto" />
-          </Field>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={run}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
-          >
-            {loading ? 'Se rulează…' : 'Rulează test'}
-          </button>
-        </div>
-        {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
-      </div>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Parametri test</CardTitle>
+          <CardDescription>Folosește aceleași filtre pe care le primește playerul în runtime.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <Field label="Content ID">
+              <Input
+                type="number"
+                value={contentId}
+                onChange={(event) => setContentId(event.target.value)}
+                placeholder="42"
+              />
+            </Field>
+            <Field label="Țară (ISO)">
+              <Input
+                value={countryCode}
+                onChange={(event) => setCountryCode(event.target.value.toUpperCase())}
+                placeholder="MD"
+                maxLength={5}
+              />
+            </Field>
+            <Field label="Placement">
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                value={placement}
+                onChange={(event) => setPlacement(event.target.value as Placement)}
+              >
+                <option value="pre-roll">pre-roll</option>
+                <option value="mid-roll">mid-roll</option>
+                <option value="post-roll">post-roll</option>
+              </select>
+            </Field>
+            <Field label="Grup">
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                value={group}
+                onChange={(event) => setGroup(event.target.value)}
+              >
+                <option value="movies">movies</option>
+                <option value="trailers">trailers</option>
+                <option value="premium">premium</option>
+              </select>
+            </Field>
+            <Field label="Session ID">
+              <Input value={sessionId} onChange={(event) => setSessionId(event.target.value)} placeholder="opțional" />
+            </Field>
+          </div>
 
-      {result && (
-        <div className="space-y-6">
-          <section className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
-            <h2 className="text-lg font-medium mb-3">Campania aleasă</h2>
-            {result.chosen ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <KV label="Nume" value={result.chosen.name} />
-                <KV label="Companie" value={result.chosen.company_name ?? '—'} />
-                <KV label="Bid" value={`$${result.chosen.bid_amount.toFixed(2)}`} />
-                <KV label="Skip after" value={`${result.chosen.skip_offset_seconds ?? '—'} sec`} />
-                <KV label="Click-through" value={result.chosen.click_through_url ?? '—'} />
-                <KV
-                  label="Creative"
-                  value={result.chosen.creative ? `${result.chosen.creative.duration_seconds}s · ${result.chosen.creative.mime_type}` : '—'}
-                />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {error ? (
+              <div className="inline-flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <AlertTriangleIcon className="h-4 w-4" />
+                {error}
               </div>
             ) : (
-              <div className="text-amber-400 text-sm">⚠ Nicio campanie eligibilă pentru aceste filtre.</div>
+              <p className="text-sm text-muted-foreground">Rezultatul va reflecta regulile live din AdTargetingService.</p>
             )}
-          </section>
+            <Button onClick={() => void run()} disabled={loading}>
+              <PlayIcon className="h-4 w-4" />
+              {loading ? "Se rulează…" : "Rulează test"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-          {result.vast_xml && (
-            <section className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
-              <h2 className="text-lg font-medium mb-3">VAST XML returnat</h2>
-              <pre className="overflow-x-auto bg-black/50 p-3 rounded text-xs text-emerald-300 max-h-[400px] overflow-y-auto">
-                {result.vast_xml}
-              </pre>
-              {result.tracking_pixels.length > 0 && (
-                <div className="mt-3">
-                  <div className="text-xs text-zinc-400 mb-1">Tracking pixel URLs ({result.tracking_pixels.length})</div>
-                  <ul className="text-xs space-y-1 font-mono text-zinc-500 max-h-[200px] overflow-y-auto">
-                    {result.tracking_pixels.map((url, idx) => (
-                      <li key={idx} className="truncate">
-                        {url}
-                      </li>
-                    ))}
-                  </ul>
+      {result ? (
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <ResultMetric title="Candidate" value={result.candidates.length} />
+            <ResultMetric title="Eligibile" value={result.eligible_count} />
+            <ResultMetric title="Tracking pixels" value={result.tracking_pixels.length} />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Campania aleasă</CardTitle>
+              <CardDescription>
+                {result.chosen ? "Această campanie ar fi servită playerului." : "Nu există campanie eligibilă pentru filtrele curente."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {result.chosen ? (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <KV label="Nume" value={result.chosen.name} />
+                  <KV label="Companie" value={result.chosen.company_name ?? "—"} />
+                  <KV label="Bid" value={`$${result.chosen.bid_amount.toFixed(2)}`} />
+                  <KV label="Placement" value={result.chosen.placement} />
+                  <KV label="Skip after" value={`${result.chosen.skip_offset_seconds ?? "—"} sec`} />
+                  <KV label="Click-through" value={result.chosen.click_through_url ?? "—"} />
+                  <KV
+                    label="Creative"
+                    value={
+                      result.chosen.creative
+                        ? `${result.chosen.creative.duration_seconds}s · ${result.chosen.creative.mime_type}`
+                        : "—"
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-md border bg-muted px-4 py-3 text-sm text-muted-foreground">
+                  <AlertTriangleIcon className="h-4 w-4" />
+                  Nicio campanie nu trece filtrele selectate.
                 </div>
               )}
-            </section>
-          )}
+            </CardContent>
+          </Card>
 
-          <section className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
-            <h2 className="text-lg font-medium mb-3">
-              Toate candidatele ({result.candidates.length}) — eligibile: {result.eligible_count}
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-800/60">
-                  <tr>
-                    <th className="text-left p-2">Status</th>
-                    <th className="text-left p-2">Campanie</th>
-                    <th className="text-right p-2">Bid</th>
-                    <th className="text-left p-2">Placement</th>
-                    <th className="text-right p-2">Creatives</th>
-                    <th className="text-left p-2">Motive excludere</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.candidates.map((c) => (
-                    <tr key={c.id} className="border-t border-zinc-700/60">
-                      <td className="p-2">
-                        {c.chosen ? (
-                          <span className="text-emerald-400">★ ales</span>
-                        ) : c.eligible ? (
-                          <span className="text-sky-400">eligibil</span>
-                        ) : (
-                          <span className="text-zinc-500">exclus</span>
-                        )}
-                      </td>
-                      <td className="p-2">{c.name}</td>
-                      <td className="p-2 text-right">${c.bid.toFixed(2)}</td>
-                      <td className="p-2 font-mono">{c.placement}</td>
-                      <td className="p-2 text-right">{c.creatives_count}</td>
-                      <td className="p-2 text-xs text-zinc-400">
-                        {c.reasons_excluded.length === 0 ? '—' : c.reasons_excluded.join('; ')}
-                      </td>
-                    </tr>
+          {result.vast_xml ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>VAST XML returnat</CardTitle>
+                <CardDescription>XML-ul final care ar fi livrat către player.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <pre className="admin-scrollbar max-h-[380px] overflow-auto rounded-lg border bg-muted p-4 text-xs text-foreground">
+                  {result.vast_xml}
+                </pre>
+                {result.tracking_pixels.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Tracking pixel URLs ({result.tracking_pixels.length})</div>
+                    <div className="admin-scrollbar max-h-[180px] space-y-2 overflow-auto rounded-lg border bg-background p-3">
+                      {result.tracking_pixels.map((url, index) => (
+                        <div key={`${url}-${index}`} className="truncate font-mono text-xs text-muted-foreground">
+                          {url}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Candidate evaluate</CardTitle>
+              <CardDescription>Lista completă a campaniilor analizate și motivele de excludere.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Campanie</TableHead>
+                    <TableHead className="text-right">Bid</TableHead>
+                    <TableHead>Placement</TableHead>
+                    <TableHead className="text-right">Creatives</TableHead>
+                    <TableHead>Motive excludere</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {result.candidates.map((candidate) => (
+                    <TableRow key={candidate.id}>
+                      <TableCell>{candidateStatus(candidate)}</TableCell>
+                      <TableCell className="font-medium">{candidate.name}</TableCell>
+                      <TableCell className="text-right">${candidate.bid.toFixed(2)}</TableCell>
+                      <TableCell className="font-mono text-xs">{candidate.placement}</TableCell>
+                      <TableCell className="text-right">{candidate.creatives_count}</TableCell>
+                      <TableCell className="max-w-md text-xs text-muted-foreground">
+                        {candidate.reasons_excluded.length === 0 ? "—" : candidate.reasons_excluded.join("; ")}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
-      )}
-
-      <style>{`.input { width: 100%; background: rgba(39,39,42,0.8); border: 1px solid rgb(63,63,70); border-radius: 6px; padding: 6px 10px; color: rgb(244,244,245); font-size: 14px; }`}</style>
+      ) : null}
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-zinc-400 text-xs">{label}</span>
+    <label className="flex flex-col gap-2 text-sm font-medium">
+      <span className="text-muted-foreground">{label}</span>
       {children}
     </label>
   );
@@ -237,9 +272,52 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function KV({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div className="text-xs text-zinc-400">{label}</div>
-      <div className="text-sm font-medium break-all">{value}</div>
+    <div className="rounded-lg border bg-background p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-2 break-all text-sm font-medium">{value}</div>
     </div>
+  );
+}
+
+function ResultMetric({ title, value }: { title: string; value: number }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div className="space-y-1">
+          <CardDescription>{title}</CardDescription>
+          <CardTitle>{value.toLocaleString()}</CardTitle>
+        </div>
+        <div className="rounded-md border bg-muted p-2">
+          <FlaskConicalIcon className="h-4 w-4" />
+        </div>
+      </CardHeader>
+    </Card>
+  );
+}
+
+function candidateStatus(candidate: ResolveResult["candidates"][number]) {
+  if (candidate.chosen) {
+    return (
+      <Badge variant="active" className="gap-1">
+        <CheckCircle2Icon className="h-3 w-3" />
+        ales
+      </Badge>
+    );
+  }
+
+  if (candidate.eligible) {
+    return (
+      <Badge variant="featured" className="gap-1">
+        <CheckCircle2Icon className="h-3 w-3" />
+        eligibil
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="inactive" className="gap-1">
+      <XCircleIcon className="h-3 w-3" />
+      exclus
+    </Badge>
   );
 }

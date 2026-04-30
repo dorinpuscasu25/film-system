@@ -149,11 +149,17 @@ function mapCampaignToDraft(campaign: AdCampaignsResponse["items"][number]): Cam
   };
 }
 
-export function PlaybackOps() {
+export function PlaybackOps({
+  initialTab = "sessions",
+  advertisingOnly = false,
+}: {
+  initialTab?: "sessions" | "advertising";
+  advertisingOnly?: boolean;
+} = {}) {
   const { can } = useAdmin();
   const canRevokeTokens = can("playback.revoke_tokens");
   const canManageAdvertising = can("advertising.manage");
-  const [activeTab, setActiveTab] = React.useState("sessions");
+  const [activeTab, setActiveTab] = React.useState(initialTab);
   const [ops, setOps] = React.useState<PlaybackOpsResponse>(EMPTY_OPS);
   const [campaignsData, setCampaignsData] = React.useState<AdCampaignsResponse>(EMPTY_CAMPAIGNS);
   const [selectedCampaignId, setSelectedCampaignId] = React.useState<number | "new" | null>(null);
@@ -166,10 +172,14 @@ export function PlaybackOps() {
     setIsLoading(true);
 
     try {
-      const [opsResponse, campaignsResponse] = await Promise.all([
-        adminApi.getPlaybackOps(),
-        adminApi.getAdCampaigns(),
-      ]);
+      let opsResponse = EMPTY_OPS;
+      let campaignsResponse: AdCampaignsResponse;
+
+      if (advertisingOnly) {
+        campaignsResponse = await adminApi.getAdCampaigns();
+      } else {
+        [opsResponse, campaignsResponse] = await Promise.all([adminApi.getPlaybackOps(), adminApi.getAdCampaigns()]);
+      }
 
       setOps(opsResponse);
       setCampaignsData(campaignsResponse);
@@ -181,7 +191,7 @@ export function PlaybackOps() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [advertisingOnly]);
 
   React.useEffect(() => {
     void loadData();
@@ -294,37 +304,45 @@ export function PlaybackOps() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Operațiuni playback</h1>
+          <h1 className="page-title">{advertisingOnly ? "Campanii publicitare" : "Operațiuni playback"}</h1>
           <p className="page-description">
-            Monitorizare sesiuni live, control tokenuri și administrare campanii VAST fără să schimbăm fluxul actual al platformei.
+            {advertisingOnly
+              ? "Administrează campanii VAST, creatives, bid-uri și reguli de targeting."
+              : "Monitorizare sesiuni live, control tokenuri și administrare campanii VAST fără să schimbăm fluxul actual al platformei."}
           </p>
         </div>
 
-        <Tabs
-          tabs={[
-            { id: "sessions", label: "Sesiuni", count: ops.sessions.length },
-            { id: "advertising", label: "Advertising", count: campaignsData.items.length },
-          ]}
-          activeTab={activeTab}
-          onChange={setActiveTab}
-        />
+        {!advertisingOnly ? (
+          <Tabs
+            tabs={[
+              { id: "sessions", label: "Sesiuni", count: ops.sessions.length },
+              { id: "advertising", label: "Advertising", count: campaignsData.items.length },
+            ]}
+            activeTab={activeTab}
+            onChange={setActiveTab}
+          />
+        ) : null}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          title="Streamuri active"
-          value={ops.stats.active_streams}
-          icon={ActivityIcon}
-          trendLabel={`${ops.stats.completed_today} închise azi`}
-          colorClass="bg-muted"
-        />
-        <StatsCard
-          title="Watch time urmărit"
-          value={formatDuration(ops.stats.total_watch_time_seconds)}
-          icon={PlayCircleIcon}
-          trendLabel={`${ops.sessions.length} sesiuni încărcate`}
-          colorClass="bg-muted"
-        />
+      <div className={`grid gap-4 md:grid-cols-2 ${advertisingOnly ? "xl:grid-cols-2" : "xl:grid-cols-4"}`}>
+        {!advertisingOnly ? (
+          <>
+            <StatsCard
+              title="Streamuri active"
+              value={ops.stats.active_streams}
+              icon={ActivityIcon}
+              trendLabel={`${ops.stats.completed_today} închise azi`}
+              colorClass="bg-muted"
+            />
+            <StatsCard
+              title="Watch time urmărit"
+              value={formatDuration(ops.stats.total_watch_time_seconds)}
+              icon={PlayCircleIcon}
+              trendLabel={`${ops.sessions.length} sesiuni încărcate`}
+              colorClass="bg-muted"
+            />
+          </>
+        ) : null}
         <StatsCard
           title="Campanii active"
           value={activeCampaigns}
@@ -341,7 +359,7 @@ export function PlaybackOps() {
         />
       </div>
 
-      {activeTab === "sessions" ? (
+      {!advertisingOnly && activeTab === "sessions" ? (
         <Card>
           <CardHeader>
             <CardTitle>Sesiuni playback</CardTitle>
