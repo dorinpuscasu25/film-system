@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\BunnyWebhookController;
 use App\Http\Controllers\Api\ContentReviewController;
 use App\Http\Controllers\Api\OpenApiController;
+use App\Http\Controllers\Api\PayFilmotecaCallbackController;
 use App\Http\Controllers\Api\PublicCatalogController;
 use App\Http\Controllers\Api\PublicPlatformSettingsController;
 use App\Http\Controllers\Api\SettingsController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\Api\StorefrontCouponController;
 use App\Http\Controllers\Api\StorefrontParentalController;
 use App\Http\Controllers\Api\StorefrontProfileController;
 use App\Http\Controllers\Api\StorefrontTrackingController;
+use App\Http\Controllers\Api\StorefrontWalletTopUpController;
 use App\Http\Controllers\Api\StorefrontWatchPartyController;
 use Illuminate\Support\Facades\Route;
 
@@ -80,6 +82,7 @@ use Illuminate\Support\Facades\Route;
     Route::get('ads/vast', [AdsController::class, 'vast'])->middleware('throttle:240,1')->name('ads.vast');
     Route::get('ads/track', [AdsController::class, 'track'])->middleware('throttle:600,1');
     Route::post('ads/events', [AdsController::class, 'event'])->middleware('throttle:240,1');
+    Route::any('payments/pay-filmoteca/callback', PayFilmotecaCallbackController::class)->middleware('throttle:120,1');
     Route::get('docs/openapi.json', [OpenApiController::class, 'show']);
 
     Route::middleware('api.token')->group(function (): void {
@@ -108,6 +111,10 @@ use Illuminate\Support\Facades\Route;
 
             // Coupons
             Route::post('coupons/preview', [StorefrontCouponController::class, 'preview'])->middleware(['permission:content.purchase', 'throttle:30,1']);
+
+            Route::get('wallet/top-ups/latest', [StorefrontWalletTopUpController::class, 'latest'])->middleware('permission:wallet.top_up');
+            Route::post('wallet/top-ups', [StorefrontWalletTopUpController::class, 'store'])->middleware(['permission:wallet.top_up', 'throttle:20,1']);
+            Route::get('wallet/top-ups/{topUp}', [StorefrontWalletTopUpController::class, 'show'])->middleware('permission:wallet.top_up');
 
             Route::post('offers/{offer}/purchase', [StorefrontController::class, 'purchase'])->middleware('permission:content.purchase');
             Route::get('content/{identifier}/playback', [StorefrontController::class, 'playback'])->middleware('permission:content.watch');

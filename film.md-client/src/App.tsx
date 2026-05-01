@@ -14,6 +14,7 @@ import { PlayerPage } from './pages/PlayerPage';
 import { SearchPage } from './pages/SearchPage';
 import { UserDashboardPage } from './pages/UserDashboardPage';
 import { WatchPartyPage } from './pages/WatchPartyPage';
+import { PaymentStatusPage } from './pages/PaymentStatusPage';
 import { stripHashRouteFromUrl } from './lib/url';
 
 function AppFrame() {
@@ -32,6 +33,8 @@ function AppFrame() {
           <Route path="/watch/:id" element={<PlayerPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/dashboard" element={<UserDashboardPage />} />
+          <Route path="/payment/success" element={<PaymentStatusPage fallbackStatus="success" />} />
+          <Route path="/payment/failed" element={<PaymentStatusPage fallbackStatus="failed" />} />
           <Route path="/watch-party/:roomCode" element={<WatchPartyPage />} />
         </Routes>
       </main>

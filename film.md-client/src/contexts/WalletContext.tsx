@@ -3,11 +3,13 @@ import { Purchase, WalletTransaction } from "../types";
 import { useAuth } from "./AuthContext";
 import { useLanguage } from "./LanguageContext";
 import {
+  createStorefrontWalletTopUp,
   favoriteStorefrontContent,
   fetchStorefrontAccount,
   purchaseStorefrontOffer,
   unfavoriteStorefrontContent,
 } from "../lib/session";
+import type { StorefrontTopUpPayload } from "../lib/session";
 
 interface WalletContextType {
   balance: number;
@@ -16,7 +18,7 @@ interface WalletContextType {
   purchases: Purchase[];
   favorites: string[];
   isLoading: boolean;
-  addFunds: (amount: number) => void;
+  addFunds: (amount: number, options?: { phone?: string }) => Promise<StorefrontTopUpPayload>;
   purchaseAccess: (offerId: string) => Promise<void>;
   hasAccess: (movieId: string) => boolean;
   getTimeRemaining: (movieId: string) => string | null;
@@ -37,7 +39,8 @@ function mapTransaction(transaction: Awaited<ReturnType<typeof fetchStorefrontAc
     balanceAfter: Number(transaction.balance_after ?? 0),
     currency: transaction.currency,
     description: transaction.description ?? undefined,
-    date: transaction.processed_at ?? new Date().toISOString(),
+    status: transaction.status ?? undefined,
+    date: transaction.processed_at ?? transaction.created_at ?? new Date().toISOString(),
     movieTitle: contentSlug,
   };
 }
@@ -64,7 +67,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user, activeProfile, isLoading: isAuthLoading } = useAuth();
   const { currentLanguage } = useLanguage();
   const [balance, setBalance] = useState<number>(0);
-  const [currency, setCurrency] = useState<string>("USD");
+  const [currency, setCurrency] = useState<string>("MDL");
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [favoritesByProfile, setFavoritesByProfile] = useState<Record<string, string[]>>({});
@@ -81,7 +84,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const loadAccount = async () => {
     if (!user) {
       setBalance(0);
-      setCurrency("USD");
+      setCurrency("MDL");
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
@@ -93,13 +96,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetchStorefrontAccount(currentLanguage.code);
       setBalance(Number(response.wallet.balance_amount ?? 0));
-      setCurrency(response.wallet.currency ?? "USD");
+      setCurrency(response.wallet.currency ?? "MDL");
       setTransactions((response.transactions ?? []).map(mapTransaction));
       setPurchases((response.library ?? []).map(mapPurchase));
       setFavoritesByProfile(response.favorites_by_profile ?? {});
     } catch {
       setBalance(0);
-      setCurrency("USD");
+      setCurrency("MDL");
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
@@ -115,7 +118,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     if (!isAuthenticated || !user) {
       setBalance(0);
-      setCurrency("USD");
+      setCurrency("MDL");
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
@@ -125,8 +128,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     void loadAccount();
   }, [currentLanguage.code, isAuthenticated, isAuthLoading, user?.id]);
 
-  const addFunds = () => {
-    return;
+  const addFunds = async (amount: number, options?: { phone?: string }) => {
+    const response = await createStorefrontWalletTopUp({
+      amount,
+      currency,
+      phone: options?.phone,
+      locale: currentLanguage.code,
+    });
+
+    return response.top_up;
   };
 
   const purchaseAccess = async (offerId: string) => {

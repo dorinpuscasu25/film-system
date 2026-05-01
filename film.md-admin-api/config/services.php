@@ -86,4 +86,15 @@ return [
         'storage_api_key' => env('BUNNY_STORAGE_API_KEY'),
     ],
 
+    'pay_filmoteca' => [
+        'base_url' => env('PAY_FILMOTECA_BASE_URL', 'https://pay.filmoteca.md'),
+        'username' => env('PAY_FILMOTECA_USERNAME'),
+        'password' => env('PAY_FILMOTECA_PASSWORD'),
+        'api_key' => env('PAY_FILMOTECA_API_KEY'),
+        'callback_url' => env('PAY_FILMOTECA_CALLBACK_URL'),
+        'success_url' => env('PAY_FILMOTECA_SUCCESS_URL'),
+        'failed_url' => env('PAY_FILMOTECA_FAILED_URL'),
+        'timeout' => (int) env('PAY_FILMOTECA_TIMEOUT', 20),
+    ],
+
 ];

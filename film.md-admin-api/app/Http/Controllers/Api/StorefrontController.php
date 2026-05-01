@@ -7,12 +7,14 @@ use App\Models\Content;
 use App\Models\ContentEntitlement;
 use App\Models\PlaybackSession;
 use App\Models\Offer;
+use App\Models\PaymentTopUp;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\BunnyTokenService;
 use App\Services\IpGeoLocationService;
 use App\Services\PlaybackAccessService;
+use App\Services\PayFilmotecaPaymentService;
 use App\Services\StorefrontPurchaseService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +31,7 @@ class StorefrontController extends ApiController
         protected PlaybackAccessService $playbackAccess,
         protected BunnyTokenService $bunnyToken,
         protected IpGeoLocationService $geoLocation,
+        protected PayFilmotecaPaymentService $payments,
     ) {
     }
 
@@ -39,15 +42,28 @@ class StorefrontController extends ApiController
         $wallet = $this->wallets->ensureWallet($user);
         $this->profiles->ensureDefaultProfile($user);
         $transactions = $wallet->transactions()->latest('id')->limit(100)->get();
+        $topUps = PaymentTopUp::query()
+            ->where('user_id', $user->id)
+            ->where('status', '!=', PaymentTopUp::STATUS_PAID)
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(function (PaymentTopUp $topUp): PaymentTopUp {
+                return $topUp->isTerminal() ? $topUp : $this->payments->refreshStatus($topUp);
+            });
         $library = $this->resolveLibraryItems($user, $locale);
         $user->loadMissing('roles.permissions', 'wallet', 'profiles.favorites');
+        $transactionHistory = $transactions
+            ->map(fn (WalletTransaction $transaction): array => $this->walletTransactionData($transaction))
+            ->merge($topUps->map(fn (PaymentTopUp $topUp): array => $this->walletTopUpHistoryData($topUp)))
+            ->sortByDesc(fn (array $item): string => (string) ($item['processed_at'] ?? $item['created_at'] ?? ''))
+            ->take(100)
+            ->values();
 
         return response()->json([
             'user' => $this->userData($user),
             'wallet' => $this->walletSummaryData($wallet->fresh()),
-            'transactions' => $transactions
-                ->map(fn (WalletTransaction $transaction): array => $this->walletTransactionData($transaction))
-                ->values(),
+            'transactions' => $transactionHistory,
             'library' => $library,
             'favorites_by_profile' => $this->favoriteMapData($user->profiles),
         ]);
@@ -71,6 +87,28 @@ class StorefrontController extends ApiController
                 : null,
             'library_item' => $libraryItem,
         ]);
+    }
+
+    protected function walletTopUpHistoryData(PaymentTopUp $topUp): array
+    {
+        return [
+            'id' => 'topup-'.$topUp->uuid,
+            'type' => WalletTransaction::TYPE_TOP_UP,
+            'amount' => round((float) $topUp->amount, 2),
+            'balance_after' => null,
+            'currency' => $topUp->currency,
+            'description' => $topUp->description ?: 'Suplinire cont Filmoteca.md',
+            'status' => $topUp->status,
+            'meta' => [
+                'payment_top_up_id' => $topUp->uuid,
+                'provider' => 'pay.filmoteca.md',
+                'provider_order_id' => $topUp->provider_order_id,
+                'provider_status' => $topUp->provider_status,
+                'payment_url' => $topUp->provider_payment_url,
+            ],
+            'processed_at' => $topUp->credited_at?->toIso8601String(),
+            'created_at' => $topUp->created_at?->toIso8601String(),
+        ];
     }
 
     public function playback(Request $request, string $identifier): JsonResponse

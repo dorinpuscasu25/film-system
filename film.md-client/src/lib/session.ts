@@ -42,11 +42,13 @@ export interface StorefrontTransactionPayload {
   id: string | number;
   type: string;
   amount: number;
-  balance_after: number;
+  balance_after?: number | null;
   currency: string;
   description?: string | null;
+  status?: "pending" | "redirect_created" | "processing" | "paid" | "failed" | "canceled" | "refunded" | null;
   meta?: Record<string, unknown>;
   processed_at?: string | null;
+  created_at?: string | null;
 }
 
 export interface StorefrontLibraryItemPayload {
@@ -91,6 +93,23 @@ export interface StorefrontPurchasePayload {
   };
   transaction?: StorefrontTransactionPayload | null;
   library_item: StorefrontLibraryItemPayload;
+}
+
+export interface StorefrontTopUpPayload {
+  id: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "redirect_created" | "processing" | "paid" | "failed" | "canceled" | "refunded";
+  provider_status?: string | null;
+  provider_order_id?: string | null;
+  payment_url?: string | null;
+  credited_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface StorefrontTopUpResponsePayload {
+  top_up: StorefrontTopUpPayload;
 }
 
 export interface StorefrontPremiereLockPayload {
@@ -417,6 +436,36 @@ export async function purchaseStorefrontOffer(offerId: string, locale?: "en" | "
   }, {
     locale,
   }, true);
+}
+
+export async function createStorefrontWalletTopUp(payload: {
+  amount: number;
+  currency: string;
+  phone?: string;
+  locale?: "en" | "ro" | "ru";
+}) {
+  return requestJson<StorefrontTopUpResponsePayload>("/storefront/wallet/top-ups", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, undefined, true);
+}
+
+export async function fetchStorefrontWalletTopUp(topUpId: string, options?: { orderId?: string | null }) {
+  return requestJson<StorefrontTopUpResponsePayload>(
+    `/storefront/wallet/top-ups/${topUpId}`,
+    {},
+    options?.orderId ? { order_id: options.orderId } : undefined,
+    true,
+  );
+}
+
+export async function fetchLatestStorefrontWalletTopUp(options?: { orderId?: string | null }) {
+  return requestJson<StorefrontTopUpResponsePayload>(
+    "/storefront/wallet/top-ups/latest",
+    {},
+    options?.orderId ? { order_id: options.orderId } : undefined,
+    true,
+  );
 }
 
 export async function fetchStorefrontPlayback(

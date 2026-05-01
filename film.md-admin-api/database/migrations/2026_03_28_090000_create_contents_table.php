@@ -38,7 +38,7 @@ return new class extends Migration
             $table->boolean('is_trending')->default(false);
             $table->boolean('is_free')->default(false);
             $table->decimal('price_amount', 10, 2)->default(0);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('MDL');
             $table->unsignedInteger('rental_days')->nullable();
             $table->unsignedInteger('sort_order')->default(0);
             $table->text('canonical_url')->nullable();

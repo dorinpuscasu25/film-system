@@ -42,6 +42,11 @@ class User extends Authenticatable
         return $this->hasMany(WalletTransaction::class);
     }
 
+    public function paymentTopUps(): HasMany
+    {
+        return $this->hasMany(PaymentTopUp::class);
+    }
+
     public function entitlements(): HasMany
     {
         return $this->hasMany(ContentEntitlement::class);

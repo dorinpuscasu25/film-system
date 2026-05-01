@@ -14,7 +14,7 @@ interface PurchaseModalProps {
 function formatCurrency(amount: number, currency: string) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency || 'USD'
+    currency: currency || 'MDL'
   }).format(amount);
 }
 
@@ -26,7 +26,7 @@ function buildFallbackOffers(movie: Movie): Offer[] {
     accessType: 'lifetime',
     quality: 'HD',
     price: movie.price * 2,
-    currency: 'USD'
+    currency: 'MDL'
   },
   {
     id: `${movie.id}-life-sd`,
@@ -34,7 +34,7 @@ function buildFallbackOffers(movie: Movie): Offer[] {
     accessType: 'lifetime',
     quality: 'SD',
     price: movie.price * 1.5,
-    currency: 'USD'
+    currency: 'MDL'
   },
   {
     id: `${movie.id}-2d-hd`,
@@ -42,7 +42,7 @@ function buildFallbackOffers(movie: Movie): Offer[] {
     accessType: 'rental',
     quality: 'HD',
     price: movie.price,
-    currency: 'USD',
+    currency: 'MDL',
     rentalDays: 2
   },
   {
@@ -51,7 +51,7 @@ function buildFallbackOffers(movie: Movie): Offer[] {
     accessType: 'rental',
     quality: 'SD',
     price: movie.price * 0.7,
-    currency: 'USD',
+    currency: 'MDL',
     rentalDays: 2
   }];
 }

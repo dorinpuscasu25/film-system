@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('access_type', 32);
             $table->string('quality', 32)->nullable();
             $table->string('status', 32)->default('active');
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('MDL');
             $table->decimal('price_amount', 12, 2)->default(0);
             $table->timestamp('granted_at');
             $table->timestamp('starts_at')->nullable();

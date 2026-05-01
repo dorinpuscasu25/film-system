@@ -5,6 +5,7 @@ use App\Services\AnalyticsBufferService;
 use App\Services\BunnyStatsService;
 use App\Services\ContentSearchService;
 use App\Services\FormatCleanupService;
+use App\Services\PayFilmotecaPaymentService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -94,9 +95,26 @@ Artisan::command('ad-events:prune {--days=7}', function () {
     return self::SUCCESS;
 })->purpose('Prune raw ad_events older than N days (default 7)');
 
+Artisan::command('payments:poll-topups {--limit=50}', function (PayFilmotecaPaymentService $payments) {
+    $stats = $payments->pollPendingTopUps((int) $this->option('limit'));
+
+    $this->info(sprintf(
+        'Payment top-ups checked: %d, paid: %d, failed: %d, canceled: %d, refunded: %d, still processing: %d.',
+        $stats['checked'],
+        $stats['paid'],
+        $stats['failed'],
+        $stats['canceled'],
+        $stats['refunded'],
+        $stats['processing'],
+    ));
+
+    return self::SUCCESS;
+})->purpose('Poll pay.filmoteca.md payment details and settle pending wallet top-ups');
+
 Schedule::command('analytics:flush-buffers')->everyTenMinutes();
 Schedule::command('analytics:flush-ad-aggregates')->everyTenMinutes();
 Schedule::command('ad-events:prune --days=7')->dailyAt('03:00');
+Schedule::command('payments:poll-topups --limit=50')->everyMinute()->withoutOverlapping();
 Schedule::command('analytics:recalculate-costs')->hourly();
 Schedule::command('bunny:pull-stats')->dailyAt('01:30');
 Schedule::command('content:cleanup-unused-formats --days=30')->weekly()->sundays()->at('02:00');

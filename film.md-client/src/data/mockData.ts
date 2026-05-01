@@ -129,7 +129,7 @@ export const MOCK_MOVIES: Movie[] = [
     accessType: 'rental',
     quality: 'HD',
     price: 3.99,
-    currency: 'USD',
+    currency: 'MDL',
     rentalDays: 2
   },
   {
@@ -138,7 +138,7 @@ export const MOCK_MOVIES: Movie[] = [
     accessType: 'rental',
     quality: 'SD',
     price: 2.79,
-    currency: 'USD',
+    currency: 'MDL',
     rentalDays: 2
   },
   {
@@ -147,7 +147,7 @@ export const MOCK_MOVIES: Movie[] = [
     accessType: 'lifetime',
     quality: 'HD',
     price: 7.99,
-    currency: 'USD'
+    currency: 'MDL'
   }],
   trailerUrl: 'mock-trailer-url',
   isNew: false,
@@ -390,7 +390,7 @@ export const MOCK_MOVIES: Movie[] = [
     accessType: 'rental',
     quality: 'HD',
     price: 4.99,
-    currency: 'USD',
+    currency: 'MDL',
     rentalDays: 2
   },
   {
@@ -399,7 +399,7 @@ export const MOCK_MOVIES: Movie[] = [
     accessType: 'lifetime',
     quality: 'HD',
     price: 9.99,
-    currency: 'USD'
+    currency: 'MDL'
   }],
   seasonsData: [
   {

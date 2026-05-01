@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('type', 32);
             $table->decimal('amount', 12, 2);
             $table->decimal('balance_after', 12, 2);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('MDL');
             $table->nullableMorphs('reference');
             $table->text('description')->nullable();
             $table->json('meta')->nullable();

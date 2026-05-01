@@ -117,11 +117,12 @@ export interface User {
 
 export interface WalletTransaction {
   id: string;
-  type: 'topup' | 'purchase' | 'welcome_bonus' | 'refund' | 'adjustment';
+  type: 'topup' | 'top_up' | 'purchase' | 'welcome_bonus' | 'refund' | 'adjustment';
   amount: number;
   balanceAfter?: number;
   currency?: string;
   description?: string;
+  status?: 'pending' | 'redirect_created' | 'processing' | 'paid' | 'failed' | 'canceled' | 'refunded';
   date: string;
   movieTitle?: string;
 }

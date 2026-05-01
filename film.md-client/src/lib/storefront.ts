@@ -288,7 +288,7 @@ function mapOffer(offer: PublicOffer): Offer {
     accessType: offer.offer_type,
     quality: offer.quality,
     price: Number(offer.price_amount ?? 0),
-    currency: offer.currency || "USD",
+    currency: offer.currency || "MDL",
     rentalDays: offer.rental_days ?? undefined,
   };
 }
@@ -301,7 +301,7 @@ function mapCardToMovie(item: PublicContentCard): Movie {
         accessType: "free" as const,
         quality: item.available_qualities?.[0] ?? "HD",
         price: 0,
-        currency: item.currency || "USD",
+        currency: item.currency || "MDL",
       }]
     : [];
   const currentYear = new Date().getFullYear();

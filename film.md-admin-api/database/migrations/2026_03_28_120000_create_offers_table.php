@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('offer_type', 32);
             $table->string('quality', 32);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('MDL');
             $table->decimal('price_amount', 10, 2)->default(0);
             $table->unsignedInteger('rental_days')->nullable();
             $table->boolean('is_active')->default(true);

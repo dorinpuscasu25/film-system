@@ -62,7 +62,7 @@ class Content extends Model
     public const STATUS_PUBLISHED = 'published';
     public const STATUS_ARCHIVED = 'archived';
 
-    public const DEFAULT_CURRENCY = 'USD';
+    public const DEFAULT_CURRENCY = 'MDL';
 
     public array $translatable = [
         'title',

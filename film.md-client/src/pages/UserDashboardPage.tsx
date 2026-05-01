@@ -18,7 +18,7 @@ export function UserDashboardPage() {
     updateAccount,
     changePassword,
   } = useAuth();
-  const { balance, currency, transactions, purchases, favorites } = useWallet();
+  const { balance, currency, transactions, purchases, favorites, refreshWallet } = useWallet();
   const { currentLanguage, setLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState("myfilms");
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
@@ -111,6 +111,23 @@ export function UserDashboardPage() {
     setAccountLocale((user.preferredLocale as "en" | "ro" | "ru" | undefined) ?? currentLanguage.code);
   }, [currentLanguage.code, user]);
 
+  const hasPendingWalletTopUp = useMemo(
+    () => transactions.some((transaction) => ["pending", "redirect_created", "processing"].includes(transaction.status ?? "")),
+    [transactions],
+  );
+
+  useEffect(() => {
+    if (activeTab !== "wallet" || !hasPendingWalletTopUp) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void refreshWallet();
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [activeTab, hasPendingWalletTopUp, refreshWallet]);
+
   const tabs = [
     { id: "myfilms", label: "My Films" },
     { id: "favorites", label: "Favorites" },
@@ -182,6 +199,39 @@ export function UserDashboardPage() {
       setPasswordError(error instanceof Error ? error.message : "We could not update your password.");
     } finally {
       setIsSavingPassword(false);
+    }
+  };
+
+  const transactionStatusLabel = (status?: string) => {
+    switch (status) {
+      case "pending":
+      case "redirect_created":
+      case "processing":
+        return "Processing";
+      case "failed":
+        return "Failed";
+      case "canceled":
+        return "Canceled";
+      case "refunded":
+        return "Refunded";
+      default:
+        return null;
+    }
+  };
+
+  const transactionStatusClass = (status?: string) => {
+    switch (status) {
+      case "pending":
+      case "redirect_created":
+      case "processing":
+        return "border-amber-400/30 bg-amber-400/10 text-amber-200";
+      case "failed":
+      case "canceled":
+        return "border-red-400/30 bg-red-400/10 text-red-200";
+      case "refunded":
+        return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+      default:
+        return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
     }
   };
 
@@ -373,19 +423,34 @@ export function UserDashboardPage() {
                       {transactions.map((transaction) => (
                         <div key={transaction.id} className="flex items-center justify-between p-4 transition-colors hover:bg-white/5">
                           <div>
-                            <p className="font-medium text-white">
-                              {transaction.description || (
-                                transaction.type === "welcome_bonus"
-                                  ? "Welcome credit"
-                                  : transaction.type === "topup"
-                                    ? "Wallet top-up"
-                                    : "Purchase"
-                              )}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium text-white">
+                                {transaction.description || (
+                                  transaction.type === "welcome_bonus"
+                                    ? "Welcome credit"
+                                    : transaction.type === "topup" || transaction.type === "top_up"
+                                      ? "Wallet top-up"
+                                      : "Purchase"
+                                )}
+                              </p>
+                              {transactionStatusLabel(transaction.status) ? (
+                                <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${transactionStatusClass(transaction.status)}`}>
+                                  {transactionStatusLabel(transaction.status)}
+                                </span>
+                              ) : null}
+                            </div>
                             <p className="text-sm text-gray-400">{new Date(transaction.date).toLocaleString()}</p>
                           </div>
-                          <span className={`font-bold ${transaction.amount > 0 ? "text-accentGreen" : "text-white"}`}>
-                            {transaction.amount > 0 ? "+" : ""}
+                          <span className={`font-bold ${
+                            ["pending", "redirect_created", "processing"].includes(transaction.status ?? "")
+                              ? "text-amber-200"
+                              : ["failed", "canceled", "refunded"].includes(transaction.status ?? "")
+                                ? "text-gray-500"
+                                : transaction.amount > 0
+                                  ? "text-accentGreen"
+                                  : "text-white"
+                          }`}>
+                            {transaction.amount > 0 && !transaction.status ? "+" : ""}
                             {currency} {transaction.amount.toFixed(2)}
                           </span>
                         </div>
