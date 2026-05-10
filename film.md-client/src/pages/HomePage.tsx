@@ -230,7 +230,7 @@ export function HomePage() {
               {activeHeroSlide?.eyebrow ? <Badge variant="new" text={activeHeroSlide.eyebrow} /> : null}
               {featuredMovie.isNew ? <Badge variant="new" text="New Release" /> : null}
               {featuredMovie.isTrending ? <Badge variant="trending" text="Trending" /> : null}
-              <Badge variant="price" text={featuredPrice === 0 ? "Free" : `$${featuredPrice}`} />
+              <Badge variant="price" text={featuredPrice === 0 ? "Free" : `${featuredPrice} MDL`} />
             </div>
 
             <h1 className="mb-4 text-5xl font-bold leading-tight text-white drop-shadow-lg md:text-7xl">
