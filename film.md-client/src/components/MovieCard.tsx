@@ -74,7 +74,7 @@ export function MovieCard({ movie }: MovieCardProps) {
       <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
         <Badge
           variant="price"
-          text={lowestPrice === 0 ? 'Free' : `$${lowestPrice}`} />
+          text={lowestPrice === 0 ? 'Free' : `${lowestPrice} MDL`} />
         
         <button
           onClick={(e) => {

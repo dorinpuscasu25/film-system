@@ -249,7 +249,7 @@ function createEmptyFormState(): ContentFormState {
     is_trending: false,
     is_free: false,
     price_amount: "",
-    currency: "USD",
+    currency: "MDL",
     rental_days: 2,
     sort_order: 0,
     canonical_url: "",
@@ -468,7 +468,7 @@ function createEmptyOfferForm(options: AdminContentOptions): OfferFormState {
     name: "",
     offer_type: "rental",
     quality: options.quality_options[0] ?? "HD",
-    currency: "USD",
+    currency: "MDL",
     price_amount: "",
     playback_url: "",
     rental_days: 2,
@@ -554,7 +554,7 @@ function mapContentToForm(content: AdminContent): ContentFormState {
     is_trending: content.is_trending,
     is_free: content.is_free,
     price_amount: content.is_free ? "" : content.price_amount,
-    currency: content.currency || "USD",
+    currency: content.currency || "MDL",
     rental_days: content.rental_days ?? 2,
     sort_order: content.sort_order ?? 0,
     canonical_url: content.canonical_url ?? "",
@@ -1227,7 +1227,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       is_trending: formState.is_trending,
       is_free: formState.is_free,
       price_amount: formState.is_free ? 0 : Number(formState.price_amount),
-      currency: formState.currency.toUpperCase() || "USD",
+      currency: "MDL",
       rental_days: formState.is_free ? null : Number(formState.rental_days),
       sort_order: formState.sort_order === "" ? 0 : Number(formState.sort_order),
       canonical_url: formState.canonical_url.trim() || null,
@@ -1272,7 +1272,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
         name: currentOffer.name.trim() || undefined,
         offer_type: currentOffer.offer_type,
         quality: currentOffer.quality,
-        currency: currentOffer.currency.trim().toUpperCase() || "USD",
+        currency: "MDL",
         price_amount: currentOffer.offer_type === "free" ? 0 : Number(currentOffer.price_amount || 0),
         playback_url: currentOffer.playback_url.trim() || null,
         rental_days: currentOffer.offer_type === "rental" ? Number(currentOffer.rental_days || 0) : null,
@@ -2987,9 +2987,11 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                       />
                       <FormField
                         label="Monedă"
-                        value={offer.currency}
+                        value="MDL"
+                        disabled
+                        readOnly
                         error={getOfferFieldError(offer.local_id, "currency")}
-                        onChange={(event) => updateOfferDraft(offer.local_id, "currency", event.target.value.toUpperCase())}
+                        onChange={() => updateOfferDraft(offer.local_id, "currency", "MDL")}
                       />
                       <FormField
                         label="Preț"
