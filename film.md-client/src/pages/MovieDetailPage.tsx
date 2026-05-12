@@ -489,7 +489,7 @@ export function MovieDetailPage() {
                   className="flex items-center space-x-2 rounded-lg bg-accent px-8 py-3 font-bold text-white transition-colors hover:bg-red-700"
                 >
                   <PlayIcon className="h-5 w-5 fill-current" />
-                  <span>{priceFrom === 0 ? "Watch Free" : `Buy Access - $${priceFrom}`}</span>
+                  <span>{priceFrom === 0 ? "Watch Free" : `Buy Access - ${priceFrom} MDL`}</span>
                 </button>
               )}
 
