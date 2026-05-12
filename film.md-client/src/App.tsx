@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { initGA4 } from './lib/ga4';
 import { AuthProvider } from './contexts/AuthContext';
 import { WalletProvider } from './contexts/WalletContext';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
@@ -16,6 +16,7 @@ import { UserDashboardPage } from './pages/UserDashboardPage';
 import { WatchPartyPage } from './pages/WatchPartyPage';
 import { PaymentStatusPage } from './pages/PaymentStatusPage';
 import { stripHashRouteFromUrl } from './lib/url';
+import { applyDefaultSeo } from './lib/seo';
 
 const MAINTENANCE_PASSWORD = 'superfilm';
 const MAINTENANCE_ACCESS_KEY = 'filmoteca_maintenance_access';
@@ -81,10 +82,17 @@ function MaintenanceGate({ onUnlock }: { onUnlock: () => void }) {
 
 function AppFrame() {
   const location = useLocation();
+  const { currentLanguage } = useLanguage();
   const isPlayerRoute = location.pathname.startsWith('/watch/');
   const [isMaintenanceUnlocked, setIsMaintenanceUnlocked] = useState(() => {
     return localStorage.getItem(MAINTENANCE_ACCESS_KEY) === 'true';
   });
+
+  useEffect(() => {
+    if (isMaintenanceUnlocked && !location.pathname.startsWith('/movie/')) {
+      void applyDefaultSeo(currentLanguage.code);
+    }
+  }, [currentLanguage.code, isMaintenanceUnlocked, location.pathname]);
 
   if (!isMaintenanceUnlocked) {
     return <MaintenanceGate onUnlock={() => setIsMaintenanceUnlocked(true)} />;

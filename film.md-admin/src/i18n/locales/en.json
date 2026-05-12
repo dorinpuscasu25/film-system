@@ -70,6 +70,9 @@
     },
     "type": {
       "movie": "Movie",
+      "documentary": "Documentary",
+      "short": "Short",
+      "animation": "Animation",
       "series": "Series"
     },
     "badges": {

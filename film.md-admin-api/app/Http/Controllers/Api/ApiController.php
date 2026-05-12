@@ -199,6 +199,13 @@ class ApiController extends Controller
 
     protected function taxonomyData(Taxonomy $taxonomy, string $locale = 'ro'): array
     {
+        $name = collect(Taxonomy::supportedLocales())
+            ->mapWithKeys(fn (string $locale) => [$locale => (string) ($taxonomy->getTranslation('name', $locale, false) ?? '')])
+            ->all();
+        $description = collect(Taxonomy::supportedLocales())
+            ->mapWithKeys(fn (string $locale) => [$locale => (string) ($taxonomy->getTranslation('description', $locale, false) ?? '')])
+            ->all();
+
         return [
             'id' => $taxonomy->id,
             'type' => $taxonomy->type,
@@ -207,8 +214,8 @@ class ApiController extends Controller
             'color' => $taxonomy->color,
             'content_count' => $taxonomy->content_count,
             'sort_order' => $taxonomy->sort_order,
-            'name' => $taxonomy->getTranslations('name'),
-            'description' => $taxonomy->getTranslations('description'),
+            'name' => $name,
+            'description' => $description,
             'localized_name' => $taxonomy->getTranslation('name', $locale, false)
                 ?? $taxonomy->getTranslation('name', 'ro', false)
                 ?? $taxonomy->slug,
@@ -308,6 +315,7 @@ class ApiController extends Controller
         return [
             'id' => $content->id,
             'type' => $content->type,
+            'type_label' => Content::typeLabel($content->type, $resolvedLocale),
             'slug' => $content->slug,
             'default_locale' => $defaultLocale,
             'status' => $content->status,
@@ -524,6 +532,7 @@ class ApiController extends Controller
         return [
             'id' => (string) $adminData['id'],
             'type' => $adminData['type'],
+            'type_label' => $adminData['type_label'],
             'title' => $adminData['localized_title'],
             'original_title' => $adminData['original_title'],
             'slug' => $adminData['slug'],

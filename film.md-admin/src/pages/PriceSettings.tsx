@@ -347,8 +347,8 @@ export function PriceSettings() {
                     setRegistrationCredit((current) => ({
                       ...current,
                       campaigns: [
-                        ...current.campaigns,
                         { label: "", amount: "100", starts_at: "", ends_at: "", enabled: true },
+                        ...current.campaigns,
                       ],
                     }))
                   }

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Movie } from '../types';
 import { useWallet } from '../contexts/WalletContext';
+import { isBunnyApiAssetUrl, isDirectMediaUrl, resolveEmbedUrl } from '../lib/videoEmbeds';
 
 interface PlaybackDrmConfig {
   policy?: string | null;
@@ -56,31 +57,6 @@ type VariantTrack = shaka.extern.Track;
 type TextTrack = shaka.extern.TextTrack;
 
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
-function isDirectMediaUrl(url: string) {
-  return /\.(m3u8|mpd|mp4|webm|ogg)(\?.*)?$/i.test(url);
-}
-
-function isBunnyApiAssetUrl(url: string) {
-  return /video\.bunnycdn\.com\/[^/?#]+\/[^/?#]+/i.test(url) && !isDirectMediaUrl(url);
-}
-
-function inferBunnyEmbedUrl(url: string) {
-  if (url.includes('iframe.mediadelivery.net/embed/')) {
-    return url;
-  }
-
-  const match = url.match(/video\.bunnycdn\.com\/([^/?#]+)\/([^/?#]+)/i);
-  if (!match) {
-    return null;
-  }
-
-  if (!/^\d+$/.test(match[1])) {
-    return null;
-  }
-
-  return `https://iframe.mediadelivery.net/embed/${encodeURIComponent(match[1])}/${encodeURIComponent(match[2])}?autoplay=true&responsive=true`;
-}
 
 function asStringRecord(value: unknown) {
   if (!value || Array.isArray(value) || typeof value !== 'object') {
@@ -209,8 +185,8 @@ export function VideoPlayer({
   const [textTracks, setTextTracks] = useState<TextTrack[]>([]);
   const [selectedText, setSelectedText] = useState<'off' | number>('off');
   const [settingsPanel, setSettingsPanel] = useState<'quality' | 'speed' | 'subtitles' | null>(null);
-  const resolvedEmbedUrl = embedUrl ?? inferBunnyEmbedUrl(sourceUrl);
-  const shouldUseBunnyEmbed = Boolean(resolvedEmbedUrl && !isDirectMediaUrl(sourceUrl));
+  const resolvedEmbedUrl = resolveEmbedUrl(sourceUrl, embedUrl);
+  const shouldUseExternalEmbed = Boolean(resolvedEmbedUrl && !isDirectMediaUrl(sourceUrl));
 
   useEffect(() => {
     progressRef.current = onProgress;
@@ -231,7 +207,7 @@ export function VideoPlayer({
   }, []);
 
   useEffect(() => {
-    if (shouldUseBunnyEmbed) {
+    if (shouldUseExternalEmbed) {
       return;
     }
 
@@ -319,10 +295,10 @@ export function VideoPlayer({
       void playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [drm, initialPositionSeconds, shouldUseBunnyEmbed, sourceUrl]);
+  }, [drm, initialPositionSeconds, shouldUseExternalEmbed, sourceUrl]);
 
   useEffect(() => {
-    if (shouldUseBunnyEmbed) {
+    if (shouldUseExternalEmbed) {
       return;
     }
 
@@ -376,7 +352,7 @@ export function VideoPlayer({
       video.removeEventListener('ended', onEnded);
       window.clearInterval(heartbeat);
     };
-  }, [shouldUseBunnyEmbed, syncProgress]);
+  }, [shouldUseExternalEmbed, syncProgress]);
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
@@ -528,7 +504,7 @@ export function VideoPlayer({
     void video.requestPictureInPicture();
   };
 
-  if (shouldUseBunnyEmbed && resolvedEmbedUrl) {
+  if (shouldUseExternalEmbed && resolvedEmbedUrl) {
     return (
       <div ref={containerRef} className="relative h-screen w-full overflow-hidden bg-black">
         <iframe
@@ -550,7 +526,7 @@ export function VideoPlayer({
               </div>
             </div>
             <span className="hidden rounded-full border border-white/10 bg-black/50 px-3 py-1 text-sm text-gray-200 sm:block">
-              Bunny Stream
+              Player extern
             </span>
           </div>
         </div>

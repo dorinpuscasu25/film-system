@@ -9,6 +9,7 @@ import { Badge } from "../components/shared/Badge";
 import { ContentCostsTab } from "../components/content/ContentCostsTab";
 import { ContentReviewsTab } from "../components/content/ContentReviewsTab";
 import { FormField } from "../components/shared/FormField";
+import { CountryMultiSelect, CountrySelect } from "../components/shared/CountrySelect";
 import { ImageUploadField } from "../components/shared/ImageUploadField";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -35,6 +36,7 @@ import {
   AdminContentVideo,
   ContentPayload,
   LocalizedText,
+  OfferPayload,
   TaxonomyLocale,
 } from "../types";
 
@@ -151,8 +153,11 @@ const FALLBACK_OPTIONS: AdminContentOptions = {
     { value: "en", label: "EN" },
   ],
   types: [
-    { value: "movie", label: "Filme" },
-    { value: "series", label: "Seriale" },
+    { value: "movie", label: "Film" },
+    { value: "documentary", label: "Documentar" },
+    { value: "short", label: "Scurtmetraj" },
+    { value: "animation", label: "Animație" },
+    { value: "series", label: "Serial" },
   ],
   statuses: [
     { value: "draft", label: "Ciornă" },
@@ -255,6 +260,89 @@ function createEmptyFormState(): ContentFormState {
     canonical_url: "",
     taxonomy_ids: [],
   };
+}
+
+const VALIDATION_FIELD_LABELS: Record<string, string> = {
+  slug: "slug",
+  original_title: "titlul original",
+  poster_url: "posterul",
+  backdrop_url: "backdrop-ul",
+  trailer_url: "URL-ul trailerului",
+  available_qualities: "calitățile disponibile",
+  taxonomy_ids: "taxonomiile",
+};
+
+function humanizeValidationField(field: string) {
+  const normalized = field
+    .replace(/\.\d+\./g, ".")
+    .replace(/\.\d+$/g, "")
+    .replace(/\.(ro|ru|en)$/g, "");
+
+  if (VALIDATION_FIELD_LABELS[normalized]) {
+    return VALIDATION_FIELD_LABELS[normalized];
+  }
+
+  if (normalized.startsWith("title.")) {
+    return "titlul localizat";
+  }
+
+  if (normalized.startsWith("short_description.")) {
+    return "descrierea scurtă";
+  }
+
+  if (normalized.startsWith("description.")) {
+    return "descrierea completă";
+  }
+
+  if (normalized.includes("cast_members") && normalized.includes("character_name")) {
+    return "numele personajului";
+  }
+
+  if (normalized.includes("cast_members") && normalized.includes("name")) {
+    return "numele actorului";
+  }
+
+  if (normalized.includes("crew_members") && normalized.includes("job_title")) {
+    return "rolul membrului echipei";
+  }
+
+  if (normalized.includes("crew_members") && normalized.includes("name")) {
+    return "numele membrului echipei";
+  }
+
+  if (normalized.includes("videos") && normalized.includes("video_url")) {
+    return "URL-ul video";
+  }
+
+  if (normalized.includes("videos") && normalized.includes("title")) {
+    return "titlul video";
+  }
+
+  if (normalized.includes("episodes") && normalized.includes("title")) {
+    return "titlul episodului";
+  }
+
+  return normalized.replaceAll("_", " ").replaceAll(".", " ");
+}
+
+function friendlyErrorMessage(message: string, errors?: Record<string, string[]>) {
+  const firstError = Object.values(errors ?? {}).flat().find(Boolean);
+  if (firstError && !/^The .+ field/i.test(firstError)) {
+    return firstError;
+  }
+
+  const fields = Object.keys(errors ?? {});
+  if (fields.length === 0) {
+    return message || "Nu am putut salva titlul.";
+  }
+
+  const labels = fields.slice(0, 3).map(humanizeValidationField);
+  const remaining = fields.length - labels.length;
+
+  return [
+    `Verifică ${labels.join(", ")}.`,
+    remaining > 0 ? `Mai sunt ${remaining} câmpuri de corectat.` : null,
+  ].filter(Boolean).join(" ");
 }
 
 function createEmptyCastMember(): AdminContentCastMember {
@@ -774,6 +862,21 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
   }
 
+  function prependItem<T>(items: T[], item: T) {
+    return [item, ...items];
+  }
+
+  function prependSortable<T extends { sort_order?: number | "" }>(items: T[], item: T) {
+    return [
+      { ...item, sort_order: 0 } as T,
+      ...items.map((entry) =>
+        typeof entry.sort_order === "number"
+          ? ({ ...entry, sort_order: entry.sort_order + 1 } as T)
+          : entry,
+      ),
+    ];
+  }
+
   function toggleTaxonomy(id: number) {
     setFormState((current) => ({
       ...current,
@@ -807,7 +910,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   function addPreviewImage() {
     setFormState((current) => ({
       ...current,
-      preview_images: [...current.preview_images, ""],
+      preview_images: ["", ...current.preview_images],
     }));
   }
 
@@ -1019,6 +1122,37 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
 
   function getOfferFieldError(localId: string, field: string) {
     return offerValidationErrors[localId]?.[field]?.[0];
+  }
+
+  function validateOfferDraft(offer: OfferFormState) {
+    const localErrors: Record<string, string[]> = {};
+
+    if (offer.offer_type !== "free" && offer.price_amount === "") {
+      localErrors.price_amount = ["Setează prețul pentru oferta plătită."];
+    }
+
+    if (offer.offer_type === "rental" && offer.rental_days === "") {
+      localErrors.rental_days = ["Setează numărul de zile pentru rental."];
+    }
+
+    return localErrors;
+  }
+
+  function payloadFromOfferDraft(contentId: number, offer: OfferFormState): OfferPayload {
+    return {
+      content_id: contentId,
+      name: offer.name.trim() || undefined,
+      offer_type: offer.offer_type,
+      quality: offer.quality,
+      currency: "MDL",
+      price_amount: offer.offer_type === "free" ? 0 : Number(offer.price_amount || 0),
+      playback_url: offer.playback_url.trim() || null,
+      rental_days: offer.offer_type === "rental" ? Number(offer.rental_days || 0) : null,
+      is_active: offer.is_active,
+      starts_at: offer.starts_at || null,
+      ends_at: offer.ends_at || null,
+      sort_order: Number(offer.sort_order || 0),
+    };
   }
 
   function validateForm() {
@@ -1247,13 +1381,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       return;
     }
 
-    const localErrors: Record<string, string[]> = {};
-    if (currentOffer.offer_type !== "free" && currentOffer.price_amount === "") {
-      localErrors.price_amount = ["Setează prețul pentru oferta plătită."];
-    }
-    if (currentOffer.offer_type === "rental" && currentOffer.rental_days === "") {
-      localErrors.rental_days = ["Setează numărul de zile pentru rental."];
-    }
+    const localErrors = validateOfferDraft(currentOffer);
     if (Object.keys(localErrors).length > 0) {
       setOfferValidationErrors((current) => ({
         ...current,
@@ -1268,20 +1396,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     setSuccessMessage(null);
 
     try {
-      const payload = {
-        content_id: numericContentId,
-        name: currentOffer.name.trim() || undefined,
-        offer_type: currentOffer.offer_type,
-        quality: currentOffer.quality,
-        currency: "MDL",
-        price_amount: currentOffer.offer_type === "free" ? 0 : Number(currentOffer.price_amount || 0),
-        playback_url: currentOffer.playback_url.trim() || null,
-        rental_days: currentOffer.offer_type === "rental" ? Number(currentOffer.rental_days || 0) : null,
-        is_active: currentOffer.is_active,
-        starts_at: currentOffer.starts_at || null,
-        ends_at: currentOffer.ends_at || null,
-        sort_order: Number(currentOffer.sort_order || 0),
-      };
+      const payload = payloadFromOfferDraft(numericContentId, currentOffer);
 
       if (currentOffer.id) {
         await adminApi.updateOffer(currentOffer.id, payload);
@@ -1360,25 +1475,59 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     setError(null);
     setSuccessMessage(null);
     setValidationErrors({});
+    setOfferValidationErrors({});
 
     try {
       const payload = payloadFromForm();
       const response = numericContentId
         ? await adminApi.updateContent(numericContentId, payload)
         : await adminApi.createContent(payload);
+      const savedContentId = response.content.id;
+      const offerErrors: Record<string, Record<string, string[]>> = {};
 
-      setSuccessMessage("Titlul a fost salvat.");
-      navigate("editor", String(response.content.id), ["Catalog", response.content.localized_title]);
-      setFormState(mapContentToForm(response.content));
-      setOfferDrafts((response.content.offers ?? []).map((offer) => mapOfferToForm(offer)));
-      setContentFormatDrafts((response.content.content_formats ?? []).map((item) => mapContentFormatToForm(item)));
-      setRightsWindowDrafts((response.content.rights_windows ?? []).map((item) => mapRightsWindowToForm(item)));
-      setSubtitleTrackDrafts((response.content.subtitle_tracks ?? []).map((item) => mapSubtitleTrackToForm(item)));
-      setPremiereEventDrafts((response.content.premiere_events ?? []).map((item) => mapPremiereEventToForm(item)));
+      for (const offer of offerDrafts) {
+        const localErrors = validateOfferDraft(offer);
+        if (Object.keys(localErrors).length > 0) {
+          offerErrors[offer.local_id] = localErrors;
+          continue;
+        }
+
+        const offerPayload = payloadFromOfferDraft(savedContentId, offer);
+        try {
+          if (offer.id) {
+            await adminApi.updateOffer(offer.id, offerPayload);
+          } else {
+            await adminApi.createOffer(offerPayload);
+          }
+        } catch (offerSaveError) {
+          const apiError = offerSaveError as ApiRequestError;
+          offerErrors[offer.local_id] = apiError.errors ?? {
+            _form: [apiError.message ?? "Nu am putut salva oferta."],
+          };
+        }
+      }
+
+      if (Object.keys(offerErrors).length > 0) {
+        setOfferValidationErrors(offerErrors);
+        setEditorTab("commerce");
+        throw new Error("Titlul a fost salvat, dar una sau mai multe oferte au nevoie de corectări.");
+      }
+
+      const freshResponse = await adminApi.getContent(savedContentId);
+
+      setSuccessMessage(offerDrafts.length > 0 ? "Titlul și ofertele au fost salvate." : "Titlul a fost salvat.");
+      navigate("editor", String(freshResponse.content.id), ["Catalog", freshResponse.content.localized_title]);
+      setOptions(freshResponse.options);
+      setFormState(mapContentToForm(freshResponse.content));
+      setOfferDrafts((freshResponse.content.offers ?? []).map((offer) => mapOfferToForm(offer)));
+      setContentFormatDrafts((freshResponse.content.content_formats ?? []).map((item) => mapContentFormatToForm(item)));
+      setRightsWindowDrafts((freshResponse.content.rights_windows ?? []).map((item) => mapRightsWindowToForm(item)));
+      setSubtitleTrackDrafts((freshResponse.content.subtitle_tracks ?? []).map((item) => mapSubtitleTrackToForm(item)));
+      setPremiereEventDrafts((freshResponse.content.premiere_events ?? []).map((item) => mapPremiereEventToForm(item)));
     } catch (saveError) {
       const apiError = saveError as ApiRequestError;
       setValidationErrors(apiError.errors ?? {});
-      setError(apiError.message ?? "Nu am putut salva titlul.");
+      setError(friendlyErrorMessage(apiError.message ?? "Nu am putut salva titlul.", apiError.errors));
     } finally {
       setIsSubmitting(false);
     }
@@ -1552,12 +1701,12 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     }))
                   }
                 />
-                <FormField
+                <CountrySelect
                   label="Țară"
-                  type="select"
                   value={formState.country_code}
-                  onChange={(event) => setFormState((current) => ({ ...current, country_code: event.target.value }))}
-                  options={[{ label: "Selectează țara", value: "" }, ...options.countries]}
+                  onChange={(value) => setFormState((current) => ({ ...current, country_code: value }))}
+                  options={options.countries}
+                  emptyLabel="Selectează țara"
                 />
                 <FormField
                   label="IMDb rating"
@@ -1745,11 +1894,6 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 ))}
               </Tabs>
 
-              <FormField
-                label="Canonical URL"
-                value={formState.canonical_url}
-                onChange={(event) => setFormState((current) => ({ ...current, canonical_url: event.target.value }))}
-              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1906,13 +2050,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 onClick={() =>
                   setFormState((current) => ({
                     ...current,
-                    videos: [
-                      ...current.videos,
-                      {
-                        ...createEmptyVideo(),
-                        sort_order: current.videos.length,
-                      },
-                    ],
+                    videos: prependSortable(current.videos, createEmptyVideo()),
                   }))
                 }
               >
@@ -2034,7 +2172,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                   Pentru fiecare calitate disponibilă completezi doar `Library ID` și `Movie ID`. Platforma preia automat streamul corect din Bunny.
                 </CardDescription>
               </div>
-              <Button type="button" variant="outline" onClick={() => setContentFormatDrafts((current) => [...current, { ...createEmptyContentFormat(options), sort_order: current.length }])}>
+              <Button type="button" variant="outline" onClick={() => setContentFormatDrafts((current) => prependSortable(current, createEmptyContentFormat(options)))}>
                 <PlusIcon className="h-4 w-4" />
                 Adaugă format
               </Button>
@@ -2114,7 +2252,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 <CardTitle>Rights windows</CardTitle>
                 <CardDescription>Restricții teritoriale și perioade de disponibilitate per titlu sau per format.</CardDescription>
               </div>
-              <Button type="button" variant="outline" onClick={() => setRightsWindowDrafts((current) => [...current, createEmptyRightsWindow()])}>
+              <Button type="button" variant="outline" onClick={() => setRightsWindowDrafts((current) => prependItem(current, createEmptyRightsWindow()))}>
                 <PlusIcon className="h-4 w-4" />
                 Adaugă regulă
               </Button>
@@ -2133,19 +2271,17 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     options={[{ label: "Toate formatele", value: "" }, ...contentFormatDrafts.map((format) => ({ label: format.quality, value: format.quality }))]}
                     onChange={(event) => updateRightsWindowDraft(item.local_id, "content_format_quality", event.target.value)}
                   />
-                  <FormField
+                  <CountryMultiSelect
                     label="Țări"
-                    type="select"
-                    multiple
                     value={item.country_codes}
                     options={options.countries}
-                    helperText="Ține Ctrl/Cmd pentru mai multe țări. Lasă gol pentru regulă globală."
+                    helperText="Caută și selectează mai multe țări. Fără selecție = regulă globală."
                     className="xl:col-span-2"
-                    onChange={(event) =>
+                    onChange={(countryCodes) =>
                       updateRightsWindowDraft(
                         item.local_id,
                         "country_codes",
-                        Array.from(event.target.selectedOptions).map((option) => option.value),
+                        countryCodes,
                       )
                     }
                   />
@@ -2185,7 +2321,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 <CardTitle>Subtitle tracks</CardTitle>
                 <CardDescription>Subtitrări multiple, opțional asociate unui format specific.</CardDescription>
               </div>
-              <Button type="button" variant="outline" onClick={() => setSubtitleTrackDrafts((current) => [...current, { ...createEmptySubtitleTrack(), sort_order: current.length }])}>
+              <Button type="button" variant="outline" onClick={() => setSubtitleTrackDrafts((current) => prependSortable(current, createEmptySubtitleTrack()))}>
                 <PlusIcon className="h-4 w-4" />
                 Adaugă subtitrare
               </Button>
@@ -2261,13 +2397,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                   onClick={() =>
                     setFormState((current) => ({
                       ...current,
-                      cast_members: [
-                        ...current.cast_members,
-                        {
-                          ...createEmptyCastMember(),
-                          sort_order: current.cast_members.length,
-                        },
-                      ],
+                      cast_members: prependSortable(current.cast_members, createEmptyCastMember()),
                     }))
                   }
                 >
@@ -2279,13 +2409,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                   onClick={() =>
                     setFormState((current) => ({
                       ...current,
-                      crew_members: [
-                        ...current.crew_members,
-                        {
-                          ...createEmptyCrewMember(),
-                          sort_order: current.crew_members.length,
-                        },
-                      ],
+                      crew_members: prependSortable(current.crew_members, createEmptyCrewMember()),
                     }))
                   }
                 >
@@ -2426,14 +2550,10 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 onClick={() =>
                   setFormState((current) => ({
                     ...current,
-                    seasons: [
-                      ...current.seasons,
-                      {
-                        ...createEmptySeason(),
-                        season_number: current.seasons.length + 1,
-                        sort_order: current.seasons.length,
-                      },
-                    ],
+                    seasons: prependSortable(current.seasons, {
+                      ...createEmptySeason(),
+                      season_number: current.seasons.length + 1,
+                    }),
                   }))
                 }
               >
@@ -2473,14 +2593,10 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                               itemIndex === seasonIndex
                                 ? {
                                     ...item,
-                                    episodes: [
-                                      ...item.episodes,
-                                      {
-                                        ...createEmptyEpisode(),
-                                        episode_number: item.episodes.length + 1,
-                                        sort_order: item.episodes.length,
-                                      },
-                                    ],
+                                    episodes: prependSortable(item.episodes, {
+                                      ...createEmptyEpisode(),
+                                      episode_number: item.episodes.length + 1,
+                                    }),
                                   }
                                 : item,
                             ),
@@ -2783,10 +2899,9 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 type="button"
                 variant="outline"
                 onClick={() =>
-                  setPremiereEventDrafts((current) => [
-                    ...current,
-                    createEmptyPremiereEvent(),
-                  ])
+                  setPremiereEventDrafts((current) =>
+                    prependItem(current, createEmptyPremiereEvent()),
+                  )
                 }
               >
                 <PlusIcon className="h-4 w-4" />
@@ -2889,13 +3004,9 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 variant="outline"
                 disabled={!numericContentId}
                 onClick={() =>
-                  setOfferDrafts((current) => [
-                    ...current,
-                    {
-                      ...createEmptyOfferForm(options),
-                      sort_order: current.length,
-                    },
-                  ])
+                  setOfferDrafts((current) =>
+                    prependSortable(current, createEmptyOfferForm(options)),
+                  )
                 }
               >
                 <PlusIcon className="h-4 w-4" />

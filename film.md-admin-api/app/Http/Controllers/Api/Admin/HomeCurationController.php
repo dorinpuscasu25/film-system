@@ -48,7 +48,7 @@ class HomeCurationController extends ApiController
                 'matching_strategies' => collect(HomePageSection::matchStrategyLabels())
                     ->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])
                     ->values(),
-                'content_types' => collect(Content::typeLabels())
+                'content_types' => collect(Content::typeLabels($locale))
                     ->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])
                     ->values(),
                 'taxonomies' => $this->taxonomyOptionGroups($locale),

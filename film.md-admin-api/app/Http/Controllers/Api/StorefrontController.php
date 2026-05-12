@@ -183,6 +183,7 @@ class StorefrontController extends ApiController
                     ?? $content->getTranslation('title', $content->default_locale, false)
                     ?? $content->original_title,
                 'type' => $content->type,
+                'type_label' => Content::typeLabel($content->type, $locale),
                 'poster_url' => $content->poster_url,
                 'backdrop_url' => $content->backdrop_url,
             ],

@@ -71,6 +71,29 @@ function createEmptyLocalizedText(): LocalizedText {
   };
 }
 
+function normalizeLocalizedText(value?: Partial<LocalizedText> | null): LocalizedText {
+  return {
+    ro: String(value?.ro ?? ""),
+    ru: String(value?.ru ?? ""),
+    en: String(value?.en ?? ""),
+  };
+}
+
+function normalizeTaxonomy(taxonomy: AdminTaxonomy): AdminTaxonomy {
+  const name = normalizeLocalizedText(taxonomy.name);
+  const description = normalizeLocalizedText(taxonomy.description);
+
+  return {
+    ...taxonomy,
+    slug: String(taxonomy.slug ?? ""),
+    color: taxonomy.color ?? null,
+    name,
+    description,
+    localized_name: taxonomy.localized_name || name.ro || name.ru || name.en || String(taxonomy.slug ?? ""),
+    localized_description: taxonomy.localized_description || description.ro || description.ru || description.en || null,
+  };
+}
+
 function createEmptyTaxonomyMap(): Record<TaxonomyType, AdminTaxonomy[]> {
   return {
     genre: [],
@@ -100,7 +123,7 @@ function normalizeTaxonomies(taxonomies?: Partial<Record<TaxonomyType, AdminTaxo
   }
 
   for (const type of Object.keys(next) as TaxonomyType[]) {
-    next[type] = taxonomies[type] ?? [];
+    next[type] = (taxonomies[type] ?? []).map(normalizeTaxonomy);
   }
 
   return next;

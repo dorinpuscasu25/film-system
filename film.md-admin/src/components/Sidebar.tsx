@@ -8,7 +8,6 @@ import {
   FileTextIcon,
   FilmIcon,
   FlaskConicalIcon,
-  FolderTreeIcon,
   GlobeIcon,
   HomeIcon,
   Image as ImageIcon,
@@ -75,12 +74,6 @@ export function Sidebar() {
           id: "taxonomies",
           label: t("nav.taxonomies"),
           icon: TagsIcon,
-          show: can("taxonomies.view"),
-        },
-        {
-          id: "collections",
-          label: "Colecții",
-          icon: FolderTreeIcon,
           show: can("taxonomies.view"),
         },
       ],
@@ -168,6 +161,12 @@ export function Sidebar() {
           label: t("nav.home_curation"),
           icon: LayoutTemplateIcon,
           show: can("settings.edit_home_curation"),
+        },
+        {
+          id: "seo",
+          label: "SEO",
+          icon: SearchIcon,
+          show: can("settings.view") || can("settings.edit_home_curation"),
         },
         {
           id: "discovery",

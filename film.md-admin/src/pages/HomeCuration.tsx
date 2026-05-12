@@ -332,14 +332,20 @@ export function HomeCuration() {
     sectionIdRef.current -= 1;
 
     const newSection = buildEmptySection(sectionType, nextId);
-    newSection.sort_order = sections.length;
+    newSection.sort_order = 0;
     newSection.title = {
       ro: sectionType === "hero_slider" ? "Hero principal" : "Carusel nou",
       ru: sectionType === "hero_slider" ? "Главный hero" : "Новая полка",
       en: sectionType === "hero_slider" ? "Main hero" : "New shelf",
     };
 
-    setSections((currentSections) => [...currentSections, newSection]);
+    setSections((currentSections) => [
+      newSection,
+      ...currentSections.map((section) => ({
+        ...section,
+        sort_order: section.sort_order + 1,
+      })),
+    ]);
     setSelectedSectionId(nextId);
     setSuccessMessage(null);
   }
@@ -384,12 +390,11 @@ export function HomeCuration() {
     updateSection(sectionId, (section) => ({
       ...section,
       hero_slides: [
-        ...section.hero_slides,
         normalizeHeroSlide({
           id: createSlideId(),
           content_id: sourceContentId,
           active: true,
-          sort_order: section.hero_slides.length,
+          sort_order: 0,
           desktop_image_url: sourceContent?.hero_desktop_url || sourceContent?.backdrop_url || "",
           mobile_image_url: sourceContent?.hero_mobile_url || sourceContent?.poster_url || "",
           eyebrow: EMPTY_LOCALIZED_TEXT,
@@ -403,6 +408,10 @@ export function HomeCuration() {
           secondary_cta_label: { ro: "Trailer", ru: "Трейлер", en: "Trailer" },
           content: sourceContent,
         }),
+        ...section.hero_slides.map((slide) => ({
+          ...slide,
+          sort_order: slide.sort_order + 1,
+        })),
       ],
     }));
     setHeroPickerContentId("");
@@ -466,8 +475,8 @@ export function HomeCuration() {
 
       return {
         ...section,
-        content_ids: [...section.content_ids, contentId],
-        selected_content: selectedContent ? [...section.selected_content, selectedContent] : section.selected_content,
+        content_ids: [contentId, ...section.content_ids],
+        selected_content: selectedContent ? [selectedContent, ...section.selected_content] : section.selected_content,
       };
     });
     setManualPickerContentId("");

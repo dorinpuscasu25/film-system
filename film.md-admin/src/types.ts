@@ -650,7 +650,7 @@ export interface HomeCurationResponse {
   options: HomeCurationOptions;
 }
 
-export type AdminContentType = "movie" | "series";
+export type AdminContentType = "movie" | "documentary" | "short" | "animation" | "series";
 export type AdminContentStatus = "draft" | "ready" | "published" | "archived";
 export type AdminOfferType = "free" | "rental" | "lifetime";
 export type AdminOfferAvailabilityStatus = "active" | "inactive" | "scheduled" | "expired";
@@ -801,6 +801,7 @@ export interface AdminUserContentOption {
 export interface AdminContent {
   id: number;
   type: AdminContentType;
+  type_label?: string;
   slug: string;
   default_locale: TaxonomyLocale;
   status: AdminContentStatus;

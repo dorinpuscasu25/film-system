@@ -133,14 +133,52 @@ class StoreContentRequest extends FormRequest
             ...$this->localizedRules('editor_notes', false, 2000),
             ...$this->localizedRules('meta_title', false, 255),
             ...$this->localizedRules('meta_description', false, 400),
-            ...$this->localizedRules('cast_members.*.character_name', true, 255),
-            ...$this->localizedRules('crew_members.*.job_title', true, 255),
-            ...$this->localizedRules('videos.*.title', true, 255),
+            ...$this->localizedRules('cast_members.*.character_name', false, 255),
+            ...$this->localizedRules('crew_members.*.job_title', false, 255),
+            ...$this->localizedRules('videos.*.title', false, 255),
             ...$this->localizedRules('videos.*.description', false, 2000),
             ...$this->localizedRules('seasons.*.title', false, 255),
             ...$this->localizedRules('seasons.*.description', false, 5000),
-            ...$this->localizedRules('seasons.*.episodes.*.title', true, 255),
+            ...$this->localizedRules('seasons.*.episodes.*.title', false, 255),
             ...$this->localizedRules('seasons.*.episodes.*.description', false, 5000),
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'type' => 'tip conținut',
+            'slug' => 'slug',
+            'original_title' => 'titlu original',
+            'poster_url' => 'poster',
+            'backdrop_url' => 'backdrop',
+            'trailer_url' => 'URL trailer',
+            'available_qualities' => 'calități disponibile',
+            'cast_members.*.name' => 'nume actor',
+            'cast_members.*.character_name.*' => 'nume personaj',
+            'crew_members.*.name' => 'nume membru echipă',
+            'crew_members.*.job_title.*' => 'rol membru echipă',
+            'videos.*.title.*' => 'titlu video',
+            'videos.*.video_url' => 'URL video',
+            'seasons.*.episodes.*.title.*' => 'titlu episod',
+            'seasons.*.episodes.*.video_url' => 'URL video episod',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'required' => 'Completează câmpul :attribute.',
+            'url' => 'Câmpul :attribute trebuie să fie un URL valid.',
+            'max' => 'Câmpul :attribute este prea lung.',
+            'min' => 'Câmpul :attribute are o valoare prea mică.',
+            'integer' => 'Câmpul :attribute trebuie să fie un număr întreg.',
+            'numeric' => 'Câmpul :attribute trebuie să fie numeric.',
+            'between' => 'Câmpul :attribute trebuie să fie între :min și :max.',
+            'in' => 'Valoarea aleasă pentru :attribute nu este validă.',
+            'exists' => 'Selecția pentru :attribute nu mai este validă.',
+            'unique' => 'Această valoare pentru :attribute este deja folosită.',
+            'array' => 'Câmpul :attribute trebuie completat corect.',
         ];
     }
 

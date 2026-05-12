@@ -19,6 +19,7 @@ class PublicPlatformSettingsController extends ApiController
             'default_locale' => PlatformSetting::getValue('default_locale', 'ro'),
             'available_locales' => PlatformSetting::getValue('available_locales', ['ro', 'ru', 'en']),
             'social_links' => PlatformSetting::getValue('social_links', []),
+            'seo' => PlatformSetting::getValue('seo', []),
         ]);
     }
 }

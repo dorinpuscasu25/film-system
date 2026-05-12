@@ -55,6 +55,9 @@ class Content extends Model
     use HasTranslations;
 
     public const TYPE_MOVIE = 'movie';
+    public const TYPE_DOCUMENTARY = 'documentary';
+    public const TYPE_SHORT = 'short';
+    public const TYPE_ANIMATION = 'animation';
     public const TYPE_SERIES = 'series';
 
     public const STATUS_DRAFT = 'draft';
@@ -151,15 +154,42 @@ class Content extends Model
 
     public static function availableTypes(): array
     {
-        return [self::TYPE_MOVIE, self::TYPE_SERIES];
+        return [
+            self::TYPE_MOVIE,
+            self::TYPE_DOCUMENTARY,
+            self::TYPE_SHORT,
+            self::TYPE_ANIMATION,
+            self::TYPE_SERIES,
+        ];
     }
 
-    public static function typeLabels(): array
+    public static function typeLabels(string $locale = 'en'): array
+    {
+        return collect(self::typeTranslations())
+            ->map(fn (array $labels): string => $labels[$locale] ?? $labels['en'] ?? array_values($labels)[0] ?? '')
+            ->all();
+    }
+
+    public static function typeTranslations(): array
     {
         return [
-            self::TYPE_MOVIE => 'Movies',
-            self::TYPE_SERIES => 'Series',
+            self::TYPE_MOVIE => ['ro' => 'Film', 'ru' => 'Фильм', 'en' => 'Movie'],
+            self::TYPE_DOCUMENTARY => ['ro' => 'Documentar', 'ru' => 'Документальный', 'en' => 'Documentary'],
+            self::TYPE_SHORT => ['ro' => 'Scurtmetraj', 'ru' => 'Короткометражный', 'en' => 'Short'],
+            self::TYPE_ANIMATION => ['ro' => 'Animație', 'ru' => 'Анимация', 'en' => 'Animation'],
+            self::TYPE_SERIES => ['ro' => 'Serial', 'ru' => 'Сериал', 'en' => 'Series'],
         ];
+    }
+
+    public static function typeLabel(?string $type, string $locale = 'ro'): string
+    {
+        if ($type === null || $type === '') {
+            return '';
+        }
+
+        $translations = self::typeTranslations()[$type] ?? null;
+
+        return $translations[$locale] ?? $translations['ro'] ?? $translations['en'] ?? ucfirst($type);
     }
 
     public static function availableStatuses(): array
@@ -248,14 +278,25 @@ class Content extends Model
 
     public static function countryOptions(): array
     {
-        return [
-            'MD' => 'Moldova',
-            'RO' => 'Romania',
-            'US' => 'United States',
-            'GB' => 'United Kingdom',
-            'FR' => 'France',
-            'DE' => 'Germany',
-        ];
+        $codes = preg_split('/\s+/', trim('
+            AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ
+            CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR
+            GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO
+            JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR
+            MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO
+            RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV
+            TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS XK YE YT ZA ZM ZW
+        '));
+
+        return collect($codes)
+            ->filter()
+            ->mapWithKeys(function (string $code): array {
+                $label = class_exists(\Locale::class) ? \Locale::getDisplayRegion('und_'.$code, 'en') : $code;
+
+                return [$code => $label !== '' ? $label : $code];
+            })
+            ->sort()
+            ->all();
     }
 
     public static function recalculateTaxonomyCounts(): void

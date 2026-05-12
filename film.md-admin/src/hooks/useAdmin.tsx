@@ -22,6 +22,7 @@ export type AdminPage =
   | 'watch-parties'
   | 'content-creators'
   | 'home-curation'
+  | 'seo'
   | 'discovery'
   | 'cms'
   | 'playback'
@@ -52,6 +53,7 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
     'watch-parties': '/watch-parties',
     'content-creators': '/creators',
     'home-curation': '/home-curation',
+    seo: '/seo',
     discovery: '/discovery',
     cms: '/cms',
     playback: '/playback',
@@ -83,6 +85,7 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     'watch-parties': 'Watch Parties',
     'content-creators': 'Creatori',
     'home-curation': 'Pagina principală',
+    seo: 'SEO',
     discovery: 'Căutare',
     cms: 'CMS',
     playback: 'Playback',
@@ -109,6 +112,10 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
 
   if (page === 'roles') {
     return permissions.has('settings.manage_roles') || permissions.has('users.view');
+  }
+
+  if (page === 'seo') {
+    return permissions.has('settings.view') || permissions.has('settings.edit_home_curation');
   }
 
   const mapping: Partial<Record<AdminPage, string>> = {
@@ -194,20 +201,13 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
     null
   );
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>(['Panou']);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(() =>
+    localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY),
+  );
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [isBooting, setIsBooting] = useState(true);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-    if (storedToken) {
-      setAccessToken(storedToken);
-    } else {
-      setIsBooting(false);
-    }
-  }, []);
 
   useEffect(() => {
     setAccessTokenGetter(() => accessToken);
@@ -223,6 +223,7 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
     try {
       const response = await adminApi.me();
       setCurrentUser(response.user);
+      setAuthError(null);
       setCurrentPage((page) =>
         canAccessAdminPage(page, response.user) ? page : firstAvailablePage(response.user),
       );

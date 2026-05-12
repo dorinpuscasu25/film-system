@@ -4,6 +4,7 @@ import { useAdmin } from "../hooks/useAdmin";
 import { adminApi } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import authBackground from "../assets/auth_bg.png";
 
 export function LoginPage() {
   const { login, authError, isAuthLoading } = useAdmin();
@@ -37,19 +38,22 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
-      <div className="hidden border-r bg-muted/40 lg:flex lg:flex-col">
-        <div className="flex items-center justify-between px-10 py-8">
+      <div
+        className="relative hidden overflow-hidden border-r bg-slate-950 bg-cover bg-left lg:flex lg:flex-col"
+        style={{ backgroundImage: `url(${authBackground})` }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-black/20 to-black/45" />
+        <div className="relative z-10 flex items-center justify-between px-10 py-8 text-white">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md border border-white/25 bg-white/10 backdrop-blur">
               <FilmIcon className="h-4 w-4" />
             </div>
             <span className="text-sm font-semibold">filmoteca.md</span>
           </div>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white">
             Autentificare
           </Button>
         </div>
-        <div className="flex-1 bg-muted/60" />
       </div>
 
       <div className="flex items-center justify-center px-6 py-10">

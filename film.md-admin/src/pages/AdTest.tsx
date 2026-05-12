@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { AlertTriangleIcon, CheckCircle2Icon, FlaskConicalIcon, PlayIcon, XCircleIcon } from "lucide-react";
 import { Badge } from "../components/shared/Badge";
+import { CountrySelect } from "../components/shared/CountrySelect";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -101,12 +102,11 @@ export function AdTest() {
                 placeholder="42"
               />
             </Field>
-            <Field label="Țară (ISO)">
-              <Input
+            <Field label="Țară">
+              <CountrySelect
                 value={countryCode}
-                onChange={(event) => setCountryCode(event.target.value.toUpperCase())}
-                placeholder="MD"
-                maxLength={5}
+                onChange={setCountryCode}
+                emptyLabel="Orice țară"
               />
             </Field>
             <Field label="Placement">

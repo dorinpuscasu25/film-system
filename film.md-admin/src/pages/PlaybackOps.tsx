@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { StatsCard } from "../components/shared/StatsCard";
 import { Tabs } from "../components/shared/Tabs";
+import { CountrySelect } from "../components/shared/CountrySelect";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -787,22 +788,22 @@ export function PlaybackOps({
                   {campaignDraft.targeting_rules.map((rule, index) => (
                     <div key={`rule-${index}`} className="rounded-lg border p-4">
                       <div className="grid gap-4 md:grid-cols-3">
-                        <label className="space-y-2 text-sm">
-                          <span className="text-muted-foreground">Țară</span>
-                          <Input
-                            placeholder="MD"
+                        <div className="text-sm">
+                          <CountrySelect
+                            label="Țară"
                             value={rule.country_code}
                             disabled={!canManageAdvertising}
-                            onChange={(event) =>
+                            emptyLabel="Orice țară"
+                            onChange={(value) =>
                               updateDraft(
                                 "targeting_rules",
                                 campaignDraft.targeting_rules.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, country_code: event.target.value.toUpperCase() } : item,
+                                  itemIndex === index ? { ...item, country_code: value } : item,
                                 ),
                               )
                             }
                           />
-                        </label>
+                        </div>
                         <label className="space-y-2 text-sm">
                           <span className="text-muted-foreground">Allowed group</span>
                           <select

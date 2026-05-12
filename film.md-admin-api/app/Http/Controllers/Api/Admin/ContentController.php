@@ -39,7 +39,7 @@ class ContentController extends ApiController
         return response()->json([
             'items' => $items->map(fn (Content $content) => $this->contentData($content, $locale)),
             'filters' => [
-                'types' => collect(Content::typeLabels())
+                'types' => collect(Content::typeLabels($locale))
                     ->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])
                     ->values(),
                 'statuses' => collect(Content::statusLabels())
@@ -168,7 +168,7 @@ class ContentController extends ApiController
             'locales' => collect(Content::supportedLocales())
                 ->map(fn (string $locale) => ['value' => $locale, 'label' => strtoupper($locale)])
                 ->values(),
-            'types' => collect(Content::typeLabels())
+            'types' => collect(Content::typeLabels($locale))
                 ->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])
                 ->values(),
             'statuses' => collect(Content::statusLabels())

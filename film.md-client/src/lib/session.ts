@@ -56,7 +56,7 @@ export interface StorefrontLibraryItemPayload {
   content_id: string | number;
   content_slug: string;
   content_title: string;
-  content_type: "movie" | "series";
+  content_type: "movie" | "documentary" | "short" | "animation" | "series";
   poster_url?: string | null;
   backdrop_url?: string | null;
   offer_id?: string | number | null;
@@ -124,7 +124,8 @@ export interface StorefrontPlaybackPayload {
     id: string | number;
     slug: string;
     title: string;
-    type: "movie" | "series";
+    type: "movie" | "documentary" | "short" | "animation" | "series";
+    type_label?: string;
     poster_url?: string | null;
     backdrop_url?: string | null;
   };
@@ -201,7 +202,7 @@ export interface RecommendationItemPayload {
   title: string;
   poster_url?: string | null;
   backdrop_url?: string | null;
-  type: "movie" | "series";
+  type: "movie" | "documentary" | "short" | "animation" | "series";
 }
 
 export interface RecommendationsResponsePayload {

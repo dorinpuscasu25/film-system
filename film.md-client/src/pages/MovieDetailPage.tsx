@@ -17,8 +17,10 @@ import { ReviewCard } from "../components/ReviewCard";
 import { StarRating } from "../components/StarRating";
 import { PurchaseModal } from "../components/PurchaseModal";
 import { Carousel } from "../components/Carousel";
+import { UniversalVideoPlayer } from "../components/UniversalVideoPlayer";
 import { fetchContentReviews, getCatalogPage, getContentDetail } from "../lib/storefront";
 import { fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/session";
+import { applyMovieSeo } from "../lib/seo";
 import { Movie, Review } from "../types";
 
 function formatCountdown(targetDate?: string) {
@@ -50,6 +52,59 @@ function formatCountdown(targetDate?: string) {
   return `${minutes}m`;
 }
 
+function contentTypeLabel(movie: Movie) {
+  if (movie.typeLabel) {
+    return movie.typeLabel;
+  }
+
+  const labels: Record<Movie["type"], string> = {
+    movie: "Film",
+    documentary: "Documentar",
+    short: "Scurtmetraj",
+    animation: "Animație",
+    series: "Serial",
+  };
+
+  return labels[movie.type] ?? movie.type;
+}
+
+function shareUrlFor(platform: string, url: string, title: string, description: string) {
+  const encodedUrl = encodeURIComponent(url);
+  const encodedTitle = encodeURIComponent(title);
+  const encodedText = encodeURIComponent(description || title);
+
+  switch (platform) {
+    case "facebook":
+      return `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+    case "x":
+      return `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`;
+    case "whatsapp":
+      return `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
+    case "telegram":
+      return `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`;
+    case "email":
+      return `mailto:?subject=${encodedTitle}&body=${encodedText}%0A%0A${encodedUrl}`;
+    default:
+      return url;
+  }
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
 export function MovieDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -59,6 +114,9 @@ export function MovieDetailPage() {
   const [activeTab, setActiveTab] = useState("description");
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [activeSeason, setActiveSeason] = useState(1);
   const [movie, setMovie] = useState<Movie | null>(null);
   const [catalog, setCatalog] = useState<Movie[]>([]);
@@ -132,6 +190,12 @@ export function MovieDetailPage() {
       active = false;
     };
   }, [currentLanguage.code, id]);
+
+  useEffect(() => {
+    if (movie) {
+      void applyMovieSeo(movie, currentLanguage.code);
+    }
+  }, [currentLanguage.code, movie]);
 
   useEffect(() => {
     if (!id || !isAuthenticated) {
@@ -278,6 +342,7 @@ export function MovieDetailPage() {
         isPrimary: true,
       }];
   const primaryVideo = videos.find((video) => video.isPrimary) || videos[0];
+  const activeVideo = videos.find((video) => video.id === activeVideoId) || primaryVideo;
   const premiereCountdown = formatCountdown(movie.premiereEvent?.startsAt);
   const seasonsData = movie.seasonsData && movie.seasonsData.length > 0
     ? movie.seasonsData
@@ -327,6 +392,41 @@ export function MovieDetailPage() {
     }
 
     void toggleFavorite(movie.id);
+  };
+
+  const openTrailer = (videoId?: string) => {
+    setActiveVideoId(videoId ?? primaryVideo?.id ?? null);
+    setShowTrailerModal(true);
+  };
+
+  const handleShare = async (platform: string) => {
+    const shareUrl = window.location.href;
+    const description = movie.shortDescription || movie.description;
+
+    if (platform === "native") {
+      if (navigator.share) {
+        await navigator.share({
+          title: movie.title,
+          text: description,
+          url: shareUrl,
+        });
+        setIsShareOpen(false);
+        return;
+      }
+
+      platform = "copy";
+    }
+
+    if (platform === "copy" || platform === "instagram" || platform === "tiktok") {
+      await copyText(shareUrl);
+      setShareMessage(platform === "copy" ? "Link copiat." : "Link copiat pentru share în aplicație.");
+      setTimeout(() => setShareMessage(null), 2200);
+      setIsShareOpen(false);
+      return;
+    }
+
+    window.open(shareUrlFor(platform, shareUrl, movie.title, description), "_blank", "noopener,noreferrer");
+    setIsShareOpen(false);
   };
 
   const handleSubmitReview = async () => {
@@ -400,7 +500,7 @@ export function MovieDetailPage() {
 
         <div className="absolute inset-0 z-10 flex items-center justify-center">
           <button
-            onClick={() => setShowTrailerModal(true)}
+            onClick={() => openTrailer()}
             className="flex h-20 w-20 scale-90 items-center justify-center rounded-full border border-white/20 bg-white/10 opacity-0 backdrop-blur-md transition-all duration-300 group-hover:scale-100 group-hover:opacity-100 hover:bg-accent/90"
           >
             <PlayIcon className="ml-1 h-8 w-8 fill-current text-white" />
@@ -437,7 +537,7 @@ export function MovieDetailPage() {
               <span className="text-gray-500">•</span>
               <span className="text-gray-300">{movie.country}</span>
               <span className="text-gray-500">•</span>
-              <span className="capitalize text-gray-300">{movie.type}</span>
+              <span className="text-gray-300">{contentTypeLabel(movie)}</span>
               <span className="text-gray-500">•</span>
               <div className="flex flex-wrap gap-2">
                 {movie.genres.map((genre) => (
@@ -499,9 +599,43 @@ export function MovieDetailPage() {
               >
                 <HeartIcon className={`h-6 w-6 ${isFav ? "fill-current" : ""}`} />
               </button>
-              <button className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10">
-                <Share2Icon className="h-5 w-5" />
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setIsShareOpen((current) => !current)}
+                  className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10"
+                  aria-label="Share"
+                >
+                  <Share2Icon className="h-5 w-5" />
+                </button>
+                {isShareOpen ? (
+                  <div className="absolute left-0 top-14 z-30 w-56 overflow-hidden rounded-xl border border-white/10 bg-surface/95 p-2 text-sm text-white shadow-2xl backdrop-blur md:left-auto md:right-0">
+                    {[
+                      ["native", "Share pe telefon"],
+                      ["facebook", "Facebook"],
+                      ["instagram", "Instagram"],
+                      ["tiktok", "TikTok"],
+                      ["whatsapp", "WhatsApp"],
+                      ["telegram", "Telegram"],
+                      ["x", "X"],
+                      ["email", "Email"],
+                      ["copy", "Copiază link"],
+                    ].map(([platform, label]) => (
+                      <button
+                        key={platform}
+                        onClick={() => void handleShare(platform)}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition hover:bg-white/10"
+                      >
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {shareMessage ? (
+                  <div className="absolute left-0 top-14 z-20 whitespace-nowrap rounded-lg bg-white px-3 py-2 text-xs font-medium text-black md:left-auto md:right-0">
+                    {shareMessage}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="mb-12">
@@ -620,7 +754,7 @@ export function MovieDetailPage() {
                       <div
                         key={video.id}
                         className="group relative aspect-video cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-black"
-                        onClick={() => setShowTrailerModal(true)}
+                        onClick={() => openTrailer(video.id)}
                       >
                         <img
                           src={video.thumbnailUrl || movie.backdropUrl}
@@ -735,27 +869,11 @@ export function MovieDetailPage() {
                 <XIcon className="h-6 w-6" />
               </button>
 
-              <div className="relative flex h-full w-full items-center justify-center">
-                <img
-                  src={primaryVideo?.thumbnailUrl || movie.backdropUrl}
-                  alt="Trailer"
-                  className="absolute inset-0 h-full w-full object-cover opacity-40"
-                />
-
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-accent/80">
-                    <PlayIcon className="ml-2 h-10 w-10 fill-current text-white" />
-                  </div>
-                </div>
-                <div className="absolute bottom-8 left-8 right-8">
-                  <div className="mb-4 h-1 overflow-hidden rounded-full bg-white/20">
-                    <div className="h-full w-1/3 bg-accent" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">
-                    {primaryVideo?.title || movie.title}
-                  </h3>
-                </div>
-              </div>
+              <UniversalVideoPlayer
+                sourceUrl={activeVideo?.videoUrl}
+                posterUrl={activeVideo?.thumbnailUrl || movie.backdropUrl}
+                title={activeVideo?.title || movie.title}
+              />
             </motion.div>
           </div>
         ) : null}

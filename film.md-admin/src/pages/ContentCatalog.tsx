@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EditIcon, EyeIcon, FilmIcon, PlusIcon, TvIcon, TrashIcon } from "lucide-react";
 import { Badge } from "../components/shared/Badge";
+import { CountrySelect } from "../components/shared/CountrySelect";
 import { DataTable } from "../components/shared/DataTable";
 import { Tabs } from "../components/shared/Tabs";
 import { Button } from "../components/ui/button";
@@ -42,10 +43,11 @@ export function ContentCatalog() {
   const { can, navigate } = useAdmin();
   const { t } = useTranslation();
   const [items, setItems] = useState<AdminContent[]>([]);
+  const [typeFilters, setTypeFilters] = useState<Array<{ value: string; label: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"all" | "movie" | "series">("all");
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
@@ -57,6 +59,7 @@ export function ContentCatalog() {
     try {
       const response = await adminApi.getContentIndex();
       setItems(response.items);
+      setTypeFilters(response.filters.types ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("movies.messages.load_error"));
     } finally {
@@ -148,8 +151,8 @@ export function ContentCatalog() {
       header: t("movies.table.type"),
       render: (item: ContentRow) => (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {item.type === "movie" ? <FilmIcon className="h-4 w-4" /> : <TvIcon className="h-4 w-4" />}
-          <span>{t(`movies.type.${item.type}`)}</span>
+          {item.type === "series" ? <TvIcon className="h-4 w-4" /> : <FilmIcon className="h-4 w-4" />}
+          <span>{item.type_label || t(`movies.type.${item.type}`, item.type)}</span>
         </div>
       ),
     },
@@ -264,11 +267,14 @@ export function ContentCatalog() {
           <Tabs
             tabs={[
               { id: "all", label: t("movies.all"), count: items.length },
-              { id: "movie", label: t("movies.movies"), count: items.filter((item) => item.type === "movie").length },
-              { id: "series", label: t("movies.series"), count: items.filter((item) => item.type === "series").length },
+              ...typeFilters.map((type) => ({
+                id: type.value,
+                label: type.label,
+                count: items.filter((item) => item.type === type.value).length,
+              })),
             ]}
             activeTab={activeTab}
-            onChange={(value) => setActiveTab(value as "all" | "movie" | "series")}
+            onChange={setActiveTab}
           />
 
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -284,23 +290,11 @@ export function ContentCatalog() {
               <option value="archived">{t("movies.status.archived")}</option>
             </select>
 
-            <select
-              value={countryFilter}
-              onChange={(event) => setCountryFilter(event.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="all">{t("movies.filters.all_countries")}</option>
-              {Array.from(new Set(items.map((item) => `${item.country_code ?? ""}|${item.country_name ?? ""}`)))
-                .filter((value) => value !== "|")
-                .map((value) => {
-                  const [code, name] = value.split("|");
-                  return (
-                    <option key={code} value={code}>
-                      {name}
-                    </option>
-                  );
-                })}
-            </select>
+            <CountrySelect
+              value={countryFilter === "all" ? "" : countryFilter}
+              onChange={(value) => setCountryFilter(value || "all")}
+              emptyLabel={t("movies.filters.all_countries")}
+            />
 
             <select
               value={genreFilter}

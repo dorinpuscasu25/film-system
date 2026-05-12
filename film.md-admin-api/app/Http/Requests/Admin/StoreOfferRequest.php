@@ -60,7 +60,7 @@ class StoreOfferRequest extends FormRequest
 
                 if (! $hasMatchingFormat && ! $this->filled('playback_url')) {
                     $validator->errors()->add(
-                        'quality',
+                        'playback_url',
                         'This offer needs either an active Bunny main format with the same quality or a playback URL override.'
                     );
                 }

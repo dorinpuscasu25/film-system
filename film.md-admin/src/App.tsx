@@ -27,6 +27,7 @@ import { PriceSettings } from './pages/PriceSettings';
 import { AdTest } from './pages/AdTest';
 import { BunnyHealth } from './pages/BunnyHealth';
 import { Reviews } from './pages/Reviews';
+import { SeoSettings } from './pages/SeoSettings';
 
 function RoutePage({
   page,
@@ -116,6 +117,7 @@ function AdminRouter() {
       <Route path="/creators" element={<RoutePage page="content-creators" breadcrumbs={['Creatori']}><ContentCreators /></RoutePage>} />
       <Route path="/roles" element={<RoutePage page="roles" breadcrumbs={['Roluri']}><RolesPermissions /></RoutePage>} />
       <Route path="/home-curation" element={<RoutePage page="home-curation" breadcrumbs={['Pagina principală']}><HomeCuration /></RoutePage>} />
+      <Route path="/seo" element={<RoutePage page="seo" breadcrumbs={['SEO']}><SeoSettings /></RoutePage>} />
       <Route path="/discovery" element={<RoutePage page="discovery" breadcrumbs={['Căutare']}><SearchDiscovery /></RoutePage>} />
       <Route path="/cms" element={<RoutePage page="cms" breadcrumbs={['CMS']}><CMSPages /></RoutePage>} />
       <Route path="/playback" element={<RoutePage page="playback" breadcrumbs={['Playback']}><PlaybackOps /></RoutePage>} />

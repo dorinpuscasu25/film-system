@@ -328,7 +328,7 @@ class ContentSearchService
     protected function buildFacetPayload(array $facetDistribution, string $locale): array
     {
         $countryOptions = Content::countryOptions();
-        $typeLabels = Content::typeLabels();
+        $typeLabels = Content::typeLabels($locale);
         $genreCounts = collect($facetDistribution['genre_slugs'] ?? []);
         $genres = Taxonomy::query()
             ->where('type', Taxonomy::TYPE_GENRE)
@@ -392,7 +392,7 @@ class ContentSearchService
     protected function buildDatabaseFacetPayload(Collection $contents, string $locale): array
     {
         $countryOptions = Content::countryOptions();
-        $typeLabels = Content::typeLabels();
+        $typeLabels = Content::typeLabels($locale);
         $genreCounts = [];
         $genreLabels = [];
         $accessCounts = ['free' => 0, 'paid' => 0];

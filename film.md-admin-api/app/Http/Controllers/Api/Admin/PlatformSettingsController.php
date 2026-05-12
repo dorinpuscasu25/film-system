@@ -25,6 +25,7 @@ class PlatformSettingsController extends ApiController
         'newsletter_provider',
         'mpay_merchant_id',
         'social_links',
+        'seo',
         RegistrationCreditService::SETTINGS_KEY,
     ];
 

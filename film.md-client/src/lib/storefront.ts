@@ -71,7 +71,8 @@ interface PublicSeason {
 interface PublicContentCard {
   id: string;
   slug: string;
-  type: "movie" | "series";
+  type: "movie" | "documentary" | "short" | "animation" | "series";
+  type_label?: string;
   title: string;
   original_title: string;
   short_description?: string;
@@ -104,6 +105,9 @@ interface PublicContentCard {
 
 interface PublicContentDetail extends PublicContentCard {
   description: string;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  canonical_url?: string | null;
   cast: PublicCastMember[];
   crew: PublicCrewMember[];
   videos: PublicVideo[];
@@ -212,7 +216,7 @@ export interface HomeSections {
 
 export interface CatalogQuery {
   query?: string;
-  type?: "movie" | "series";
+  type?: "movie" | "documentary" | "short" | "animation" | "series";
   genre?: string;
   access?: "free" | "paid";
   year?: string;
@@ -342,6 +346,7 @@ function mapCardToMovie(item: PublicContentCard): Movie {
     isFeatured: Boolean(item.is_featured),
     isFree: Boolean(item.is_free),
     type: item.type,
+    typeLabel: item.type_label,
     offers,
   };
 }
@@ -391,6 +396,9 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
       isPrimary: Boolean(video.is_primary),
     })),
     trailerUrl: item.trailer_url ?? item.videos?.find((video) => video.is_primary)?.video_url ?? "",
+    metaTitle: item.meta_title ?? undefined,
+    metaDescription: item.meta_description ?? undefined,
+    canonicalUrl: item.canonical_url ?? undefined,
     premiereEvent: item.premiere_event
       ? {
           id: String(item.premiere_event.id),
@@ -404,6 +412,7 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
     isFeatured: Boolean(item.is_featured),
     isFree: Boolean(item.is_free),
     type: item.type,
+    typeLabel: item.type_label,
     seasons: item.seasons_count ?? item.seasons?.length ?? 0,
     episodes: item.episodes_count ?? item.seasons?.reduce((sum, season) => sum + (season.episodes?.length ?? 0), 0) ?? 0,
     seasonsData: (item.seasons ?? []).map((season) => ({

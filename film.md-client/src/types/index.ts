@@ -83,11 +83,15 @@ export interface Movie {
   crew?: CrewMember[];
   videos?: VideoAsset[];
   trailerUrl: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  canonicalUrl?: string;
   isNew: boolean;
   isTrending: boolean;
   isFeatured?: boolean;
   isFree?: boolean;
-  type: 'movie' | 'series';
+  type: 'movie' | 'documentary' | 'short' | 'animation' | 'series';
+  typeLabel?: string;
   seasons?: number;
   episodes?: number;
   seasonsData?: Season[];
@@ -150,7 +154,7 @@ export interface Purchase {
   isActive?: boolean;
   posterUrl?: string;
   backdropUrl?: string;
-  contentType?: 'movie' | 'series';
+  contentType?: 'movie' | 'documentary' | 'short' | 'animation' | 'series';
 }
 
 export interface Language {
