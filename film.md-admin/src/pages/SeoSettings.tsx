@@ -2,19 +2,24 @@ import { useEffect, useState } from "react";
 import { SaveIcon } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { FormField } from "../components/shared/FormField";
+import { ImageUploadField } from "../components/shared/ImageUploadField";
 import { adminApi, ApiRequestError } from "../lib/api";
-import type { LocalizedText } from "../types";
+import type { LocalizedText, TaxonomyLocale } from "../types";
 
 type SeoSettingsForm = {
   site_name: string;
   default_title: LocalizedText;
   default_description: LocalizedText;
   default_image_url: string;
-  canonical_base_url: string;
 };
 
-const LOCALES: Array<keyof LocalizedText> = ["ro", "ru", "en"];
+const LOCALES: Array<{ value: TaxonomyLocale; label: string }> = [
+  { value: "ro", label: "RO" },
+  { value: "ru", label: "RU" },
+  { value: "en", label: "EN" },
+];
 const EMPTY_TEXT: LocalizedText = { ro: "", ru: "", en: "" };
 
 function textValue(value: unknown): LocalizedText {
@@ -35,7 +40,6 @@ function settingsValue(value: unknown): SeoSettingsForm {
     default_title: textValue(input.default_title ?? EMPTY_TEXT),
     default_description: textValue(input.default_description ?? EMPTY_TEXT),
     default_image_url: String(input.default_image_url ?? ""),
-    canonical_base_url: String(input.canonical_base_url ?? ""),
   };
 }
 
@@ -53,6 +57,7 @@ export function SeoSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activeLocale, setActiveLocale] = useState<TaxonomyLocale>("ro");
 
   useEffect(() => {
     let active = true;
@@ -96,7 +101,6 @@ export function SeoSettings() {
           default_title: trimText(form.default_title),
           default_description: trimText(form.default_description),
           default_image_url: form.default_image_url.trim(),
-          canonical_base_url: form.canonical_base_url.trim(),
         },
       });
       setSuccessMessage("Setările SEO au fost salvate.");
@@ -147,50 +151,57 @@ export function SeoSettings() {
               value={form.site_name}
               onChange={(event) => setForm((current) => ({ ...current, site_name: event.target.value }))}
             />
-            <FormField
-              label="URL canonic de bază"
-              value={form.canonical_base_url}
-              placeholder="https://filmoteca.md"
-              onChange={(event) => setForm((current) => ({ ...current, canonical_base_url: event.target.value }))}
-            />
           </div>
 
-          <FormField
+          <ImageUploadField
             label="Imagine implicită pentru share"
             value={form.default_image_url}
-            placeholder="https://..."
-            onChange={(event) => setForm((current) => ({ ...current, default_image_url: event.target.value }))}
+            onChange={(value) => setForm((current) => ({ ...current, default_image_url: value }))}
+            previewLabel="Share preview"
+            uploadDirectory="seo"
+            recommendation={{
+              resolution: "1200 x 630 px, raport 1.91:1",
+              formats: "WebP, JPG/JPEG sau PNG",
+              note: "Folosită ca imagine fallback pentru preview-uri sociale.",
+            }}
           />
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <Tabs value={activeLocale} onValueChange={(value) => setActiveLocale(value as TaxonomyLocale)} className="space-y-6">
+            <TabsList className="grid h-auto w-full grid-cols-3">
+              {LOCALES.map((locale) => (
+                <TabsTrigger key={locale.value} value={locale.value}>
+                  {locale.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
             {LOCALES.map((locale) => (
-              <div key={locale} className="space-y-4 rounded-lg border p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{locale}</h3>
+              <TabsContent key={locale.value} value={locale.value} className="space-y-4">
                 <FormField
-                  label="Titlu implicit"
-                  value={form.default_title[locale]}
+                  label={`Titlu implicit (${locale.label})`}
+                  value={form.default_title[locale.value]}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      default_title: { ...current.default_title, [locale]: event.target.value },
+                      default_title: { ...current.default_title, [locale.value]: event.target.value },
                     }))
                   }
                 />
                 <FormField
-                  label="Descriere implicită"
+                  label={`Descriere implicită (${locale.label})`}
                   type="textarea"
                   rows={4}
-                  value={form.default_description[locale]}
+                  value={form.default_description[locale.value]}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      default_description: { ...current.default_description, [locale]: event.target.value },
+                      default_description: { ...current.default_description, [locale.value]: event.target.value },
                     }))
                   }
                 />
-              </div>
+              </TabsContent>
             ))}
-          </div>
+          </Tabs>
 
           <div className="flex justify-end">
             <Button onClick={() => void handleSave()} disabled={isSaving}>
