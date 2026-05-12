@@ -42,13 +42,13 @@ export function WatchPartyPage() {
     try {
       const res = await fetch(`${API_BASE}/public/watch-parties/${roomCode}`);
       if (!res.ok) {
-        setError('Watch party not found');
+        setError(t('watch_party.not_found'));
         return;
       }
       const data = (await res.json()) as PartyState;
       setParty(data);
     } catch {
-      setError('Network error');
+      setError(t('watch_party.network_error'));
     }
   }
 
@@ -164,7 +164,7 @@ export function WatchPartyPage() {
         </main>
 
         <aside className="bg-zinc-900 rounded-xl p-4 flex flex-col h-[600px]">
-          <div className="text-sm font-medium text-white/70 mb-3">Chat</div>
+          <div className="text-sm font-medium text-white/70 mb-3">{t('watch_party.chat')}</div>
           <div className="flex-1 overflow-y-auto space-y-2 mb-3">
             {chat.map((m) => (
               <div key={m.id} className="text-sm">

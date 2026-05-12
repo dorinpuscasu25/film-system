@@ -128,14 +128,14 @@ export function Header() {
                     onClick={() => setShowProfileMenu(false)}
                     className="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5">
                     
-                          Dashboard
+                          {t('common.dashboard')}
                         </Link>
                         <Link
                     to="/profiles"
                     onClick={() => setShowProfileMenu(false)}
                     className="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5">
                     
-                          Switch Profile
+                          {t('profiles.manage')}
                         </Link>
                         <button
                     onClick={() => {
@@ -145,7 +145,7 @@ export function Header() {
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-accent hover:bg-white/5">
                     
-                          Sign Out
+                          {t('header.logout')}
                         </button>
                       </div>
                 }
@@ -184,14 +184,14 @@ export function Header() {
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-white font-medium">
               
-                Home
+                {t('nav.home')}
               </Link>
               <Link
               to="/search"
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-white font-medium">
               
-                Movies & Series
+                {t('nav.movies_series')}
               </Link>
               {isAuthenticated ?
             <button
@@ -202,7 +202,7 @@ export function Header() {
               className="flex items-center space-x-2 text-accentGreen font-medium">
               
                   <WalletIcon className="w-5 h-5" />
-                  <span>Wallet: {currency} {balance.toFixed(2)}</span>
+                  <span>{t('wallet.title')}: {currency} {balance.toFixed(2)}</span>
                 </button> :
 
             <button
@@ -212,7 +212,7 @@ export function Header() {
               }}
               className="text-accent font-medium text-left">
               
-                  Log In / Register
+                  {t('auth.login_register')}
                 </button>
             }
             </nav>

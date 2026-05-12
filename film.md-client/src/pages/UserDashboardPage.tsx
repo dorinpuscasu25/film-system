@@ -19,7 +19,7 @@ export function UserDashboardPage() {
     changePassword,
   } = useAuth();
   const { balance, currency, transactions, purchases, favorites, refreshWallet } = useWallet();
-  const { currentLanguage, setLanguage } = useLanguage();
+  const { currentLanguage, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("myfilms");
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [catalog, setCatalog] = useState<Movie[]>([]);
@@ -129,10 +129,10 @@ export function UserDashboardPage() {
   }, [activeTab, hasPendingWalletTopUp, refreshWallet]);
 
   const tabs = [
-    { id: "myfilms", label: "My Films" },
-    { id: "favorites", label: "Favorites" },
-    { id: "wallet", label: "Wallet & Billing" },
-    { id: "settings", label: "Settings" },
+    { id: "myfilms", label: t("dashboard.my_films") },
+    { id: "favorites", label: t("dashboard.favorites") },
+    { id: "wallet", label: t("dashboard.wallet_billing") },
+    { id: "settings", label: t("dashboard.settings") },
   ];
 
   const purchasedMovies = useMemo(
@@ -169,9 +169,9 @@ export function UserDashboardPage() {
         preferredLocale: accountLocale,
       });
       setLanguage(accountLocale);
-      setAccountMessage("Account details updated successfully.");
+      setAccountMessage(t("dashboard.account_updated"));
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "We could not update your account.");
+      setAccountError(error instanceof Error ? error.message : t("dashboard.account_update_failed"));
     } finally {
       setIsSavingAccount(false);
     }
@@ -183,7 +183,7 @@ export function UserDashboardPage() {
     setPasswordMessage(null);
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("The new password confirmation does not match.");
+      setPasswordError(t("dashboard.password_mismatch"));
       return;
     }
 
@@ -194,9 +194,9 @@ export function UserDashboardPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setPasswordMessage("Password updated successfully.");
+      setPasswordMessage(t("dashboard.password_updated"));
     } catch (error) {
-      setPasswordError(error instanceof Error ? error.message : "We could not update your password.");
+      setPasswordError(error instanceof Error ? error.message : t("dashboard.password_update_failed"));
     } finally {
       setIsSavingPassword(false);
     }
@@ -207,13 +207,13 @@ export function UserDashboardPage() {
       case "pending":
       case "redirect_created":
       case "processing":
-        return "Processing";
+        return t("dashboard.processing");
       case "failed":
-        return "Failed";
+        return t("dashboard.failed");
       case "canceled":
-        return "Canceled";
+        return t("dashboard.canceled");
       case "refunded":
-        return "Refunded";
+        return t("dashboard.refunded");
       default:
         return null;
     }
@@ -252,11 +252,11 @@ export function UserDashboardPage() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {activeProfile.isKids && (
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                  Kids Profile
+                  {t("dashboard.kids_profile")}
                 </span>
               )}
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
-                {user.profiles.length} profile{user.profiles.length === 1 ? "" : "s"} on this account
+                {t(user.profiles.length === 1 ? "dashboard.profiles_count_one" : "dashboard.profiles_count", { count: user.profiles.length })}
               </span>
             </div>
           </div>
@@ -272,8 +272,8 @@ export function UserDashboardPage() {
                   <div className="mb-4 flex items-center gap-3">
                     <HistoryIcon className="h-5 w-5 text-accent" />
                     <div>
-                      <h2 className="text-xl font-bold text-white">Continue Watching</h2>
-                      <p className="text-sm text-gray-400">Ai progres salvat pe aceste titluri.</p>
+                      <h2 className="text-xl font-bold text-white">{t("movie.continue_watching")}</h2>
+                      <p className="text-sm text-gray-400">{t("dashboard.saved_progress")}</p>
                     </div>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -315,13 +315,15 @@ export function UserDashboardPage() {
                           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80" />
                           <div className="absolute right-2 top-2">
                             <span className={`rounded px-2 py-1 text-xs font-bold ${isActive ? "bg-accentGreen text-background" : "border border-white/10 bg-surfaceHover text-gray-400"}`}>
-                              {isActive ? "ACTIVE" : "EXPIRED"}
+                              {isActive ? t("dashboard.active") : t("dashboard.expired")}
                             </span>
                           </div>
                           <div className="absolute inset-0 flex flex-col justify-end p-4">
                             <h3 className="mb-1 font-bold text-white">{movie.title}</h3>
                             <p className="mb-4 text-xs text-gray-300">
-                              {purchase.expiresAt ? `Expires: ${new Date(purchase.expiresAt).toLocaleDateString()}` : "Lifetime access"}
+                              {purchase.expiresAt
+                                ? t("dashboard.expires", { date: new Date(purchase.expiresAt).toLocaleDateString() })
+                                : t("dashboard.lifetime_access")}
                             </p>
                             <button
                               onClick={() => navigate(isActive ? `/watch/${movie.id}` : `/movie/${movie.id}`)}
@@ -330,7 +332,7 @@ export function UserDashboardPage() {
                               }`}
                             >
                               {isActive && <PlayIcon className="h-4 w-4 fill-current" />}
-                              <span>{isActive ? "Watch Now" : "Buy Again"}</span>
+                              <span>{isActive ? t("common.watch_now") : t("dashboard.buy_again")}</span>
                             </button>
                           </div>
                         </div>
@@ -341,13 +343,13 @@ export function UserDashboardPage() {
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/5 py-20 text-center">
                   <FilmIcon className="mx-auto mb-4 h-16 w-16 text-gray-600" />
-                  <h2 className="mb-2 text-2xl font-bold text-white">No films yet</h2>
-                  <p className="mb-6 text-gray-400">You haven't purchased access to any movies or series yet.</p>
+                  <h2 className="mb-2 text-2xl font-bold text-white">{t("dashboard.no_films")}</h2>
+                  <p className="mb-6 text-gray-400">{t("dashboard.no_films_hint")}</p>
                   <button
                     onClick={() => navigate("/search")}
                     className="rounded-lg bg-accent px-6 py-2 font-medium text-white transition-colors hover:bg-red-700"
                   >
-                    Browse Catalog
+                    {t("dashboard.browse_catalog")}
                   </button>
                 </div>
               )}
@@ -381,13 +383,13 @@ export function UserDashboardPage() {
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/5 py-20 text-center">
                   <HeartIcon className="mx-auto mb-4 h-16 w-16 text-gray-600" />
-                  <h2 className="mb-2 text-2xl font-bold text-white">No favorites yet</h2>
-                  <p className="mb-6 text-gray-400">This profile has not saved any titles yet.</p>
+                  <h2 className="mb-2 text-2xl font-bold text-white">{t("dashboard.no_favorites")}</h2>
+                  <p className="mb-6 text-gray-400">{t("dashboard.no_favorites_hint")}</p>
                   <button
                     onClick={() => navigate("/search")}
                     className="rounded-lg bg-accent px-6 py-2 font-medium text-white transition-colors hover:bg-red-700"
                   >
-                    Browse Catalog
+                    {t("dashboard.browse_catalog")}
                   </button>
                 </div>
               )}
@@ -399,7 +401,7 @@ export function UserDashboardPage() {
               <div className="md:col-span-1">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
                   <WalletIcon className="mx-auto mb-4 h-12 w-12 text-accentGreen" />
-                  <p className="mb-2 text-gray-400">Current Balance</p>
+                  <p className="mb-2 text-gray-400">{t("wallet.current_balance")}</p>
                   <h2 className="mb-6 text-4xl font-bold text-white">
                     {currency} {balance.toFixed(2)}
                   </h2>
@@ -407,7 +409,7 @@ export function UserDashboardPage() {
                     onClick={() => setIsWalletModalOpen(true)}
                     className="w-full rounded-xl bg-accentGreen py-3 font-bold text-background transition-colors hover:bg-green-600"
                   >
-                    Wallet details
+                    {t("dashboard.wallet_details")}
                   </button>
                 </div>
               </div>
@@ -415,7 +417,7 @@ export function UserDashboardPage() {
               <div className="md:col-span-2">
                 <h3 className="mb-4 flex items-center gap-3 text-xl font-bold text-white">
                   <HistoryIcon className="h-5 w-5" />
-                  Transaction History
+                  {t("dashboard.transaction_history")}
                 </h3>
                 <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                   {transactions.length > 0 ? (
@@ -427,10 +429,10 @@ export function UserDashboardPage() {
                               <p className="font-medium text-white">
                                 {transaction.description || (
                                   transaction.type === "welcome_bonus"
-                                    ? "Welcome credit"
+                                    ? t("dashboard.welcome_credit")
                                     : transaction.type === "topup" || transaction.type === "top_up"
-                                      ? "Wallet top-up"
-                                      : "Purchase"
+                                      ? t("dashboard.wallet_topup")
+                                      : t("dashboard.purchase")
                                 )}
                               </p>
                               {transactionStatusLabel(transaction.status) ? (
@@ -457,7 +459,7 @@ export function UserDashboardPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-gray-400">No transactions yet.</div>
+                    <div className="p-8 text-center text-gray-400">{t("dashboard.no_transactions")}</div>
                   )}
                 </div>
               </div>
@@ -467,11 +469,11 @@ export function UserDashboardPage() {
           {activeTab === "settings" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <form onSubmit={handleAccountSave} className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-8">
-                <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">Account Details</h3>
+                <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">{t("dashboard.account_details")}</h3>
 
                 <div className="grid gap-6 md:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-400">Account Name</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-400">{t("dashboard.account_name")}</label>
                     <input
                       type="text"
                       value={accountName}
@@ -481,7 +483,7 @@ export function UserDashboardPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-400">Account Email</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-400">{t("dashboard.account_email")}</label>
                     <input
                       type="email"
                       value={user.email}
@@ -492,7 +494,7 @@ export function UserDashboardPage() {
                 </div>
 
                 <div className="max-w-xs">
-                  <label className="mb-2 block text-sm font-medium text-gray-400">Preferred Language</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-400">{t("dashboard.preferred_language")}</label>
                   <select
                     value={accountLocale}
                     onChange={(event) => setAccountLocale(event.target.value as "en" | "ro" | "ru")}
@@ -520,16 +522,16 @@ export function UserDashboardPage() {
                   disabled={isSavingAccount}
                   className="rounded-lg bg-white px-6 py-2 font-bold text-background transition-colors hover:bg-gray-200"
                 >
-                  {isSavingAccount ? "Saving..." : "Save Account"}
+                  {isSavingAccount ? t("dashboard.saving") : t("dashboard.save_account")}
                 </button>
               </form>
 
               <form onSubmit={handlePasswordSave} className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-8">
-                <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">Change Password</h3>
+                <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">{t("dashboard.change_password")}</h3>
 
                 <div className="grid max-w-xl gap-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-400">Current Password</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-400">{t("dashboard.current_password")}</label>
                     <input
                       type="password"
                       value={currentPassword}
@@ -539,7 +541,7 @@ export function UserDashboardPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-400">New Password</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-400">{t("dashboard.new_password")}</label>
                     <input
                       type="password"
                       value={newPassword}
@@ -549,7 +551,7 @@ export function UserDashboardPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-400">Confirm New Password</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-400">{t("dashboard.confirm_new_password")}</label>
                     <input
                       type="password"
                       value={confirmPassword}
@@ -576,16 +578,15 @@ export function UserDashboardPage() {
                   disabled={isSavingPassword}
                   className="rounded-lg border border-white/20 bg-surfaceHover px-6 py-2 font-bold text-white transition-colors hover:bg-white/10"
                 >
-                  {isSavingPassword ? "Updating..." : "Update Password"}
+                  {isSavingPassword ? t("dashboard.updating") : t("dashboard.update_password")}
                 </button>
               </form>
 
               <div className="grid gap-8 md:grid-cols-2">
                 <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-8">
-                  <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">Profiles</h3>
+                  <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">{t("dashboard.profiles")}</h3>
                   <p className="text-sm text-gray-400">
-                    This account currently has {user.profiles.length} profile{user.profiles.length === 1 ? "" : "s"}.
-                    Use separate profiles for adults, kids or different watchlists.
+                    {t(user.profiles.length === 1 ? "dashboard.profiles_hint_one" : "dashboard.profiles_hint", { count: user.profiles.length })}
                   </p>
                   <div className="space-y-3">
                     {user.profiles.map((profile) => (
@@ -597,7 +598,7 @@ export function UserDashboardPage() {
                           <div>
                             <p className="font-medium text-white">{profile.name}</p>
                             <p className="text-xs text-gray-400">
-                              {profile.isKids ? "Kids" : "Standard"} {profile.isDefault ? "• Default" : ""}
+                              {profile.isKids ? t("profiles.kids") : t("dashboard.standard")} {profile.isDefault ? `• ${t("dashboard.default")}` : ""}
                             </p>
                           </div>
                         </div>
@@ -608,24 +609,24 @@ export function UserDashboardPage() {
                     onClick={() => navigate("/profiles")}
                     className="rounded-lg bg-accent px-6 py-2 font-medium text-white transition-colors hover:bg-red-700"
                   >
-                    Manage Profiles
+                    {t("profiles.manage")}
                   </button>
                 </div>
 
                 <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-8">
-                  <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">Billing & Library</h3>
+                  <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">{t("dashboard.billing_library")}</h3>
                   <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                    <p className="text-sm text-gray-400">Wallet Balance</p>
+                    <p className="text-sm text-gray-400">{t("wallet.balance")}</p>
                     <p className="mt-1 text-2xl font-bold text-white">
                       {currency} {balance.toFixed(2)}
                     </p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                    <p className="text-sm text-gray-400">Owned Titles</p>
+                    <p className="text-sm text-gray-400">{t("dashboard.owned_titles")}</p>
                     <p className="mt-1 text-2xl font-bold text-white">{purchases.length}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                    <p className="text-sm text-gray-400">Favorites on Active Profile</p>
+                    <p className="text-sm text-gray-400">{t("dashboard.favorites_active")}</p>
                     <p className="mt-1 text-2xl font-bold text-white">{favorites.length}</p>
                   </div>
                 </div>

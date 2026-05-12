@@ -15,7 +15,7 @@ const EMPTY_FILTERS: CatalogFilters = {
 };
 
 export function SearchPage() {
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, t } = useLanguage();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function SearchPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search movies, series, actors..."
+              placeholder={t("search.placeholder")}
               className="w-full rounded-2xl border border-white/10 bg-surface py-4 pl-14 pr-6 text-xl text-white shadow-lg transition-colors placeholder:text-gray-500 focus:border-accent focus:outline-none"
               autoFocus
             />
@@ -126,16 +126,16 @@ export function SearchPage() {
             <div className="glass-panel sticky top-24 max-h-[80vh] space-y-8 overflow-y-auto rounded-xl p-6 custom-scrollbar">
               <div className="flex items-center space-x-2 border-b border-white/10 pb-4 font-bold text-white">
                 <FilterIcon className="h-5 w-5" />
-                <span>Advanced Filters</span>
+                <span>{t("search.advanced_filters")}</span>
               </div>
 
               <div>
-                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">Type</h3>
+                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">{t("search.type")}</h3>
                 <div className="flex rounded-lg bg-surfaceHover p-1">
                   {[
-                    { value: null, label: "All" },
-                    { value: "movie", label: "Movies" },
-                    { value: "series", label: "Series" },
+                    { value: null, label: t("common.all") },
+                    { value: "movie", label: t("nav.movies") },
+                    { value: "series", label: t("nav.series") },
                   ].map((option) => (
                     <button
                       key={option.label}
@@ -149,12 +149,12 @@ export function SearchPage() {
               </div>
 
               <div>
-                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">Access</h3>
+                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">{t("search.access")}</h3>
                 <div className="flex rounded-lg bg-surfaceHover p-1">
                   {[
-                    { value: null, label: "All" },
-                    { value: "free", label: "Free" },
-                    { value: "paid", label: "Paid" },
+                    { value: null, label: t("common.all") },
+                    { value: "free", label: t("common.free") },
+                    { value: "paid", label: t("common.paid") },
                   ].map((option) => (
                     <button
                       key={option.label}
@@ -168,13 +168,13 @@ export function SearchPage() {
               </div>
 
               <div>
-                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">Genres</h3>
+                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">{t("search.genres")}</h3>
                 <div className="max-h-48 space-y-1 overflow-y-auto pr-2 custom-scrollbar">
                   <button
                     onClick={() => setSelectedGenre(null)}
                     className={`block w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${!selectedGenre ? "bg-accent/20 text-accent" : "text-gray-300 hover:bg-white/5"}`}
                   >
-                    All Genres
+                    {t("search.all_genres")}
                   </button>
                   {filters.genres.map((genre) => (
                     <button
@@ -189,14 +189,14 @@ export function SearchPage() {
               </div>
 
               <div>
-                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">Release Year</h3>
+                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">{t("search.release_year")}</h3>
                 <div className="relative">
                   <select
                     value={selectedYear || ""}
                     onChange={(e) => setSelectedYear(e.target.value || null)}
                     className="w-full appearance-none rounded-lg border border-white/10 bg-surfaceHover px-3 py-2 text-sm text-white focus:border-accent focus:outline-none"
                   >
-                    <option value="">All Years</option>
+                    <option value="">{t("search.all_years")}</option>
                     {filters.years.map((year) => (
                       <option key={year.value} value={year.value}>
                         {year.label}
@@ -208,14 +208,14 @@ export function SearchPage() {
               </div>
 
               <div>
-                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">Country</h3>
+                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">{t("search.country")}</h3>
                 <div className="relative">
                   <select
                     value={selectedCountry || ""}
                     onChange={(e) => setSelectedCountry(e.target.value || null)}
                     className="w-full appearance-none rounded-lg border border-white/10 bg-surfaceHover px-3 py-2 text-sm text-white focus:border-accent focus:outline-none"
                   >
-                    <option value="">All Countries</option>
+                    <option value="">{t("search.all_countries")}</option>
                     {filters.countries.map((country) => (
                       <option key={country.value} value={country.value}>
                         {country.label}
@@ -227,7 +227,7 @@ export function SearchPage() {
               </div>
 
               <div>
-                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">Min Rating (IMDb)</h3>
+                <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-gray-400">{t("search.min_rating")}</h3>
                 <div className="flex items-center space-x-4">
                   <input
                     type="range"
@@ -246,17 +246,17 @@ export function SearchPage() {
 
           <div className="flex-1">
             <div className="mb-6 flex items-center justify-between text-gray-400">
-              <span>{isLoading ? "Loading..." : `Found ${total} results`}</span>
+              <span>{isLoading ? t("search.loading") : t("search.found_results", { count: total })}</span>
               {!isLoading ? (
                 <button onClick={clearFilters} className="text-sm text-accent transition-colors hover:text-white">
-                  Clear filters
+                  {t("common.clear_filters")}
                 </button>
               ) : null}
             </div>
 
             {error ? (
               <div className="glass-panel rounded-2xl py-20 text-center">
-                <h2 className="mb-2 text-2xl font-bold text-white">Could not load catalog</h2>
+                <h2 className="mb-2 text-2xl font-bold text-white">{t("search.could_not_load")}</h2>
                 <p className="text-gray-400">{error}</p>
               </div>
             ) : null}
@@ -279,10 +279,10 @@ export function SearchPage() {
 
             {!isLoading && !error && results.length === 0 ? (
               <div className="glass-panel rounded-2xl py-20 text-center">
-                <h2 className="mb-2 text-2xl font-bold text-white">No results found</h2>
-                <p className="text-gray-400">Try adjusting your search or filters.</p>
+                <h2 className="mb-2 text-2xl font-bold text-white">{t("search.no_results")}</h2>
+                <p className="text-gray-400">{t("search.try_adjusting")}</p>
                 <button onClick={clearFilters} className="mt-6 text-accent transition-colors hover:text-white">
-                  Clear all filters
+                  {t("common.clear_all_filters")}
                 </button>
               </div>
             ) : null}

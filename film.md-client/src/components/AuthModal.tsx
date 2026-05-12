@@ -29,11 +29,11 @@ export function AuthModal() {
   const isVerificationStep = pendingRegistration !== null;
   const modalTitle = useMemo(() => {
     if (isVerificationStep) {
-      return "Confirm your email";
+      return t("auth.confirm_email");
     }
 
-    return mode === "login" ? "Welcome back" : "Create your account";
-  }, [isVerificationStep, mode]);
+    return mode === "login" ? t("auth.welcome_back") : t("auth.create_account");
+  }, [isVerificationStep, mode, t]);
 
   if (!isAuthModalOpen) {
     return null;
@@ -66,14 +66,14 @@ export function AuthModal() {
         await login(email, password);
       } else {
         await register(name, email, password);
-        setInfoMessage("We sent a 6-digit confirmation code to your email.");
+        setInfoMessage(t("auth.code_sent"));
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Authentication failed.";
+      const message = error instanceof Error ? error.message : t("auth.failed");
 
       if (mode === "login" && message.includes("Confirm your email")) {
         startVerification(email);
-        setInfoMessage("Enter the code from your email to finish activating the account.");
+        setInfoMessage(t("auth.enter_code"));
       } else {
         setErrorMessage(message);
       }
@@ -89,9 +89,9 @@ export function AuthModal() {
 
     try {
       await resendRegistration();
-      setInfoMessage("A fresh confirmation code was sent to your inbox.");
+      setInfoMessage(t("auth.code_resent"));
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "We could not resend the confirmation code.");
+      setErrorMessage(error instanceof Error ? error.message : t("auth.resend_failed"));
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +157,7 @@ export function AuthModal() {
               <div>
                 <p className="text-sm font-medium text-white">{pendingRegistration.email}</p>
                 <p className="text-xs text-gray-400">
-                  Enter the 6-digit code we sent to complete account activation.
+                  {t("auth.enter_code")}
                 </p>
               </div>
             </div>
@@ -172,7 +172,7 @@ export function AuthModal() {
               className="inline-flex items-center gap-2 text-sm text-gray-300 transition-colors hover:text-white"
             >
               <ArrowLeftIcon className="h-4 w-4" />
-              Change email
+              {t("auth.change_email")}
             </button>
           </div>
         )}
@@ -189,7 +189,7 @@ export function AuthModal() {
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="Full Name"
+                  placeholder={t("auth.full_name")}
                   className="w-full rounded-lg border border-white/10 bg-surfaceHover px-4 py-3 text-white placeholder-gray-500 transition-colors focus:border-accent focus:outline-none"
                   required={mode === "register"}
                 />
@@ -252,7 +252,7 @@ export function AuthModal() {
             {isLoading ? (
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : isVerificationStep ? (
-              "Confirm Code"
+              t("auth.confirm_code")
             ) : mode === "login" ? (
               t("auth.login")
             ) : (
@@ -269,11 +269,11 @@ export function AuthModal() {
               className="inline-flex items-center gap-2 text-sm text-gray-300 transition-colors hover:text-white"
             >
               <RefreshCcwIcon className="h-4 w-4" />
-              Resend code
+              {t("auth.resend_code")}
             </button>
             {pendingRegistration.expiresAt && (
               <span className="text-xs text-gray-500">
-                Expires {new Date(pendingRegistration.expiresAt).toLocaleTimeString()}
+                {t("auth.expires_at", { time: new Date(pendingRegistration.expiresAt).toLocaleTimeString() })}
               </span>
             )}
           </div>
@@ -282,7 +282,7 @@ export function AuthModal() {
         {!isVerificationStep && mode === "login" && (
           <div className="mt-6 text-center">
             <button type="button" className="text-sm text-gray-400 transition-colors hover:text-white">
-              Forgot your password?
+              {t("auth.forgot_password")}
             </button>
           </div>
         )}

@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const footerButtonClass = 'hover:text-white transition-colors';
 
 export function Footer() {
   const location = useLocation();
+  const { t } = useLanguage();
   // Hide footer on player page and auth/profile pages
   if (
   location.pathname.startsWith('/watch') ||
@@ -22,39 +24,38 @@ export function Footer() {
               filmoteca<span className="text-accent">.</span>md
             </h3>
             <p className="text-sm text-gray-500">
-              Premium pay-per-content streaming. No subscriptions, just great
-              movies.
+              {t('footer.tagline')}
             </p>
           </div>
 
           <div>
-            <h4 className="text-white font-medium mb-4">Navigation</h4>
+            <h4 className="text-white font-medium mb-4">{t('footer.navigation')}</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <Link to="/" className="hover:text-white transition-colors">
-                  Home
+                  {t('nav.home')}
                 </Link>
               </li>
               <li>
                 <Link to="/search?type=movie" className="hover:text-white transition-colors">
-                  Movies
+                  {t('nav.movies')}
                 </Link>
               </li>
               <li>
                 <Link to="/search?type=series" className="hover:text-white transition-colors">
-                  Series
+                  {t('nav.series')}
                 </Link>
               </li>
               <li>
                 <Link to="/search" className="hover:text-white transition-colors">
-                  Trending
+                  {t('nav.trending')}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-medium mb-4">Support</h4>
+            <h4 className="text-white font-medium mb-4">{t('footer.support')}</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <button type="button" className={footerButtonClass}>
@@ -63,33 +64,33 @@ export function Footer() {
               </li>
               <li>
                 <button type="button" className={footerButtonClass}>
-                  Contact Us
+                  {t('footer.contact')}
                 </button>
               </li>
               <li>
                 <button type="button" className={footerButtonClass}>
-                  Wallet Help
+                  {t('footer.wallet_help')}
                 </button>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-medium mb-4">Legal</h4>
+            <h4 className="text-white font-medium mb-4">{t('footer.legal')}</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>
                 <button type="button" className={footerButtonClass}>
-                  Terms of Service
+                  {t('footer.terms')}
                 </button>
               </li>
               <li>
                 <button type="button" className={footerButtonClass}>
-                  Privacy Policy
+                  {t('footer.privacy')}
                 </button>
               </li>
               <li>
                 <button type="button" className={footerButtonClass}>
-                  Cookie Policy
+                  {t('footer.cookies')}
                 </button>
               </li>
             </ul>
@@ -97,7 +98,7 @@ export function Footer() {
         </div>
 
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between text-xs text-gray-600">
-          <p>&copy; {new Date().getFullYear()} filmoteca.md. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} filmoteca.md. {t('footer.rights')}</p>
           <div className="flex space-x-4 mt-4 md:mt-0">
             <span>English</span>
             <span>Română</span>

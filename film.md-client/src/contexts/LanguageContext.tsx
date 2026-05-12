@@ -1,19 +1,19 @@
 import React, { useEffect, useState, createContext, useContext, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Language } from '../types';
-import { MOCK_LANGUAGES, TRANSLATIONS } from '../data/mockData';
+import { MOCK_LANGUAGES } from '../data/mockData';
 
 interface LanguageContextType {
   currentLanguage: Language;
   setLanguage: (code: 'en' | 'ro' | 'ru') => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
   languages: Language[];
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const { i18n } = useTranslation();
+  const { i18n, t: translate } = useTranslation();
   const [currentLanguage, setCurrentLanguage] = useState<Language>(() => {
     const initial = (i18n.resolvedLanguage ?? 'ro') as 'en' | 'ro' | 'ru';
     return MOCK_LANGUAGES.find((l) => l.code === initial) ?? MOCK_LANGUAGES[0];
@@ -38,10 +38,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const t = (key: string): string => {
-    const translations = TRANSLATIONS[currentLanguage.code];
-    return translations[key] || TRANSLATIONS['en'][key] || key;
-  };
+  const t = (key: string, options?: Record<string, unknown>): string => translate(key, options);
 
   return (
     <LanguageContext.Provider

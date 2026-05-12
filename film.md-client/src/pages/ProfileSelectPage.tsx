@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Edit2Icon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { UserProfile } from "../types";
 
@@ -17,6 +18,7 @@ const PROFILE_COLORS = [
 
 export function ProfileSelectPage() {
   const { user, selectProfile, createProfile, updateProfile, deleteProfile } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [isManaging, setIsManaging] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -97,14 +99,14 @@ export function ProfileSelectPage() {
       setIsEditorOpen(false);
       resetEditor();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "We could not save the profile.");
+      setErrorMessage(error instanceof Error ? error.message : t("profiles.save_failed"));
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (profile: UserProfile) => {
-    const confirmed = window.confirm(`Delete profile "${profile.name}"?`);
+    const confirmed = window.confirm(t("profiles.delete_confirm", { name: profile.name }));
     if (!confirmed) {
       return;
     }
@@ -119,7 +121,7 @@ export function ProfileSelectPage() {
         resetEditor();
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "We could not delete the profile.");
+      setErrorMessage(error instanceof Error ? error.message : t("profiles.delete_failed"));
     } finally {
       setIsSaving(false);
     }
@@ -153,9 +155,9 @@ export function ProfileSelectPage() {
       </div>
 
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-12 text-center">
-        <h2 className="text-4xl font-medium text-white md:text-5xl">{isManaging ? "Manage Profiles" : "Who's watching?"}</h2>
+        <h2 className="text-4xl font-medium text-white md:text-5xl">{isManaging ? t("profiles.manage") : t("profiles.who")}</h2>
         <p className="mt-3 text-sm text-gray-400">
-          {isManaging ? "Create separate viewing spaces for adults and kids." : "Choose the profile you want to watch with."}
+          {isManaging ? t("profiles.manage_hint") : t("profiles.choose_hint")}
         </p>
       </motion.div>
 
@@ -178,7 +180,7 @@ export function ProfileSelectPage() {
 
               {profile.isKids && (
                 <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                  Kids
+                  {t("profiles.kids")}
                 </span>
               )}
 
@@ -209,7 +211,7 @@ export function ProfileSelectPage() {
             >
               <PlusIcon className="h-12 w-12 text-gray-600 transition-colors group-hover:text-white" />
             </button>
-            <span className="mt-4 text-xl font-medium text-gray-500">Add Profile</span>
+            <span className="mt-4 text-xl font-medium text-gray-500">{t("profiles.add")}</span>
           </motion.div>
         )}
       </motion.div>
@@ -225,7 +227,7 @@ export function ProfileSelectPage() {
             : "border-gray-500 text-gray-400 hover:border-white hover:text-white"
         }`}
       >
-        {isManaging ? "Done" : "Manage Profiles"}
+        {isManaging ? t("profiles.done") : t("profiles.manage")}
       </motion.button>
 
       <AnimatePresence>
@@ -252,23 +254,23 @@ export function ProfileSelectPage() {
                 <XIcon className="h-6 w-6" />
               </button>
 
-              <h3 className="mb-6 text-2xl font-bold text-white">{isCreateMode ? "Add Profile" : "Edit Profile"}</h3>
+              <h3 className="mb-6 text-2xl font-bold text-white">{isCreateMode ? t("profiles.add") : t("profiles.edit")}</h3>
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-400">Name</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-400">{t("profiles.name")}</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-surfaceHover px-4 py-3 text-white focus:border-accent focus:outline-none"
-                    placeholder="Profile Name"
+                    placeholder={t("profiles.name")}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-400">Color Theme</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-400">{t("profiles.color_theme")}</label>
                   <div className="grid grid-cols-6 gap-2">
                     {PROFILE_COLORS.map((color) => (
                       <button
@@ -285,8 +287,8 @@ export function ProfileSelectPage() {
 
                 <div className="flex items-center justify-between rounded-lg border border-white/5 bg-surfaceHover p-4">
                   <div>
-                    <h4 className="font-medium text-white">Kids Profile</h4>
-                    <p className="text-xs text-gray-400">Show only family-friendly viewing experiences.</p>
+                    <h4 className="font-medium text-white">{t("profiles.kids_profile")}</h4>
+                    <p className="text-xs text-gray-400">{t("profiles.kids_hint")}</p>
                   </div>
                   <button
                     type="button"
@@ -306,7 +308,7 @@ export function ProfileSelectPage() {
                   disabled={isSaving}
                   className="w-full rounded-lg bg-accent py-3 font-bold text-white transition-colors hover:bg-red-700"
                 >
-                  {isSaving ? "Saving..." : isCreateMode ? "Create Profile" : "Save Changes"}
+                  {isSaving ? t("profiles.saving") : isCreateMode ? t("profiles.create") : t("profiles.save_changes")}
                 </button>
               </form>
 
@@ -317,7 +319,7 @@ export function ProfileSelectPage() {
                   onClick={() => void handleDelete(editingProfile)}
                   className="mt-4 w-full rounded-lg border border-red-500/30 bg-red-500/10 py-3 font-medium text-red-200 transition-colors hover:bg-red-500/20"
                 >
-                  Delete Profile
+                  {t("profiles.delete")}
                 </button>
               )}
             </motion.div>

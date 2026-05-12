@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCardIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
 
@@ -12,6 +13,7 @@ interface WalletModalProps {
 
 export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { balance, currency, addFunds } = useWallet();
+  const { t } = useLanguage();
   const [amount, setAmount] = useState(20);
   const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,13 +29,13 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       const topUp = await addFunds(amount, { phone: phone.trim() || undefined });
 
       if (!topUp.payment_url) {
-        throw new Error('Providerul nu a returnat URL-ul de plată.');
+        throw new Error(t('wallet.provider_missing_url'));
       }
 
       localStorage.setItem(PENDING_TOP_UP_STORAGE_KEY, topUp.id);
       window.location.href = topUp.payment_url;
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nu am putut porni plata.');
+      setErrorMessage(error instanceof Error ? error.message : t('wallet.payment_start_failed'));
       setIsSubmitting(false);
     }
   };
@@ -82,11 +84,11 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
             </button>
 
             <h2 className="text-2xl font-bold text-white mb-6">
-              Wallet
+              {t('wallet.title')}
             </h2>
 
             <div className="bg-surface p-4 rounded-xl mb-6 flex items-center justify-between border border-white/5">
-              <span className="text-gray-400">Current Balance</span>
+              <span className="text-gray-400">{t('wallet.current_balance')}</span>
               <span className="text-2xl font-bold text-accentGreen">
                 {currency} {balance.toFixed(2)}
               </span>
@@ -98,8 +100,8 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                   <CreditCardIcon className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold">Suplinește contul</h3>
-                  <p className="text-sm text-gray-400">Vei fi redirecționat către pagina externă de plată.</p>
+                  <h3 className="text-white font-semibold">{t('wallet.top_up')}</h3>
+                  <p className="text-sm text-gray-400">{t('wallet.redirect_notice')}</p>
                 </div>
               </div>
 
@@ -121,7 +123,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
               </div>
 
               <label className="mb-4 block">
-                <span className="mb-2 block text-sm text-gray-400">Suma ({currency})</span>
+                <span className="mb-2 block text-sm text-gray-400">{t('wallet.amount', { currency })}</span>
                 <input
                   type="number"
                   min={20}
@@ -133,7 +135,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
               </label>
 
               <label className="mb-5 block">
-                <span className="mb-2 block text-sm text-gray-400">Telefon pentru plată</span>
+                <span className="mb-2 block text-sm text-gray-400">{t('wallet.phone')}</span>
                 <input
                   type="tel"
                   value={phone}
@@ -156,7 +158,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 className="flex w-full items-center justify-center rounded-xl bg-accent px-5 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? <Loader2Icon className="mr-2 h-5 w-5 animate-spin" /> : null}
-                Continuă spre plată
+                {t('wallet.continue_payment')}
               </button>
             </div>
           </motion.div>

@@ -24,7 +24,7 @@ export function ParentalPinModal({ profileId, apiBase, authToken, onUnlocked, on
 
   async function submit() {
     if (!/^\d{4,6}$/.test(pin)) {
-      setError('PIN must be 4-6 digits');
+      setError(t('parental.pin_digits'));
       return;
     }
     setSubmitting(true);
@@ -41,7 +41,7 @@ export function ParentalPinModal({ profileId, apiBase, authToken, onUnlocked, on
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { message?: string };
-        setError(data.message ?? 'PIN incorect');
+        setError(data.message ?? t('parental.pin_incorrect'));
         return;
       }
       onUnlocked();

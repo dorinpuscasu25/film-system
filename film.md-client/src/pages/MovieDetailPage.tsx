@@ -23,7 +23,7 @@ import { fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/s
 import { applyMovieSeo } from "../lib/seo";
 import { Movie, Review } from "../types";
 
-function formatCountdown(targetDate?: string) {
+function formatCountdown(targetDate: string | undefined, liveLabel: string) {
   if (!targetDate) {
     return null;
   }
@@ -33,7 +33,7 @@ function formatCountdown(targetDate?: string) {
   const diff = target - now;
 
   if (diff <= 0) {
-    return "Now live";
+    return liveLabel;
   }
 
   const totalMinutes = Math.floor(diff / 60000);
@@ -52,20 +52,12 @@ function formatCountdown(targetDate?: string) {
   return `${minutes}m`;
 }
 
-function contentTypeLabel(movie: Movie) {
+function contentTypeLabel(movie: Movie, t: (key: string) => string) {
   if (movie.typeLabel) {
     return movie.typeLabel;
   }
 
-  const labels: Record<Movie["type"], string> = {
-    movie: "Film",
-    documentary: "Documentar",
-    short: "Scurtmetraj",
-    animation: "Animație",
-    series: "Serial",
-  };
-
-  return labels[movie.type] ?? movie.type;
+  return t(`content_types.${movie.type}`) || movie.type;
 }
 
 function shareUrlFor(platform: string, url: string, title: string, description: string) {
@@ -110,7 +102,7 @@ export function MovieDetailPage() {
   const navigate = useNavigate();
   const { hasAccess, getTimeRemaining, toggleFavorite, isFavorite } = useWallet();
   const { isAuthenticated, openAuthModal, isLoading: isAuthLoading, user, activeProfile } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("description");
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
@@ -309,7 +301,7 @@ export function MovieDetailPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center bg-background text-gray-400">
-        Loading title...
+        {t("common.loading_title")}
       </div>
     );
   }
@@ -318,8 +310,8 @@ export function MovieDetailPage() {
     return (
       <div className="min-h-screen bg-background px-4 pt-32 pb-20">
         <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-surface p-8 text-center">
-          <h1 className="mb-3 text-2xl font-bold text-white">Movie not found</h1>
-          <p className="text-gray-400">{error ?? "This title is not available right now."}</p>
+          <h1 className="mb-3 text-2xl font-bold text-white">{t("movie.not_found")}</h1>
+          <p className="text-gray-400">{error ?? t("movie.not_available")}</p>
         </div>
       </div>
     );
@@ -336,25 +328,25 @@ export function MovieDetailPage() {
     : [{
         id: `${movie.id}-trailer`,
         type: "trailer" as const,
-        title: "Official Trailer",
+        title: t("movie.official_trailer"),
         videoUrl: movie.trailerUrl,
         thumbnailUrl: movie.backdropUrl,
         isPrimary: true,
       }];
   const primaryVideo = videos.find((video) => video.isPrimary) || videos[0];
   const activeVideo = videos.find((video) => video.id === activeVideoId) || primaryVideo;
-  const premiereCountdown = formatCountdown(movie.premiereEvent?.startsAt);
+  const premiereCountdown = formatCountdown(movie.premiereEvent?.startsAt, t("movie.now_live"));
   const seasonsData = movie.seasonsData && movie.seasonsData.length > 0
     ? movie.seasonsData
     : movie.type === "series"
       ? [{
           id: `${movie.id}-season-1`,
           seasonNumber: 1,
-          title: "Season 1",
+          title: t("movie.season", { number: 1 }),
           episodes: Array.from({ length: movie.episodes || 0 }).map((_, index) => ({
             id: `ep-${index + 1}`,
             episodeNumber: index + 1,
-            title: `Episode ${index + 1}`,
+            title: t("movie.episode", { number: index + 1 }),
             runtimeMinutes: 45,
             thumbnailUrl: movie.backdropUrl,
             videoUrl: movie.trailerUrl,
@@ -419,7 +411,7 @@ export function MovieDetailPage() {
 
     if (platform === "copy" || platform === "instagram" || platform === "tiktok") {
       await copyText(shareUrl);
-      setShareMessage(platform === "copy" ? "Link copiat." : "Link copiat pentru share în aplicație.");
+      setShareMessage(platform === "copy" ? t("share.copied") : t("share.app_copied"));
       setTimeout(() => setShareMessage(null), 2200);
       setIsShareOpen(false);
       return;
@@ -440,7 +432,7 @@ export function MovieDetailPage() {
     }
 
     if (reviewComment.trim().length < 3) {
-      setReviewError("Scrie câteva cuvinte despre film.");
+      setReviewError(t("movie.review_min_error"));
       return;
     }
 
@@ -474,18 +466,18 @@ export function MovieDetailPage() {
         averageRating: response.summary.average_rating,
       });
     } catch (submitError) {
-      setReviewError(submitError instanceof Error ? submitError.message : "Nu am putut salva review-ul.");
+      setReviewError(submitError instanceof Error ? submitError.message : t("movie.review_save_error"));
     } finally {
       setIsReviewSubmitting(false);
     }
   };
 
   const tabs = [
-    { id: "description", label: "Description" },
-    ...(movie.type === "series" ? [{ id: "episodes", label: "Episodes" }] : []),
-    { id: "cast", label: "Cast & Crew" },
-    { id: "trailers", label: "Trailers & Extras" },
-    { id: "reviews", label: "Reviews" },
+    { id: "description", label: t("movie.description") },
+    ...(movie.type === "series" ? [{ id: "episodes", label: t("movie.episodes") }] : []),
+    { id: "cast", label: t("movie.cast_crew") },
+    { id: "trailers", label: t("movie.trailers_extras") },
+    { id: "reviews", label: t("movie.reviews") },
   ];
 
   const currentSeason = seasonsData.find((season) => season.seasonNumber === activeSeason) || seasonsData[0];
@@ -525,7 +517,7 @@ export function MovieDetailPage() {
             className="flex-1 pt-8 md:pt-32"
           >
             <h1 className="mb-2 text-4xl font-bold text-white md:text-5xl">{movie.title}</h1>
-            <p className="mb-6 text-gray-400">Original title: {movie.originalTitle}</p>
+            <p className="mb-6 text-gray-400">{t("movie.original_title", { title: movie.originalTitle })}</p>
 
             <div className="mb-8 flex flex-wrap items-center gap-4">
               <div className="flex items-center space-x-1 rounded-full bg-surfaceHover px-3 py-1 text-sm">
@@ -537,7 +529,7 @@ export function MovieDetailPage() {
               <span className="text-gray-500">•</span>
               <span className="text-gray-300">{movie.country}</span>
               <span className="text-gray-500">•</span>
-              <span className="text-gray-300">{contentTypeLabel(movie)}</span>
+              <span className="text-gray-300">{contentTypeLabel(movie, t)}</span>
               <span className="text-gray-500">•</span>
               <div className="flex flex-wrap gap-2">
                 {movie.genres.map((genre) => (
@@ -550,10 +542,10 @@ export function MovieDetailPage() {
 
             {movie.premiereEvent ? (
               <div className="mb-8 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-amber-50">
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Digital Premiere</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">{t("movie.digital_premiere")}</p>
                 <p className="mt-2 text-lg font-semibold">{movie.premiereEvent.title}</p>
                 <p className="mt-1 text-sm text-amber-100/80">
-                  Starts at {new Date(movie.premiereEvent.startsAt).toLocaleString()}
+                  {t("movie.starts_at", { date: new Date(movie.premiereEvent.startsAt).toLocaleString() })}
                 </p>
                 {premiereCountdown ? (
                   <p className="mt-3 inline-flex rounded-full border border-amber-200/20 bg-black/20 px-3 py-1 text-sm font-medium">
@@ -571,13 +563,13 @@ export function MovieDetailPage() {
                     className="flex items-center space-x-2 rounded-lg bg-accent px-8 py-3 font-bold text-white transition-colors hover:bg-red-700"
                   >
                     <PlayIcon className="h-5 w-5 fill-current" />
-                    <span>Watch Now</span>
+                    <span>{t("common.watch_now")}</span>
                   </button>
                   {timeRemaining ? (
                     <div className="flex items-center space-x-2 rounded-lg border border-white/10 bg-surface px-4 py-2 text-sm text-gray-400">
                       <ClockIcon className="h-4 w-4" />
                       <span>
-                        {timeRemaining === 'Lifetime' ? 'Access:' : 'Access ends in:'}{' '}
+                        {timeRemaining === "Lifetime" ? t("movie.access") : t("movie.access_ends_in")}{" "}
                         <strong className="text-white">{timeRemaining}</strong>
                       </span>
                     </div>
@@ -589,7 +581,7 @@ export function MovieDetailPage() {
                   className="flex items-center space-x-2 rounded-lg bg-accent px-8 py-3 font-bold text-white transition-colors hover:bg-red-700"
                 >
                   <PlayIcon className="h-5 w-5 fill-current" />
-                  <span>{priceFrom === 0 ? "Watch Free" : `Buy Access - ${priceFrom} MDL`}</span>
+                  <span>{priceFrom === 0 ? t("common.watch_free") : `${t("common.buy_access")} - ${priceFrom} MDL`}</span>
                 </button>
               )}
 
@@ -603,14 +595,14 @@ export function MovieDetailPage() {
                 <button
                   onClick={() => setIsShareOpen((current) => !current)}
                   className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10"
-                  aria-label="Share"
+                  aria-label={t("share.label")}
                 >
                   <Share2Icon className="h-5 w-5" />
                 </button>
                 {isShareOpen ? (
                   <div className="absolute left-0 top-14 z-30 w-56 overflow-hidden rounded-xl border border-white/10 bg-surface/95 p-2 text-sm text-white shadow-2xl backdrop-blur md:left-auto md:right-0">
                     {[
-                      ["native", "Share pe telefon"],
+                      ["native", t("share.native")],
                       ["facebook", "Facebook"],
                       ["instagram", "Instagram"],
                       ["tiktok", "TikTok"],
@@ -618,7 +610,7 @@ export function MovieDetailPage() {
                       ["telegram", "Telegram"],
                       ["x", "X"],
                       ["email", "Email"],
-                      ["copy", "Copiază link"],
+                      ["copy", t("share.copy")],
                     ].map(([platform, label]) => (
                       <button
                         key={platform}
@@ -657,7 +649,7 @@ export function MovieDetailPage() {
                           onClick={() => setActiveSeason(season.seasonNumber)}
                           className={`relative pb-4 text-lg font-bold ${activeSeason === season.seasonNumber ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
                         >
-                          {(season.title || `SEASON ${season.seasonNumber}`).toUpperCase()}
+                          {(season.title || t("movie.season", { number: season.seasonNumber })).toUpperCase()}
                           {activeSeason === season.seasonNumber ? (
                             <motion.div layoutId="seasonTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
                           ) : null}
@@ -708,7 +700,7 @@ export function MovieDetailPage() {
                             </div>
                           </div>
                           <h4 className="font-bold text-white">{episode.title}</h4>
-                          <p className="text-sm text-gray-400">Episode {episode.episodeNumber || index + 1}</p>
+                          <p className="text-sm text-gray-400">{t("movie.episode", { number: episode.episodeNumber || index + 1 })}</p>
                         </div>
                       ))}
                     </div>
@@ -718,7 +710,7 @@ export function MovieDetailPage() {
                 {activeTab === "cast" ? (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-2 gap-6 md:grid-cols-4">
                     <div className="col-span-full">
-                      <h3 className="mb-4 text-sm uppercase tracking-[0.2em] text-gray-500">Cast</h3>
+                      <h3 className="mb-4 text-sm uppercase tracking-[0.2em] text-gray-500">{t("movie.cast")}</h3>
                     </div>
                     {movie.cast.map((actor) => (
                       <div key={actor.id} className="flex items-center space-x-4">
@@ -732,7 +724,7 @@ export function MovieDetailPage() {
                     {(movie.crew || []).length > 0 ? (
                       <>
                         <div className="col-span-full pt-4">
-                          <h3 className="mb-4 text-sm uppercase tracking-[0.2em] text-gray-500">Crew</h3>
+                          <h3 className="mb-4 text-sm uppercase tracking-[0.2em] text-gray-500">{t("movie.crew")}</h3>
                         </div>
                         {(movie.crew || []).map((member) => (
                           <div key={member.id} className="flex items-center space-x-4">
@@ -779,11 +771,11 @@ export function MovieDetailPage() {
                     <div className="glass-panel rounded-xl p-6">
                       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <h3 className="text-xl font-bold text-white">Reviews</h3>
+                          <h3 className="text-xl font-bold text-white">{t("movie.reviews")}</h3>
                           <p className="text-sm text-gray-400">
                             {reviewsSummary.count > 0
-                              ? `${reviewsSummary.count} review-uri · media ${reviewsSummary.averageRating.toFixed(1)}`
-                              : "Fii primul care scrie un review."}
+                              ? t("movie.reviews_summary", { count: reviewsSummary.count, average: reviewsSummary.averageRating.toFixed(1) })
+                              : t("movie.first_review")}
                           </p>
                         </div>
                         <StarRating rating={reviewsSummary.averageRating || 0} size="sm" />
@@ -793,9 +785,9 @@ export function MovieDetailPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="font-medium text-white">
-                              {isAuthenticated ? "Review-ul tău" : "Autentifică-te ca să scrii un review"}
+                              {isAuthenticated ? t("movie.your_review") : t("movie.login_to_review")}
                             </p>
-                            <p className="text-xs text-gray-500">Poți salva un singur review per film; îl poți actualiza oricând.</p>
+                            <p className="text-xs text-gray-500">{t("movie.review_hint")}</p>
                           </div>
                           <StarRating rating={reviewRating} interactive onRate={setReviewRating} size="md" />
                         </div>
@@ -803,7 +795,7 @@ export function MovieDetailPage() {
                           value={reviewComment}
                           onChange={(event) => setReviewComment(event.target.value)}
                           disabled={!isAuthenticated || isReviewSubmitting}
-                          placeholder="Scrie ce ți-a plăcut sau ce ai schimba..."
+                          placeholder={t("movie.review_placeholder")}
                           className="min-h-28 w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-sm text-white outline-none transition focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
                         />
                         {reviewError ? <p className="text-sm text-red-400">{reviewError}</p> : null}
@@ -813,16 +805,16 @@ export function MovieDetailPage() {
                             disabled={isReviewSubmitting || isAuthLoading}
                             className="rounded-lg bg-accent px-5 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
                           >
-                            {!isAuthenticated ? "Login pentru review" : isReviewSubmitting ? "Se salvează..." : "Salvează review"}
+                            {!isAuthenticated ? t("movie.review_login_button") : isReviewSubmitting ? t("movie.review_saving") : t("movie.review_save")}
                           </button>
                         </div>
                       </div>
                     </div>
 
                     {isReviewsLoading ? (
-                      <div className="glass-panel rounded-xl p-6 text-center text-sm text-gray-400">Se încarcă review-urile...</div>
+                      <div className="glass-panel rounded-xl p-6 text-center text-sm text-gray-400">{t("movie.reviews_loading")}</div>
                     ) : reviews.length === 0 ? (
-                      <div className="glass-panel rounded-xl p-6 text-center text-sm text-gray-400">Nu există încă review-uri pentru acest film.</div>
+                      <div className="glass-panel rounded-xl p-6 text-center text-sm text-gray-400">{t("movie.reviews_empty")}</div>
                     ) : (
                       reviews.map((review) => <ReviewCard key={review.id} review={review} />)
                     )}
@@ -835,7 +827,7 @@ export function MovieDetailPage() {
       </div>
 
       <div className="mt-12">
-        <Carousel title="You May Also Like" movies={relatedMovies.slice(0, 12)} />
+        <Carousel title={t("movie.related")} movies={relatedMovies.slice(0, 12)} />
       </div>
 
       <PurchaseModal

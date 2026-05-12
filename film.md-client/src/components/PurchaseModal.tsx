@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { XIcon, WalletIcon } from 'lucide-react';
 import { Movie, Offer } from '../types';
 import { useWallet } from '../contexts/WalletContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface PurchaseModalProps {
   isOpen: boolean;
@@ -56,9 +57,9 @@ function buildFallbackOffers(movie: Movie): Offer[] {
   }];
 }
 
-function groupLabel(offer: Offer) {
-  if (offer.accessType === 'free') return 'Free Access';
-  return offer.accessType === 'lifetime' ? 'Forever' : `For ${offer.rentalDays || 2} Days`;
+function groupLabel(offer: Offer, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (offer.accessType === 'free') return t('checkout.free_access');
+  return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { days: offer.rentalDays || 2 });
 }
 
 export function PurchaseModal({
@@ -68,6 +69,7 @@ export function PurchaseModal({
   onSuccess
 }: PurchaseModalProps) {
   const { balance, currency, purchaseAccess } = useWallet();
+  const { t } = useLanguage();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const offers = useMemo(() => movie.offers && movie.offers.length > 0 ? movie.offers : buildFallbackOffers(movie), [movie]);
@@ -84,7 +86,7 @@ export function PurchaseModal({
   const canAfford = selectedOffer ? balance >= selectedOffer.price : false;
   const groupedOffers = useMemo(() => {
     return offers.reduce<Record<string, Offer[]>>((groups, offer) => {
-      const label = groupLabel(offer);
+      const label = groupLabel(offer, t);
       groups[label] = groups[label] ?? [];
       groups[label].push(offer);
       return groups;
@@ -105,7 +107,7 @@ export function PurchaseModal({
       onSuccess?.();
       onClose();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Purchase failed.');
+      setErrorMessage(error instanceof Error ? error.message : t('checkout.purchase_failed'));
       setIsProcessing(false);
     }
   };
@@ -163,7 +165,7 @@ export function PurchaseModal({
                 {movie.title}
               </h2>
               <p className="text-gray-300 mb-10 text-center max-w-lg drop-shadow">
-                Choose your viewing option and quality
+                {t('checkout.choose_option')}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl mb-12">
@@ -193,7 +195,7 @@ export function PurchaseModal({
                 <div className="flex justify-between items-center w-full mb-4 px-4">
                   <span className="text-gray-300 flex items-center text-sm">
                     <WalletIcon className="w-4 h-4 mr-2" />
-                    Wallet Balance
+                    {t('checkout.wallet_balance')}
                   </span>
                   <span
                   className={`font-bold ${canAfford ? 'text-accentGreen' : 'text-accent'}`}>
@@ -204,7 +206,7 @@ export function PurchaseModal({
 
                 {!canAfford &&
               <p className="text-accent text-sm mb-3">
-                    Insufficient funds. Please add money to your wallet.
+                    {t('checkout.insufficient_funds')}
                   </p>
               }
 
@@ -222,8 +224,8 @@ export function PurchaseModal({
                   {isProcessing ?
                 <div className="w-6 h-6 border-2 border-background border-t-transparent rounded-full animate-spin" /> :
                 selectedOffer ?
-                `Confirm Purchase - ${formatCurrency(selectedOffer.price, selectedOffer.currency)}` :
-                'No offer available'
+                t('checkout.confirm_purchase', { price: formatCurrency(selectedOffer.price, selectedOffer.currency) }) :
+                t('checkout.no_offer')
                 }
                 </button>
               </div>

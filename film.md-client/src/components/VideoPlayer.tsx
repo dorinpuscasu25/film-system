@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Movie } from '../types';
 import { useWallet } from '../contexts/WalletContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { isBunnyApiAssetUrl, isDirectMediaUrl, resolveEmbedUrl } from '../lib/videoEmbeds';
 
 interface PlaybackDrmConfig {
@@ -163,6 +164,7 @@ export function VideoPlayer({
   onBack,
 }: VideoPlayerProps) {
   const { getTimeRemaining } = useWallet();
+  const { t } = useLanguage();
   const timeRemaining = getTimeRemaining(movie.id);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -578,7 +580,7 @@ export function VideoPlayer({
 
           {timeRemaining ? (
             <div className="hidden rounded-full border border-white/10 bg-black/50 px-3 py-1 text-sm text-gray-200 backdrop-blur-md sm:block">
-              {timeRemaining === 'Lifetime' ? 'Lifetime access' : `Access ends in ${timeRemaining}`}
+              {timeRemaining === 'Lifetime' ? t('dashboard.lifetime_access') : `${t('movie.access_ends_in')} ${timeRemaining}`}
             </div>
           ) : null}
         </div>
@@ -594,7 +596,7 @@ export function VideoPlayer({
         <div className="absolute inset-0 flex items-center justify-center bg-black/70 px-6 text-center text-white">
           <div className="max-w-lg rounded-2xl border border-white/10 bg-white/10 p-6 backdrop-blur-md">
             <AlertTriangleIcon className="mx-auto mb-4 h-10 w-10 text-amber-300" />
-            <h2 className="text-xl font-semibold">Playback nu poate porni</h2>
+            <h2 className="text-xl font-semibold">{t('player.playback_start_failed')}</h2>
             <p className="mt-2 text-sm text-white/70">{error}</p>
           </div>
         </div>
@@ -607,7 +609,7 @@ export function VideoPlayer({
             <div className="absolute left-0 top-0 h-full rounded-full bg-accent" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} />
           </div>
           <input
-            aria-label="Seek"
+            aria-label={t('player.seek')}
             type="range"
             min={0}
             max={100}
@@ -619,13 +621,13 @@ export function VideoPlayer({
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-2">
-            <button onClick={() => seekBy(-10)} className="rounded-full p-2 transition hover:bg-white/10" title="Back 10s">
+            <button onClick={() => seekBy(-10)} className="rounded-full p-2 transition hover:bg-white/10" title={t('player.back_10')}>
               <RotateCcwIcon className="h-5 w-5" />
             </button>
-            <button onClick={togglePlay} className="rounded-full bg-white p-3 text-black transition hover:bg-white/90" title={isPlaying ? 'Pause' : 'Play'}>
+            <button onClick={togglePlay} className="rounded-full bg-white p-3 text-black transition hover:bg-white/90" title={isPlaying ? t('player.pause') : t('player.play')}>
               {isPlaying ? <PauseIcon className="h-5 w-5 fill-current" /> : <PlayIcon className="ml-0.5 h-5 w-5 fill-current" />}
             </button>
-            <button onClick={() => seekBy(10)} className="rounded-full p-2 transition hover:bg-white/10" title="Forward 10s">
+            <button onClick={() => seekBy(10)} className="rounded-full p-2 transition hover:bg-white/10" title={t('player.forward_10')}>
               <RotateCwIcon className="h-5 w-5" />
             </button>
             <div className="ml-2 hidden text-sm text-white/80 sm:block">
@@ -634,11 +636,11 @@ export function VideoPlayer({
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={toggleMute} className="rounded-full p-2 transition hover:bg-white/10" title="Mute">
+            <button onClick={toggleMute} className="rounded-full p-2 transition hover:bg-white/10" title={t('trailer.mute')}>
               {isMuted || volume === 0 ? <VolumeXIcon className="h-5 w-5" /> : volume < 0.5 ? <Volume1Icon className="h-5 w-5" /> : <Volume2Icon className="h-5 w-5" />}
             </button>
             <input
-              aria-label="Volume"
+              aria-label={t('player.volume')}
               type="range"
               min={0}
               max={1}
@@ -652,14 +654,14 @@ export function VideoPlayer({
               <button
                 onClick={() => setSettingsPanel(settingsPanel === 'subtitles' ? null : 'subtitles')}
                 className="rounded-full p-2 transition hover:bg-white/10"
-                title="Subtitles"
+                title={t('movie.subtitles')}
               >
                 <CaptionsIcon className="h-5 w-5" />
               </button>
               {settingsPanel === 'subtitles' ? (
                 <div className="absolute bottom-12 right-0 w-52 rounded-xl border border-white/10 bg-black/90 p-2 text-sm shadow-2xl backdrop-blur">
                   <button onClick={() => void selectSubtitle('off')} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-white/10">
-                    Off {selectedText === 'off' ? <CheckIcon className="h-4 w-4" /> : null}
+                    {t('player.off')} {selectedText === 'off' ? <CheckIcon className="h-4 w-4" /> : null}
                   </button>
                   {subtitleOptions.map((track) => (
                     <button
@@ -679,14 +681,14 @@ export function VideoPlayer({
               <button
                 onClick={() => setSettingsPanel(settingsPanel === 'quality' ? null : 'quality')}
                 className="rounded-full p-2 transition hover:bg-white/10"
-                title="Quality"
+                title={t('player.quality')}
               >
                 <SettingsIcon className="h-5 w-5" />
               </button>
               {settingsPanel === 'quality' ? (
                 <div className="absolute bottom-12 right-0 w-52 rounded-xl border border-white/10 bg-black/90 p-2 text-sm shadow-2xl backdrop-blur">
                   <button onClick={() => selectVariant('auto')} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-white/10">
-                    Auto {selectedVariant === 'auto' ? <CheckIcon className="h-4 w-4" /> : null}
+                    {t('player.auto')} {selectedVariant === 'auto' ? <CheckIcon className="h-4 w-4" /> : null}
                   </button>
                   {variantTracks.map((track) => (
                     <button
@@ -706,7 +708,7 @@ export function VideoPlayer({
               <button
                 onClick={() => setSettingsPanel(settingsPanel === 'speed' ? null : 'speed')}
                 className="rounded-full px-3 py-2 text-sm transition hover:bg-white/10"
-                title="Speed"
+                title={t('player.speed')}
               >
                 {selectedRate}x
               </button>
@@ -726,10 +728,10 @@ export function VideoPlayer({
               ) : null}
             </div>
 
-            <button onClick={enterPictureInPicture} className="hidden rounded-full p-2 transition hover:bg-white/10 sm:block" title="Picture in picture">
+            <button onClick={enterPictureInPicture} className="hidden rounded-full p-2 transition hover:bg-white/10 sm:block" title={t('player.picture_in_picture')}>
               <PictureInPicture2Icon className="h-5 w-5" />
             </button>
-            <button onClick={toggleFullscreen} className="rounded-full p-2 transition hover:bg-white/10" title="Fullscreen">
+            <button onClick={toggleFullscreen} className="rounded-full p-2 transition hover:bg-white/10" title={t('player.fullscreen')}>
               {isFullscreen ? <MinimizeIcon className="h-5 w-5" /> : <MaximizeIcon className="h-5 w-5" />}
             </button>
           </div>

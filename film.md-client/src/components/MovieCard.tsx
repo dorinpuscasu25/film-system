@@ -6,6 +6,7 @@ import { Movie } from '../types';
 import { Badge } from './Badge';
 import { StarRating } from './StarRating';
 import { useWallet } from '../contexts/WalletContext';
+import { useLanguage } from '../contexts/LanguageContext';
 interface MovieCardProps {
   movie: Movie;
 }
@@ -21,6 +22,7 @@ function supportsInlineTrailerPreview(url?: string) {
 export function MovieCard({ movie }: MovieCardProps) {
   const navigate = useNavigate();
   const { isFavorite, toggleFavorite } = useWallet();
+  const { t } = useLanguage();
   const [isPreviewActive, setIsPreviewActive] = useState(false);
   const fav = isFavorite(movie.id);
   const previewUrl = useMemo(
@@ -66,15 +68,15 @@ export function MovieCard({ movie }: MovieCardProps) {
 
       {/* Badges */}
       <div className="absolute top-2 left-2 flex flex-col space-y-1">
-        {movie.isNew && <Badge variant="new" text="New" />}
-        {movie.isTrending && <Badge variant="trending" text="Trending" />}
+        {movie.isNew && <Badge variant="new" text={t("movie.new_release")} />}
+        {movie.isTrending && <Badge variant="trending" text={t("movie.trending")} />}
       </div>
 
       {/* Price + Favorite */}
       <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
         <Badge
           variant="price"
-          text={lowestPrice === 0 ? 'Free' : `${lowestPrice} MDL`} />
+          text={lowestPrice === 0 ? t("common.free") : `${lowestPrice} MDL`} />
         
         <button
           onClick={(e) => {
@@ -106,7 +108,7 @@ export function MovieCard({ movie }: MovieCardProps) {
           <button className="w-full bg-accent hover:bg-red-700 text-white py-1.5 rounded flex items-center justify-center space-x-1 transition-colors">
             <PlayIcon className="w-4 h-4 fill-current" />
             <span className="text-xs font-semibold uppercase tracking-wider">
-              Details
+              {t("common.details")}
             </span>
           </button>
         </div>

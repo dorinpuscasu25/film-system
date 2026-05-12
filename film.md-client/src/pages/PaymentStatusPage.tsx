@@ -7,6 +7,7 @@ import {
 } from '../lib/session';
 import type { StorefrontTopUpPayload } from '../lib/session';
 import { useWallet } from '../contexts/WalletContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
 
@@ -18,6 +19,7 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
   const [searchParams] = useSearchParams();
   const searchParamKey = searchParams.toString();
   const { refreshWallet } = useWallet();
+  const { t } = useLanguage();
   const [topUp, setTopUp] = useState<StorefrontTopUpPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
         }
       } catch (error) {
         if (active) {
-          setErrorMessage(error instanceof Error ? error.message : 'Nu am putut verifica plata.');
+          setErrorMessage(error instanceof Error ? error.message : t('payment.verify_failed'));
         }
       } finally {
         if (active) {
@@ -98,14 +100,14 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
         </div>
 
         <h1 className="mb-3 text-3xl font-bold text-white">
-          {isPaid ? 'Plata a fost confirmată' : isFailed ? 'Plata nu a fost finalizată' : 'Verificăm plata'}
+          {isPaid ? t('payment.paid_title') : isFailed ? t('payment.failed_title') : t('payment.checking_title')}
         </h1>
         <p className="mb-6 text-gray-400">
           {isPaid
-            ? `Contul tău a fost suplinit cu ${topUp?.currency} ${topUp?.amount.toFixed(2)}.`
+            ? t('payment.paid_message', { currency: topUp?.currency, amount: topUp?.amount.toFixed(2) })
             : isFailed
-              ? 'Poți încerca din nou sau verifica tranzacția mai târziu.'
-              : 'Așteptăm confirmarea providerului de plată. De obicei durează câteva secunde.'}
+              ? t('payment.failed_message')
+              : t('payment.checking_message')}
         </p>
 
         {errorMessage ? (
@@ -117,11 +119,11 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
         {topUp ? (
           <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4 text-left text-sm text-gray-300">
             <div className="flex justify-between gap-4">
-              <span>Status</span>
+              <span>{t('common.status')}</span>
               <span className="font-semibold text-white">{topUp.status}</span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
-              <span>Order</span>
+              <span>{t('common.order')}</span>
               <span className="font-mono text-xs text-white">{topUp.provider_order_id ?? topUp.id}</span>
             </div>
           </div>
@@ -129,10 +131,10 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Link to="/dashboard" className="rounded-lg bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200">
-            Dashboard
+            {t('common.dashboard')}
           </Link>
           <Link to="/" className="rounded-lg border border-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/10">
-            Acasă
+            {t('nav.home')}
           </Link>
         </div>
       </div>

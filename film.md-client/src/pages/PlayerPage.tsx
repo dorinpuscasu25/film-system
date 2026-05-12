@@ -17,7 +17,7 @@ export function PlayerPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, openAuthModal, isLoading: isAuthLoading } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, t } = useLanguage();
   const [movie, setMovie] = useState<Movie | null>(null);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export function PlayerPage() {
 
         if (requestError.status === 423 && premiereEvent?.starts_at) {
           setPremiereLock({
-            title: premiereEvent.title || "Digital premiere",
+            title: premiereEvent.title || t("movie.digital_premiere"),
             startsAt: premiereEvent.starts_at,
             endsAt: premiereEvent.ends_at,
             message: requestError.message,
@@ -127,7 +127,7 @@ export function PlayerPage() {
           return;
         }
 
-        setPlaybackError(requestError.message || "Playback could not be started.");
+        setPlaybackError(requestError.message || t("player.playback_start_failed"));
         setPlaybackContentId(null);
       } finally {
         if (active) {
@@ -159,17 +159,17 @@ export function PlayerPage() {
       <div className="fixed inset-0 z-50 flex min-h-screen items-center justify-center bg-black px-6 text-white">
         <div className="mx-auto w-full max-w-2xl rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-md">
           <div className="space-y-4 text-center">
-            <p className="text-sm uppercase tracking-[0.35em] text-white/60">Watch Party</p>
+            <p className="text-sm uppercase tracking-[0.35em] text-white/60">{t("player.watch_party")}</p>
             <h1 className="text-3xl font-semibold">{movie.title}</h1>
             <p className="text-lg text-white/80">{premiereLock.title}</p>
             <p className="text-white/70">
-              {premiereLock.message || "Playback opens automatically when the premiere starts."}
+              {premiereLock.message || t("player.playback_opens")}
             </p>
             <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
-              <p className="text-sm text-white/60">Starts at</p>
+              <p className="text-sm text-white/60">{t("player.starts_at")}</p>
               <p className="mt-1 text-xl font-medium">{startsAt.toLocaleString()}</p>
               <p className="mt-3 text-sm text-white/70">
-                {hours > 0 ? `${hours}h ` : ""}{minutes}m remaining
+                {t("player.remaining", { hours: hours > 0 ? `${hours}h ` : "", minutes: `${minutes}m` })}
               </p>
             </div>
           </div>
@@ -178,13 +178,13 @@ export function PlayerPage() {
               onClick={() => navigate(`/movie/${movie.id}`)}
               className="rounded-full border border-white/15 px-5 py-2 text-sm text-white/80 transition hover:bg-white/10"
             >
-              Back to details
+              {t("player.back_to_details")}
             </button>
             <button
               onClick={() => window.location.reload()}
               className="rounded-full bg-white px-5 py-2 text-sm font-medium text-black transition hover:bg-white/90"
             >
-              Retry access
+              {t("player.retry_access")}
             </button>
           </div>
         </div>
@@ -202,7 +202,7 @@ export function PlayerPage() {
             onClick={() => navigate(`/movie/${movie.id}`)}
             className="mt-6 rounded-full bg-white px-5 py-2 text-sm font-medium text-black transition hover:bg-white/90"
           >
-            Back to details
+            {t("player.back_to_details")}
           </button>
         </div>
       </div>

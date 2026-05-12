@@ -129,14 +129,14 @@ export function HomePage() {
       id: `fallback-${movie.id}`,
       desktopImageUrl: movie.heroDesktopUrl || movie.backdropUrl,
       mobileImageUrl: movie.heroMobileUrl || movie.posterUrl,
-      eyebrow: movie.isTrending ? "Trending now" : undefined,
+      eyebrow: movie.isTrending ? t("movie.trending") : undefined,
       title: movie.title,
       description: movie.shortDescription || movie.tagline || movie.description,
-      primaryCtaLabel: movie.price === 0 ? "Watch Free" : undefined,
-      secondaryCtaLabel: "More Info",
+      primaryCtaLabel: movie.price === 0 ? t("common.watch_free") : undefined,
+      secondaryCtaLabel: t("common.more_info"),
       content: movie,
     }));
-  }, [homeSections.featured, homeSections.heroSlides, homeSections.latest, homeSections.movies, homeSections.series]);
+  }, [homeSections.featured, homeSections.heroSlides, homeSections.latest, homeSections.movies, homeSections.series, t]);
 
   useEffect(() => {
     if (heroSlides.length <= 1) {
@@ -158,7 +158,7 @@ export function HomePage() {
     return (
       <div className="min-h-screen bg-background px-4 pb-20 pt-32">
         <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-surface p-8 text-center">
-          <h1 className="mb-3 text-2xl font-bold text-white">Storefront unavailable</h1>
+          <h1 className="mb-3 text-2xl font-bold text-white">{t("movie.storefront_unavailable")}</h1>
           <p className="text-gray-400">{error}</p>
         </div>
       </div>
@@ -171,7 +171,7 @@ export function HomePage() {
   if (!featuredMovie) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center bg-background text-gray-400">
-        No published content yet.
+        {t("movie.no_published")}
       </div>
     );
   }
@@ -228,9 +228,9 @@ export function HomePage() {
           >
             <div className="mb-4 flex flex-wrap items-center gap-3">
               {activeHeroSlide?.eyebrow ? <Badge variant="new" text={activeHeroSlide.eyebrow} /> : null}
-              {featuredMovie.isNew ? <Badge variant="new" text="New Release" /> : null}
-              {featuredMovie.isTrending ? <Badge variant="trending" text="Trending" /> : null}
-              <Badge variant="price" text={featuredPrice === 0 ? "Free" : `${featuredPrice} MDL`} />
+              {featuredMovie.isNew ? <Badge variant="new" text={t("movie.new_release")} /> : null}
+              {featuredMovie.isTrending ? <Badge variant="trending" text={t("movie.trending")} /> : null}
+              <Badge variant="price" text={featuredPrice === 0 ? t("common.free") : `${featuredPrice} MDL`} />
             </div>
 
             <h1 className="mb-4 text-5xl font-bold leading-tight text-white drop-shadow-lg md:text-7xl">
@@ -259,7 +259,7 @@ export function HomePage() {
               >
                 <PlayIcon className="h-5 w-5 fill-current" />
                 <span>
-                  {activeHeroSlide?.primaryCtaLabel || (featuredPrice === 0 ? "Watch Free" : `${t("btn.buy")} - $${featuredPrice}`)}
+                  {activeHeroSlide?.primaryCtaLabel || (featuredPrice === 0 ? t("common.watch_free") : `${t("btn.buy")} - ${featuredPrice} MDL`)}
                 </span>
               </button>
               <button
@@ -267,7 +267,7 @@ export function HomePage() {
                 className="flex items-center space-x-2 rounded-lg bg-white/20 px-8 py-3 font-bold text-white backdrop-blur-md transition-colors hover:bg-white/30"
               >
                 <InfoIcon className="h-5 w-5" />
-                <span>{activeHeroSlide?.secondaryCtaLabel || "More Info"}</span>
+                <span>{activeHeroSlide?.secondaryCtaLabel || t("common.more_info")}</span>
               </button>
             </div>
           </motion.div>
@@ -289,8 +289,8 @@ export function HomePage() {
           <section className="px-4 md:px-8">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-white">Continue Watching</h2>
-                <p className="text-sm text-gray-400">Reia rapid exact de unde ai rămas.</p>
+                <h2 className="text-2xl font-bold text-white">{t("movie.continue_watching")}</h2>
+                <p className="text-sm text-gray-400">{t("movie.continue_hint")}</p>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -309,7 +309,10 @@ export function HomePage() {
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 font-semibold text-white">{item.title}</p>
                       <p className="mt-2 text-xs text-gray-400">
-                        {Math.floor(item.positionSeconds / 60)}m din {Math.max(1, Math.floor(item.durationSeconds / 60))}m
+                        {t("movie.minutes_from_total", {
+                          position: Math.floor(item.positionSeconds / 60),
+                          duration: Math.max(1, Math.floor(item.durationSeconds / 60)),
+                        })}
                       </p>
                       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
                         <div
@@ -338,7 +341,7 @@ export function HomePage() {
           <>
             <Carousel title={t("home.trending")} movies={homeSections.featured.length > 0 ? homeSections.featured : homeSections.movies} />
             <Carousel title={t("home.new")} movies={homeSections.latest} />
-            <Carousel title="Free to Watch" movies={homeSections.freeToWatch} />
+            <Carousel title={t("movie.free_to_watch")} movies={homeSections.freeToWatch} />
             <Carousel title={t("nav.movies")} movies={homeSections.movies} onSeeAll={() => navigate("/search?type=movie")} />
             <Carousel title={t("nav.series")} movies={homeSections.series} onSeeAll={() => navigate("/search?type=series")} />
           </>
