@@ -456,6 +456,15 @@ export function Dashboard() {
                     <p className="text-xs text-muted-foreground">
                       Sold după {formatCurrency(transaction.balance_after, transaction.currency)}
                     </p>
+                    {transaction.funding_source ? (
+                      <p className="text-xs text-muted-foreground">
+                        {transaction.funding_source === "platform"
+                          ? "100% platformă"
+                          : transaction.funding_source === "mixed"
+                            ? `${transaction.platform_percent}% platformă`
+                            : "Bani proprii"}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               ))

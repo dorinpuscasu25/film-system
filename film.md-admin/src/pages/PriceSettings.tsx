@@ -2,18 +2,22 @@ import { useEffect, useState, type ElementType } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DollarSignIcon,
+  GiftIcon,
   HardDriveIcon,
   KeyRoundIcon,
   PencilIcon,
+  PlusIcon,
   RefreshCwIcon,
   SaveIcon,
   TagIcon,
+  TrashIcon,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { adminApi } from "../lib/api";
 import { useAdmin } from "../hooks/useAdmin";
+import { FormField } from "../components/shared/FormField";
 
 interface PriceForm {
   storage_cost_per_gb_day: string;
@@ -36,6 +40,28 @@ const ORIGINAL_DEFAULTS = {
   usd_to_mdl_rate: 17.5,
 };
 
+interface RegistrationCreditCampaignForm {
+  label: string;
+  amount: string;
+  starts_at: string;
+  ends_at: string;
+  enabled: boolean;
+}
+
+interface RegistrationCreditForm {
+  enabled: boolean;
+  default_amount: string;
+  currency: string;
+  campaigns: RegistrationCreditCampaignForm[];
+}
+
+const EMPTY_REGISTRATION_CREDIT_FORM: RegistrationCreditForm = {
+  enabled: true,
+  default_amount: "20",
+  currency: "MDL",
+  campaigns: [],
+};
+
 export function PriceSettings() {
   const { t } = useTranslation();
   const { can } = useAdmin();
@@ -47,11 +73,17 @@ export function PriceSettings() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [registrationCredit, setRegistrationCredit] = useState<RegistrationCreditForm>(EMPTY_REGISTRATION_CREDIT_FORM);
+  const [savingRegistrationCredit, setSavingRegistrationCredit] = useState(false);
+  const [registrationCreditMessage, setRegistrationCreditMessage] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await adminApi.getCostSettings();
+      const [res, platformSettings] = await Promise.all([
+        adminApi.getCostSettings(),
+        adminApi.getPlatformSettings(),
+      ]);
       if (res.current) {
         setForm({
           storage_cost_per_gb_day: String(res.current.storage_cost_per_gb_day ?? ""),
@@ -61,6 +93,7 @@ export function PriceSettings() {
         });
         setSavedAt(res.current.effective_from ?? null);
       }
+      setRegistrationCredit(mapRegistrationCreditSettings(platformSettings.settings.registration_credit));
     } catch {
       setError("Nu s-au putut încărca prețurile.");
     } finally {
@@ -89,6 +122,44 @@ export function PriceSettings() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveRegistrationCredit() {
+    setSavingRegistrationCredit(true);
+    setRegistrationCreditMessage(null);
+    setError(null);
+
+    try {
+      await adminApi.savePlatformSettings({
+        registration_credit: {
+          enabled: registrationCredit.enabled,
+          default_amount: Number(registrationCredit.default_amount || 0),
+          currency: registrationCredit.currency || "MDL",
+          campaigns: registrationCredit.campaigns.map((campaign) => ({
+            label: campaign.label,
+            amount: Number(campaign.amount || 0),
+            starts_at: campaign.starts_at || null,
+            ends_at: campaign.ends_at || null,
+            enabled: campaign.enabled,
+          })),
+        },
+      });
+      setRegistrationCreditMessage("Creditul de înregistrare a fost salvat.");
+      await load();
+    } catch {
+      setError("Nu am putut salva creditul de înregistrare.");
+    } finally {
+      setSavingRegistrationCredit(false);
+    }
+  }
+
+  function updateCampaign(index: number, patch: Partial<RegistrationCreditCampaignForm>) {
+    setRegistrationCredit((current) => ({
+      ...current,
+      campaigns: current.campaigns.map((campaign, campaignIndex) =>
+        campaignIndex === index ? { ...campaign, ...patch } : campaign,
+      ),
+    }));
   }
 
   if (loading) {
@@ -213,8 +284,186 @@ export function PriceSettings() {
           Doar utilizatorii cu permisiunea <code>commerce.manage_costs</code> pot edita prețurile.
         </p>
       ) : null}
+
+      <Card className="w-full">
+        <CardHeader className="gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Credit la înregistrare</CardTitle>
+              <CardDescription>
+                Controlezi suma primită automat de utilizatorii noi și campaniile active pe intervale.
+              </CardDescription>
+            </div>
+            <div className="rounded-md border bg-muted p-2">
+              <GiftIcon className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <FormField
+              label="Activ"
+              type="toggle"
+              checked={registrationCredit.enabled}
+              helperText="Dacă este oprit, utilizatorii noi primesc 0 MDL."
+              disabled={!canEdit}
+              onChange={(event) =>
+                setRegistrationCredit((current) => ({ ...current, enabled: event.target.checked }))
+              }
+            />
+            <FormField
+              label="Sumă implicită"
+              type="number"
+              min="0"
+              step="0.01"
+              value={registrationCredit.default_amount}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setRegistrationCredit((current) => ({ ...current, default_amount: event.target.value }))
+              }
+              helperText="Se aplică în afara campaniilor active."
+            />
+            <FormField
+              label="Valută"
+              value={registrationCredit.currency}
+              disabled
+              helperText="Wallet-ul platformei folosește MDL."
+            />
+          </div>
+
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-medium">Campanii pe perioadă</div>
+                <p className="text-sm text-muted-foreground">
+                  Prima campanie activă care include data înregistrării suprascrie suma implicită.
+                </p>
+              </div>
+              {canEdit ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setRegistrationCredit((current) => ({
+                      ...current,
+                      campaigns: [
+                        ...current.campaigns,
+                        { label: "", amount: "100", starts_at: "", ends_at: "", enabled: true },
+                      ],
+                    }))
+                  }
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  Adaugă campanie
+                </Button>
+              ) : null}
+            </div>
+
+            {registrationCredit.campaigns.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+                Nu există campanii. Se folosește suma implicită.
+              </div>
+            ) : (
+              registrationCredit.campaigns.map((campaign, index) => (
+                <div key={index} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_120px_160px_160px_120px_40px]">
+                  <FormField
+                    label="Nume"
+                    value={campaign.label}
+                    disabled={!canEdit}
+                    onChange={(event) => updateCampaign(index, { label: event.target.value })}
+                  />
+                  <FormField
+                    label="Sumă"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={campaign.amount}
+                    disabled={!canEdit}
+                    onChange={(event) => updateCampaign(index, { amount: event.target.value })}
+                  />
+                  <FormField
+                    label="De la"
+                    type="date"
+                    value={campaign.starts_at}
+                    disabled={!canEdit}
+                    onChange={(event) => updateCampaign(index, { starts_at: event.target.value })}
+                  />
+                  <FormField
+                    label="Până la"
+                    type="date"
+                    value={campaign.ends_at}
+                    disabled={!canEdit}
+                    onChange={(event) => updateCampaign(index, { ends_at: event.target.value })}
+                  />
+                  <FormField
+                    label="Activă"
+                    type="toggle"
+                    checked={campaign.enabled}
+                    disabled={!canEdit}
+                    onChange={(event) => updateCampaign(index, { enabled: event.target.checked })}
+                  />
+                  {canEdit ? (
+                    <div className="flex items-end justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          setRegistrationCredit((current) => ({
+                            ...current,
+                            campaigns: current.campaigns.filter((_, campaignIndex) => campaignIndex !== index),
+                          }))
+                        }
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+
+          {registrationCreditMessage ? (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {registrationCreditMessage}
+            </div>
+          ) : null}
+
+          {canEdit ? (
+            <div className="flex justify-end border-t pt-4">
+              <Button onClick={() => void saveRegistrationCredit()} disabled={savingRegistrationCredit}>
+                <SaveIcon className="h-4 w-4" />
+                {savingRegistrationCredit ? "Se salvează..." : "Salvează creditul"}
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function mapRegistrationCreditSettings(value: unknown): RegistrationCreditForm {
+  const settings = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  const campaigns = Array.isArray(settings.campaigns) ? settings.campaigns : [];
+
+  return {
+    enabled: Boolean(settings.enabled ?? EMPTY_REGISTRATION_CREDIT_FORM.enabled),
+    default_amount: String(settings.default_amount ?? EMPTY_REGISTRATION_CREDIT_FORM.default_amount),
+    currency: String(settings.currency ?? EMPTY_REGISTRATION_CREDIT_FORM.currency),
+    campaigns: campaigns.map((item) => {
+      const campaign = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+
+      return {
+        label: String(campaign.label ?? ""),
+        amount: String(campaign.amount ?? "0"),
+        starts_at: String(campaign.starts_at ?? ""),
+        ends_at: String(campaign.ends_at ?? ""),
+        enabled: Boolean(campaign.enabled ?? true),
+      };
+    }),
+  };
 }
 
 interface PriceCardProps {

@@ -21,7 +21,7 @@ final class MediaUploadService
         'image/svg+xml',
     ];
 
-    private const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+    private const MAX_FILE_SIZE_BYTES = 256 * 1024 * 1024; // 256 MB
 
     /**
      * Upload a file to Cloudflare R2 and return its public CDN URL.

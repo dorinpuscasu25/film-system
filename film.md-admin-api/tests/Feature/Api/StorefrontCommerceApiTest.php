@@ -4,8 +4,11 @@ namespace Tests\Feature\Api;
 
 use App\Models\Offer;
 use App\Models\PersonalAccessToken;
+use App\Models\PlatformSetting;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\WalletTransaction;
+use App\Services\RegistrationCreditService;
 use App\Services\AccountProfileService;
 use App\Services\WalletService;
 use Database\Seeders\AccessControlSeeder;
@@ -35,7 +38,36 @@ class StorefrontCommerceApiTest extends TestCase
 
         $this->assertDatabaseHas('wallets', [
             'user_id' => $user->id,
-            'currency' => 'USD',
+            'currency' => 'MDL',
+            'balance_amount' => 20.00,
+        ]);
+
+        $this->assertDatabaseHas('wallet_transactions', [
+            'user_id' => $user->id,
+            'type' => 'welcome_bonus',
+            'amount' => 20.00,
+        ]);
+    }
+
+    public function test_registration_credit_campaign_can_override_default_amount(): void
+    {
+        PlatformSetting::setValue(RegistrationCreditService::SETTINGS_KEY, [
+            'enabled' => true,
+            'default_amount' => 20,
+            'campaigns' => [[
+                'label' => 'Mai promo',
+                'amount' => 100,
+                'starts_at' => now()->subDay()->toDateString(),
+                'ends_at' => now()->addDay()->toDateString(),
+                'enabled' => true,
+            ]],
+        ]);
+
+        $user = $this->createActiveViewer('campaign@example.com');
+
+        $this->assertDatabaseHas('wallets', [
+            'user_id' => $user->id,
+            'currency' => 'MDL',
             'balance_amount' => 100.00,
         ]);
 
@@ -54,7 +86,7 @@ class StorefrontCommerceApiTest extends TestCase
             'Authorization' => 'Bearer '.$token,
         ])
             ->assertOk()
-            ->assertJsonPath('wallet.balance_amount', 100)
+            ->assertJsonPath('wallet.balance_amount', 20)
             ->assertJsonCount(1, 'transactions')
             ->assertJsonCount(0, 'library');
     }
@@ -73,7 +105,7 @@ class StorefrontCommerceApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('already_owned', false)
-            ->assertJsonPath('wallet.balance_amount', 96.01)
+            ->assertJsonPath('wallet.balance_amount', 16.01)
             ->assertJsonPath('library_item.content_slug', 'teambuilding')
             ->assertJsonPath('library_item.quality', 'HD');
 
@@ -92,6 +124,57 @@ class StorefrontCommerceApiTest extends TestCase
         ]);
     }
 
+    public function test_purchase_records_platform_and_own_money_breakdown(): void
+    {
+        PlatformSetting::setValue(RegistrationCreditService::SETTINGS_KEY, [
+            'enabled' => true,
+            'default_amount' => 60,
+            'campaigns' => [],
+        ]);
+
+        $token = $this->registerViewerAndReturnToken(email: 'mixed-buyer@example.com');
+        $user = User::query()->where('email', 'mixed-buyer@example.com')->firstOrFail();
+        $wallet = $user->wallet()->firstOrFail();
+        app(WalletService::class)->credit($wallet, 20, WalletTransaction::TYPE_TOP_UP, 'Manual top-up for test');
+
+        $offer = Offer::query()
+            ->where('name', '2 days HD')
+            ->whereHas('content', fn ($query) => $query->where('slug', 'teambuilding'))
+            ->firstOrFail();
+        $offer->forceFill(['price_amount' => 70])->save();
+
+        $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase?locale=en", [], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertOk()
+            ->assertJsonPath('wallet.balance_amount', 10)
+            ->assertJsonPath('transaction.meta.funding_source', 'mixed')
+            ->assertJsonPath('transaction.meta.platform_amount', 60)
+            ->assertJsonPath('transaction.meta.own_amount', 10)
+            ->assertJsonPath('transaction.meta.platform_percent', 85.71);
+    }
+
+    public function test_billing_excel_export_includes_funding_breakdown_columns(): void
+    {
+        $admin = User::query()->where('email', 'admin@filmoteca.md')->firstOrFail();
+        [, $token] = PersonalAccessToken::issue($admin, 'test-admin');
+
+        $this->createActiveViewer('export-buyer@example.com');
+
+        $response = $this->postJson('/api/v1/admin/exports', [
+            'format' => 'excel',
+            'scope' => 'billing',
+            'filters' => ['range' => '30days'],
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('job.status', 'completed')
+            ->assertJsonPath('job.meta.mime_type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
     public function test_playback_for_paid_title_requires_access_and_returns_offer_url_after_purchase(): void
     {
         $token = $this->registerViewerAndReturnToken();
@@ -99,6 +182,15 @@ class StorefrontCommerceApiTest extends TestCase
             ->where('name', 'Forever Full HD')
             ->whereHas('content', fn ($query) => $query->where('slug', 'carbon'))
             ->firstOrFail();
+        $offer->content->formats()->create([
+            'quality' => 'Full HD',
+            'format_type' => 'main',
+            'bunny_library_id' => '123',
+            'bunny_video_id' => 'carbon-fullhd',
+            'stream_url' => 'https://storage.filmoteca.md/playback/carbon-fullhd.mp4',
+            'is_active' => true,
+            'is_default' => true,
+        ]);
 
         $this->getJson('/api/v1/storefront/content/carbon/playback?locale=ro', [
             'Authorization' => 'Bearer '.$token,
@@ -123,6 +215,14 @@ class StorefrontCommerceApiTest extends TestCase
             ->where('name', '7 days HD')
             ->whereHas('content', fn ($query) => $query->where('slug', 'hackerville'))
             ->firstOrFail();
+        $offer->content->formats()->create([
+            'quality' => 'HD',
+            'format_type' => 'main',
+            'bunny_library_id' => '123',
+            'bunny_video_id' => 'hackerville-hd',
+            'is_active' => true,
+            'is_default' => true,
+        ]);
 
         $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase", [], [
             'Authorization' => 'Bearer '.$token,

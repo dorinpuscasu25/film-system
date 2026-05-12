@@ -57,10 +57,14 @@ class ApiController extends Controller
 
     protected function walletSummaryData(Wallet $wallet): array
     {
+        $meta = $wallet->meta ?? [];
+
         return [
             'id' => $wallet->id,
             'currency' => $wallet->currency,
             'balance_amount' => round((float) $wallet->balance_amount, 2),
+            'platform_credit_balance' => round((float) ($meta['platform_credit_balance'] ?? 0), 2),
+            'own_credit_balance' => round((float) ($meta['own_credit_balance'] ?? 0), 2),
             'created_at' => $wallet->created_at?->toIso8601String(),
             'updated_at' => $wallet->updated_at?->toIso8601String(),
         ];

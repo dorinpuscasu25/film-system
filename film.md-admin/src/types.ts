@@ -126,6 +126,10 @@ export interface DashboardTransaction {
   balance_after: number;
   currency: string;
   description: string | null;
+  platform_amount: number;
+  own_amount: number;
+  platform_percent: number;
+  funding_source: string | null;
   processed_at: string | null;
   user: DashboardTransactionUser;
   content: DashboardTransactionContent | null;
@@ -750,6 +754,7 @@ export interface AdminRightsWindow {
   content_format_id: number | null;
   content_format_quality: string | null;
   country_code: string | null;
+  country_codes?: string[];
   is_allowed: boolean;
   starts_at: string | null;
   ends_at: string | null;
@@ -1058,6 +1063,7 @@ export interface ContentPayload {
     id?: number;
     content_format_quality?: string | null;
     country_code?: string | null;
+    country_codes?: string[];
     is_allowed?: boolean;
     starts_at?: string | null;
     ends_at?: string | null;

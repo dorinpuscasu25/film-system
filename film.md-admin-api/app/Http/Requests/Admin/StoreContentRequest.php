@@ -92,6 +92,8 @@ class StoreContentRequest extends FormRequest
             'rights_windows.*.id' => ['nullable', 'integer'],
             'rights_windows.*.content_format_quality' => ['nullable', Rule::in(Content::availableQualities())],
             'rights_windows.*.country_code' => ['nullable', Rule::in(array_keys(Content::countryOptions()))],
+            'rights_windows.*.country_codes' => ['nullable', 'array'],
+            'rights_windows.*.country_codes.*' => ['nullable', Rule::in(array_keys(Content::countryOptions()))],
             'rights_windows.*.is_allowed' => ['sometimes', 'boolean'],
             'rights_windows.*.starts_at' => ['nullable', 'date'],
             'rights_windows.*.ends_at' => ['nullable', 'date', 'after:rights_windows.*.starts_at'],
@@ -312,16 +314,29 @@ class StoreContentRequest extends FormRequest
     protected function normalizeRightsWindows(): array
     {
         return collect($this->input('rights_windows', []))
-            ->map(function (mixed $item): array {
-                return [
-                    'id' => data_get($item, 'id'),
-                    'content_format_quality' => $this->filledArrayValue($item, 'content_format_quality'),
-                    'country_code' => $this->filledArrayValue($item, 'country_code'),
-                    'is_allowed' => filter_var(data_get($item, 'is_allowed', true), FILTER_VALIDATE_BOOL),
-                    'starts_at' => $this->filledArrayValue($item, 'starts_at'),
-                    'ends_at' => $this->filledArrayValue($item, 'ends_at'),
-                    'meta' => data_get($item, 'meta', []),
-                ];
+            ->flatMap(function (mixed $item): array {
+                $countryCodes = collect(data_get($item, 'country_codes', []))
+                    ->map(fn (mixed $countryCode): string => strtoupper(trim((string) $countryCode)))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                if ($countryCodes->isEmpty()) {
+                    $countryCode = $this->filledArrayValue($item, 'country_code');
+                    $countryCodes = collect([$countryCode !== null ? strtoupper($countryCode) : null]);
+                }
+
+                return $countryCodes
+                    ->map(fn (?string $countryCode): array => [
+                        'id' => data_get($item, 'id'),
+                        'content_format_quality' => $this->filledArrayValue($item, 'content_format_quality'),
+                        'country_code' => $countryCode,
+                        'is_allowed' => filter_var(data_get($item, 'is_allowed', true), FILTER_VALIDATE_BOOL),
+                        'starts_at' => $this->filledArrayValue($item, 'starts_at'),
+                        'ends_at' => $this->filledArrayValue($item, 'ends_at'),
+                        'meta' => data_get($item, 'meta', []),
+                    ])
+                    ->all();
             })
             ->filter(fn (array $item): bool => $item['country_code'] !== null || $item['content_format_quality'] !== null)
             ->values()

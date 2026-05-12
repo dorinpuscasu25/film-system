@@ -366,6 +366,10 @@ class DashboardController extends ApiController
             'balance_after' => round((float) $transaction->balance_after, 2),
             'currency' => $transaction->currency,
             'description' => $transaction->description,
+            'platform_amount' => round((float) data_get($transaction->meta ?? [], 'platform_amount', 0), 2),
+            'own_amount' => round((float) data_get($transaction->meta ?? [], 'own_amount', 0), 2),
+            'platform_percent' => round((float) data_get($transaction->meta ?? [], 'platform_percent', 0), 2),
+            'funding_source' => data_get($transaction->meta ?? [], 'funding_source'),
             'processed_at' => $transaction->processed_at?->toIso8601String(),
             'user' => [
                 'id' => $transaction->user?->id,

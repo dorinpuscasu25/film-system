@@ -115,7 +115,7 @@ type RightsWindowFormState = {
   local_id: string;
   id?: number;
   content_format_quality: string;
-  country_code: string;
+  country_codes: string[];
   is_allowed: boolean;
   starts_at: string;
   ends_at: string;
@@ -358,7 +358,7 @@ function mapRightsWindowToForm(item: AdminRightsWindow): RightsWindowFormState {
     local_id: `rights-${item.id}`,
     id: item.id,
     content_format_quality: item.content_format_quality ?? "",
-    country_code: item.country_code ?? "",
+    country_codes: item.country_codes ?? (item.country_code ? [item.country_code] : []),
     is_allowed: item.is_allowed,
     starts_at: item.starts_at ? item.starts_at.slice(0, 10) : "",
     ends_at: item.ends_at ? item.ends_at.slice(0, 10) : "",
@@ -369,7 +369,7 @@ function createEmptyRightsWindow(): RightsWindowFormState {
   return {
     local_id: crypto.randomUUID(),
     content_format_quality: "",
-    country_code: "",
+    country_codes: [],
     is_allowed: true,
     starts_at: "",
     ends_at: "",
@@ -850,7 +850,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     );
   }
 
-  function updateRightsWindowDraft(localId: string, field: keyof RightsWindowFormState, value: string | boolean) {
+  function updateRightsWindowDraft(localId: string, field: keyof RightsWindowFormState, value: string | string[] | boolean) {
     setRightsWindowDrafts((current) =>
       current.map((item) => (item.local_id === localId ? { ...item, [field]: value } : item)),
     );
@@ -1190,11 +1190,12 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           meta: {},
         })),
       rights_windows: rightsWindowDrafts
-        .filter((item) => item.country_code.trim() || item.content_format_quality.trim())
+        .filter((item) => item.country_codes.length > 0 || item.content_format_quality.trim())
         .map((item) => ({
           id: item.id,
           content_format_quality: item.content_format_quality.trim() || null,
-          country_code: item.country_code.trim() || null,
+          country_codes: item.country_codes,
+          country_code: item.country_codes.length === 1 ? item.country_codes[0] : null,
           is_allowed: item.is_allowed,
           starts_at: item.starts_at || null,
           ends_at: item.ends_at || null,
@@ -2133,11 +2134,20 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     onChange={(event) => updateRightsWindowDraft(item.local_id, "content_format_quality", event.target.value)}
                   />
                   <FormField
-                    label="Țară"
+                    label="Țări"
                     type="select"
-                    value={item.country_code}
-                    options={[{ label: "Global", value: "" }, ...options.countries]}
-                    onChange={(event) => updateRightsWindowDraft(item.local_id, "country_code", event.target.value)}
+                    multiple
+                    value={item.country_codes}
+                    options={options.countries}
+                    helperText="Ține Ctrl/Cmd pentru mai multe țări. Lasă gol pentru regulă globală."
+                    className="xl:col-span-2"
+                    onChange={(event) =>
+                      updateRightsWindowDraft(
+                        item.local_id,
+                        "country_codes",
+                        Array.from(event.target.selectedOptions).map((option) => option.value),
+                      )
+                    }
                   />
                   <FormField
                     label="Permite acces"

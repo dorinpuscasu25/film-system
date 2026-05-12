@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\ApiController;
 use App\Models\PlatformSetting;
 use App\Services\AuditLogService;
+use App\Services\RegistrationCreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,10 +25,12 @@ class PlatformSettingsController extends ApiController
         'newsletter_provider',
         'mpay_merchant_id',
         'social_links',
+        RegistrationCreditService::SETTINGS_KEY,
     ];
 
     public function __construct(
         protected AuditLogService $auditLog,
+        protected RegistrationCreditService $registrationCredit,
     ) {}
 
     public function index(): JsonResponse
@@ -35,7 +38,9 @@ class PlatformSettingsController extends ApiController
         $settings = PlatformSetting::query()->whereIn('key', self::KNOWN_KEYS)->get()->keyBy('key');
         $out = [];
         foreach (self::KNOWN_KEYS as $key) {
-            $out[$key] = $settings->get($key)?->value;
+            $out[$key] = $key === RegistrationCreditService::SETTINGS_KEY
+                ? $this->registrationCredit->normalizeSettings($settings->get($key)?->value ?? [])
+                : $settings->get($key)?->value;
         }
 
         return response()->json(['settings' => $out]);
@@ -50,6 +55,9 @@ class PlatformSettingsController extends ApiController
         foreach ($data['settings'] as $key => $value) {
             if (! in_array($key, self::KNOWN_KEYS, true)) {
                 continue;
+            }
+            if ($key === RegistrationCreditService::SETTINGS_KEY) {
+                $value = $this->registrationCredit->normalizeSettings(is_array($value) ? $value : []);
             }
             PlatformSetting::setValue($key, $value);
         }

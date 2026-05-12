@@ -47,7 +47,7 @@ class ExportController extends ApiController
     public function store(Request $request): JsonResponse
     {
         $payload = $request->validate([
-            'format' => ['required', 'string', 'in:pdf,xlsx,csv'],
+            'format' => ['required', 'string', 'in:pdf,xlsx,csv,excel,json'],
             'scope' => ['required', 'string', 'max:32'],
             'filters' => ['nullable', 'array'],
         ]);
@@ -55,7 +55,7 @@ class ExportController extends ApiController
         // Excel/CSV restricted to admins (`exports.manage`).
         // PDF is broader — any user with `commerce.view_billing` (admin + creators).
         $user = $request->user();
-        if (in_array($payload['format'], ['xlsx', 'csv'], true) && ! $user?->hasPermission('exports.manage')) {
+        if (in_array($payload['format'], ['xlsx', 'excel', 'csv', 'json'], true) && ! $user?->hasPermission('exports.manage')) {
             return response()->json([
                 'message' => 'Doar administratorii pot exporta date editabile (Excel/CSV). Creators pot exporta în format PDF.',
             ], Response::HTTP_FORBIDDEN);

@@ -77,8 +77,10 @@ class StorefrontPurchaseService
                     sprintf('Purchase access for %s', $content->original_title),
                     [
                         'content_id' => $content->id,
+                        'content_title' => $content->original_title,
                         'content_slug' => $content->slug,
                         'offer_id' => $lockedOffer->id,
+                        'offer_name' => $lockedOffer->name,
                         'quality' => $lockedOffer->quality,
                         'offer_type' => $lockedOffer->offer_type,
                     ],
@@ -92,8 +94,10 @@ class StorefrontPurchaseService
                     sprintf('Claim free access for %s', $content->original_title),
                     [
                         'content_id' => $content->id,
+                        'content_title' => $content->original_title,
                         'content_slug' => $content->slug,
                         'offer_id' => $lockedOffer->id,
+                        'offer_name' => $lockedOffer->name,
                         'quality' => $lockedOffer->quality,
                         'offer_type' => $lockedOffer->offer_type,
                         'is_free_claim' => true,

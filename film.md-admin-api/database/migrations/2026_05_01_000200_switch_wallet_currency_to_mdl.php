@@ -23,21 +23,25 @@ return new class extends Migration
             ->where('currency', 'USD')
             ->update(['currency' => 'MDL']);
 
-        DB::statement("ALTER TABLE contents ALTER COLUMN currency SET DEFAULT 'MDL'");
-        DB::statement("ALTER TABLE offers ALTER COLUMN currency SET DEFAULT 'MDL'");
-        DB::statement("ALTER TABLE wallets ALTER COLUMN currency SET DEFAULT 'MDL'");
-        DB::statement("ALTER TABLE wallet_transactions ALTER COLUMN currency SET DEFAULT 'MDL'");
-        DB::statement("ALTER TABLE content_entitlements ALTER COLUMN currency SET DEFAULT 'MDL'");
-        DB::statement("ALTER TABLE payment_top_ups ALTER COLUMN currency SET DEFAULT 'MDL'");
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE contents ALTER COLUMN currency SET DEFAULT 'MDL'");
+            DB::statement("ALTER TABLE offers ALTER COLUMN currency SET DEFAULT 'MDL'");
+            DB::statement("ALTER TABLE wallets ALTER COLUMN currency SET DEFAULT 'MDL'");
+            DB::statement("ALTER TABLE wallet_transactions ALTER COLUMN currency SET DEFAULT 'MDL'");
+            DB::statement("ALTER TABLE content_entitlements ALTER COLUMN currency SET DEFAULT 'MDL'");
+            DB::statement("ALTER TABLE payment_top_ups ALTER COLUMN currency SET DEFAULT 'MDL'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE contents ALTER COLUMN currency SET DEFAULT 'USD'");
-        DB::statement("ALTER TABLE offers ALTER COLUMN currency SET DEFAULT 'USD'");
-        DB::statement("ALTER TABLE wallets ALTER COLUMN currency SET DEFAULT 'USD'");
-        DB::statement("ALTER TABLE wallet_transactions ALTER COLUMN currency SET DEFAULT 'USD'");
-        DB::statement("ALTER TABLE content_entitlements ALTER COLUMN currency SET DEFAULT 'USD'");
-        DB::statement("ALTER TABLE payment_top_ups ALTER COLUMN currency SET DEFAULT 'USD'");
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE contents ALTER COLUMN currency SET DEFAULT 'USD'");
+            DB::statement("ALTER TABLE offers ALTER COLUMN currency SET DEFAULT 'USD'");
+            DB::statement("ALTER TABLE wallets ALTER COLUMN currency SET DEFAULT 'USD'");
+            DB::statement("ALTER TABLE wallet_transactions ALTER COLUMN currency SET DEFAULT 'USD'");
+            DB::statement("ALTER TABLE content_entitlements ALTER COLUMN currency SET DEFAULT 'USD'");
+            DB::statement("ALTER TABLE payment_top_ups ALTER COLUMN currency SET DEFAULT 'USD'");
+        }
     }
 };

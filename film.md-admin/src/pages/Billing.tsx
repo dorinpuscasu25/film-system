@@ -462,6 +462,7 @@ export function Billing() {
                   <TableHead>Conținut</TableHead>
                   <TableHead>Ofertă</TableHead>
                   <TableHead>Sumă</TableHead>
+                  <TableHead>Sursă bani</TableHead>
                   <TableHead>Când</TableHead>
                 </TableRow>
               </TableHeader>
@@ -502,12 +503,31 @@ export function Billing() {
                           </p>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <div className="space-y-1 text-sm">
+                          <p className="font-medium">
+                            {transaction.funding_source === "platform"
+                              ? "100% platformă"
+                              : transaction.funding_source === "mixed"
+                                ? `${transaction.platform_percent}% platformă`
+                                : transaction.funding_source === "own"
+                                  ? "Bani proprii"
+                                  : "N/A"}
+                          </p>
+                          {transaction.platform_amount || transaction.own_amount ? (
+                            <p className="text-xs text-muted-foreground">
+                              Platformă {formatCurrency(transaction.platform_amount, transaction.currency)} · Proprii{" "}
+                              {formatCurrency(transaction.own_amount, transaction.currency)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{formatDate(transaction.processed_at)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                       {isLoading ? "Se încarcă tranzacțiile..." : "Nu există tranzacții pentru filtrele curente."}
                     </TableCell>
                   </TableRow>

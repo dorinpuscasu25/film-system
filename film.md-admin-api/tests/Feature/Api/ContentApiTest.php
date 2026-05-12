@@ -47,7 +47,7 @@ class ContentApiTest extends TestCase
     {
         $genre = Taxonomy::query()->where('slug', 'drama')->firstOrFail();
         $badge = Taxonomy::query()->where('slug', 'editor-choice')->firstOrFail();
-        $imageData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z4n8AAAAASUVORK5CYII=';
+        $imageUrl = 'https://example.com/image.png';
 
         $response = $this->postJson('/api/v1/admin/content', [
             'type' => Content::TYPE_MOVIE,
@@ -94,13 +94,13 @@ class ContentApiTest extends TestCase
             'country_code' => 'MD',
             'runtime_minutes' => 85,
             'age_rating' => '12+',
-            'poster_url' => $imageData,
+            'poster_url' => $imageUrl,
             'backdrop_url' => 'https://example.com/backdrop.jpg',
-            'hero_desktop_url' => $imageData,
+            'hero_desktop_url' => $imageUrl,
             'hero_mobile_url' => 'https://example.com/hero-mobile.jpg',
             'trailer_url' => 'https://example.com/trailer.mp4',
             'preview_images' => [
-                $imageData,
+                $imageUrl,
                 'https://example.com/preview-2.jpg',
             ],
             'cast_members' => [[
@@ -111,7 +111,7 @@ class ContentApiTest extends TestCase
                     'ru' => 'Милика',
                     'en' => 'Milika',
                 ],
-                'avatar_url' => $imageData,
+                'avatar_url' => $imageUrl,
             ]],
             'crew_members' => [[
                 'name' => 'Ion Test',
@@ -136,7 +136,7 @@ class ContentApiTest extends TestCase
                     'en' => 'Trailer description',
                 ],
                 'video_url' => 'https://example.com/trailer-main.mp4',
-                'thumbnail_url' => $imageData,
+                'thumbnail_url' => $imageUrl,
                 'is_primary' => true,
             ]],
             'subtitle_locales' => ['ro', 'en'],
@@ -180,6 +180,33 @@ class ContentApiTest extends TestCase
 
         $this->assertDatabaseMissing('contents', [
             'id' => $content->id,
+        ]);
+    }
+
+    public function test_admin_can_create_availability_window_for_multiple_countries(): void
+    {
+        $content = Content::query()->where('slug', 'carbon')->firstOrFail();
+
+        $this->postJson("/api/v1/admin/content/{$content->id}/availability", [
+            'country_codes' => ['RO', 'MD'],
+            'is_allowed' => false,
+            'starts_at' => now()->toDateString(),
+            'ends_at' => now()->addMonth()->toDateString(),
+        ], [
+            'Authorization' => 'Bearer '.$this->token,
+        ])
+            ->assertCreated()
+            ->assertJsonCount(2, 'windows');
+
+        $this->assertDatabaseHas('content_rights_windows', [
+            'content_id' => $content->id,
+            'country_code' => 'RO',
+            'is_allowed' => false,
+        ]);
+        $this->assertDatabaseHas('content_rights_windows', [
+            'content_id' => $content->id,
+            'country_code' => 'MD',
+            'is_allowed' => false,
         ]);
     }
 }

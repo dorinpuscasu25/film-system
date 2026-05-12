@@ -54,26 +54,41 @@ class AvailabilityWindowController extends ApiController
         $payload = $request->validate([
             'content_format_id' => ['nullable', 'integer'],
             'country_code' => ['nullable', 'string', 'max:5'],
+            'country_codes' => ['nullable', 'array'],
+            'country_codes.*' => ['nullable', 'string', 'max:5'],
             'is_allowed' => ['sometimes', 'boolean'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after:starts_at'],
         ]);
 
-        $window = ContentRightsWindow::query()->create([
+        $countryCodes = collect($payload['country_codes'] ?? [])
+            ->map(fn (mixed $countryCode): string => strtoupper(trim((string) $countryCode)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($countryCodes->isEmpty()) {
+            $countryCodes = collect([isset($payload['country_code']) ? strtoupper($payload['country_code']) : null]);
+        }
+
+        $windows = $countryCodes->map(fn (?string $countryCode) => ContentRightsWindow::query()->create([
             'content_id' => $content->id,
             'content_format_id' => $payload['content_format_id'] ?? null,
-            'country_code' => isset($payload['country_code']) ? strtoupper($payload['country_code']) : null,
+            'country_code' => $countryCode,
             'is_allowed' => $payload['is_allowed'] ?? true,
             'starts_at' => $payload['starts_at'] ?? null,
             'ends_at' => $payload['ends_at'] ?? null,
-        ]);
+        ]));
 
-        $this->auditLog->record('availability_window.created', 'content_rights_window', $window->id, [
+        $this->auditLog->record('availability_window.created', 'content_rights_window', $windows->first()?->id, [
             'content_id' => $content->id,
-            'country_code' => $window->country_code,
+            'country_codes' => $windows->pluck('country_code')->values()->all(),
         ], $request->user(), $request);
 
-        return response()->json(['window' => $window], Response::HTTP_CREATED);
+        return response()->json([
+            'window' => $windows->first(),
+            'windows' => $windows->values(),
+        ], Response::HTTP_CREATED);
     }
 
     public function update(Request $request, Content $content, ContentRightsWindow $window): JsonResponse

@@ -131,6 +131,10 @@ class ExportGenerationService
                 'offer_type' => Arr::get($transaction->meta ?? [], 'offer_type'),
                 'quality' => Arr::get($transaction->meta ?? [], 'quality'),
                 'amount' => round((float) $transaction->amount, 2),
+                'platform_money_amount' => round((float) Arr::get($transaction->meta ?? [], 'platform_amount', 0), 2),
+                'own_money_amount' => round((float) Arr::get($transaction->meta ?? [], 'own_amount', 0), 2),
+                'platform_money_percent' => round((float) Arr::get($transaction->meta ?? [], 'platform_percent', 0), 2),
+                'funding_source' => Arr::get($transaction->meta ?? [], 'funding_source'),
                 'currency' => $transaction->currency,
                 'description' => $transaction->description,
             ]);
@@ -164,10 +168,12 @@ class ExportGenerationService
             ]);
         }
 
+        $isExcel = in_array($job->format, ['excel', 'xlsx'], true);
+
         return [
-            $this->toCsv($rows),
-            'csv',
-            'text/csv',
+            $isExcel ? $this->toXlsx($rows) : $this->toCsv($rows),
+            $isExcel ? 'xlsx' : 'csv',
+            $isExcel ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv',
             [
                 'row_count' => $rows->count(),
                 'range' => $range['value'],
@@ -377,6 +383,133 @@ class ExportGenerationService
         }
 
         return is_scalar($value) ? $value : '';
+    }
+
+    protected function toXlsx(Collection $rows): string
+    {
+        $headers = $rows->isEmpty()
+            ? ['section', 'message']
+            : $rows->flatMap(fn (array $row) => array_keys($row))->unique()->values()->all();
+        $sheetRows = $rows->isEmpty()
+            ? collect([['section' => 'empty', 'message' => 'No rows available']])
+            : $rows;
+        $sheetData = [];
+        $sheetData[] = $headers;
+
+        foreach ($sheetRows as $row) {
+            $sheetData[] = array_map(fn (string $header) => $row[$header] ?? null, $headers);
+        }
+
+        $zip = new \ZipArchive();
+        $tmp = tempnam(sys_get_temp_dir(), 'billing-xlsx-');
+
+        if ($tmp === false || $zip->open($tmp, \ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('Could not create Excel export.');
+        }
+
+        $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypes());
+        $zip->addFromString('_rels/.rels', $this->xlsxRootRels());
+        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbook());
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $this->xlsxWorkbookRels());
+        $zip->addFromString('xl/styles.xml', $this->xlsxStyles());
+        $zip->addFromString('xl/worksheets/sheet1.xml', $this->xlsxSheet($sheetData));
+        $zip->close();
+
+        $contents = file_get_contents($tmp);
+        @unlink($tmp);
+
+        if ($contents === false) {
+            throw new \RuntimeException('Could not read Excel export.');
+        }
+
+        return $contents;
+    }
+
+    protected function xlsxSheet(array $rows): string
+    {
+        $xmlRows = collect($rows)
+            ->map(function (array $row, int $rowIndex): string {
+                $cells = collect(array_values($row))
+                    ->map(function (mixed $value, int $columnIndex) use ($rowIndex): string {
+                        $cell = $this->xlsxColumnName($columnIndex + 1) . ($rowIndex + 1);
+
+                        if (is_numeric($value)) {
+                            return sprintf('<c r="%s"><v>%s</v></c>', $cell, htmlspecialchars((string) $value, ENT_XML1));
+                        }
+
+                        return sprintf(
+                            '<c r="%s" t="inlineStr"><is><t>%s</t></is></c>',
+                            $cell,
+                            htmlspecialchars((string) $this->csvValue($value), ENT_XML1),
+                        );
+                    })
+                    ->implode('');
+
+                return sprintf('<row r="%d">%s</row>', $rowIndex + 1, $cells);
+            })
+            ->implode('');
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<sheetData>'.$xmlRows.'</sheetData>'
+            . '</worksheet>';
+    }
+
+    protected function xlsxColumnName(int $column): string
+    {
+        $name = '';
+
+        while ($column > 0) {
+            $column--;
+            $name = chr(65 + ($column % 26)) . $name;
+            $column = intdiv($column, 26);
+        }
+
+        return $name;
+    }
+
+    protected function xlsxContentTypes(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            . '</Types>';
+    }
+
+    protected function xlsxRootRels(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            . '</Relationships>';
+    }
+
+    protected function xlsxWorkbook(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheets><sheet name="Billing" sheetId="1" r:id="rId1"/></sheets>'
+            . '</workbook>';
+    }
+
+    protected function xlsxWorkbookRels(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            . '</Relationships>';
+    }
+
+    protected function xlsxStyles(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
+        ;
     }
 
     protected function toSimplePdf(array $lines): string

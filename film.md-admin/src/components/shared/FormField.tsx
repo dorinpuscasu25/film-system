@@ -54,7 +54,8 @@ export function FormField({
         <select
           id={fieldId}
           className={cn(
-            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            props.multiple ? "min-h-32" : "h-10",
             error ? "border-destructive focus-visible:ring-destructive/30" : "",
           )}
           {...(props as React.SelectHTMLAttributes<HTMLSelectElement>)}
@@ -73,6 +74,7 @@ export function FormField({
           </div>
           <Switch
             checked={Boolean(props.checked)}
+            disabled={Boolean(props.disabled)}
             onCheckedChange={(checked) => {
               if (props.onChange) {
                 const event = {

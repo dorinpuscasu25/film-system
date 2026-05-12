@@ -27,9 +27,9 @@ class UploadController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['nullable', 'file', 'max:10240'],
+            'file' => ['nullable', 'file', 'max:262144'],
             'files' => ['nullable', 'array', 'max:20'],
-            'files.*' => ['file', 'max:10240'],
+            'files.*' => ['file', 'max:262144'],
             'directory' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\-\/]+$/'],
         ]);
 

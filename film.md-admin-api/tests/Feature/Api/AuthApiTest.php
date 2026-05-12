@@ -74,7 +74,7 @@ class AuthApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('user.email', 'viewer@example.com')
             ->assertJsonPath('user.roles.0.name', 'Viewer')
-            ->assertJsonPath('user.wallet.balance_amount', 100)
+            ->assertJsonPath('user.wallet.balance_amount', 20)
             ->assertJsonCount(1, 'user.profiles');
 
         $this->assertDatabaseHas('users', [
