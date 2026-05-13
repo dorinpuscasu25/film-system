@@ -10,6 +10,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -68,11 +69,32 @@ class PayFilmotecaPaymentService
             'raw_request' => $providerPayload,
         ]);
 
+        Log::info('PayFilmoteca payment request starting', [
+            'top_up_uuid' => $topUp->uuid,
+            'user_id' => $user->id,
+            'wallet_id' => $wallet->id,
+            'subscriber_id' => $subscriberId,
+            'amount' => $amount,
+            'currency' => $currency,
+            'provider_url' => rtrim((string) config('services.pay_filmoteca.base_url'), '/').'/payment-request',
+            'callback_url' => $callbackUrl,
+            'success_url' => $successUrl,
+            'failed_url' => $failedUrl,
+            'client_ip_addr' => $providerPayload['client_ip_addr'],
+            'lang' => $providerPayload['lang'],
+        ]);
+
         try {
             $response = $this->providerPost('payment-request', $providerPayload);
             $rawResponse = $this->responsePayload($response);
 
             if ($response->failed()) {
+                Log::warning('PayFilmoteca payment request rejected by provider', [
+                    'top_up_uuid' => $topUp->uuid,
+                    'http_status' => $response->status(),
+                    'provider_response' => $rawResponse,
+                ]);
+
                 $topUp->update([
                     'status' => PaymentTopUp::STATUS_FAILED,
                     'raw_response' => $rawResponse,
@@ -91,6 +113,13 @@ class PayFilmotecaPaymentService
                 : null;
 
             if ($paymentUrl === null) {
+                Log::warning('PayFilmoteca payment request missing redirect URL', [
+                    'top_up_uuid' => $topUp->uuid,
+                    'http_status' => $response->status(),
+                    'provider_order_id' => $orderId,
+                    'provider_response' => $rawResponse,
+                ]);
+
                 $topUp->update([
                     'status' => PaymentTopUp::STATUS_FAILED,
                     'raw_response' => $rawResponse,
@@ -112,10 +141,26 @@ class PayFilmotecaPaymentService
                 'raw_response' => $rawResponse,
             ]);
 
+            Log::info('PayFilmoteca payment redirect created', [
+                'top_up_uuid' => $topUp->uuid,
+                'provider_order_id' => $orderId,
+                'http_status' => $response->status(),
+                'payment_url' => $paymentUrl,
+            ]);
+
             return $topUp->fresh();
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (\Throwable $exception) {
+            Log::error('PayFilmoteca payment request failed with exception', [
+                'top_up_uuid' => $topUp->uuid,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+                'exception_file' => $exception->getFile(),
+                'exception_line' => $exception->getLine(),
+                'exception' => $exception,
+            ]);
+
             $topUp->update([
                 'status' => PaymentTopUp::STATUS_FAILED,
                 'provider_status' => 'request_error',
@@ -573,13 +618,25 @@ class PayFilmotecaPaymentService
     protected function ensureConfigured(): void
     {
         $config = $this->config();
+        $missingKeys = [];
 
         foreach (['base_url', 'username', 'password', 'api_key'] as $key) {
             if (empty($config[$key])) {
-                throw ValidationException::withMessages([
-                    'payment' => ['Integrarea pay.filmoteca.md nu este configurată complet.'],
-                ]);
+                $missingKeys[] = $key;
             }
+        }
+
+        if ($missingKeys !== []) {
+            Log::error('PayFilmoteca payment integration is missing configuration', [
+                'missing_keys' => $missingKeys,
+                'has_callback_url' => ! empty($config['callback_url'] ?? null),
+                'has_success_url' => ! empty($config['success_url'] ?? null),
+                'has_failed_url' => ! empty($config['failed_url'] ?? null),
+            ]);
+
+            throw ValidationException::withMessages([
+                'payment' => ['Integrarea pay.filmoteca.md nu este configurată complet.'],
+            ]);
         }
     }
 
