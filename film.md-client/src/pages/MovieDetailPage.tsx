@@ -343,16 +343,7 @@ export function MovieDetailPage() {
   const priceFrom = movie.offers && movie.offers.length > 0
     ? Math.min(...movie.offers.map((offer) => offer.price))
     : movie.price;
-  const videos = movie.videos && movie.videos.length > 0
-    ? movie.videos
-    : [{
-        id: `${movie.id}-trailer`,
-        type: "trailer" as const,
-        title: t("movie.official_trailer"),
-        videoUrl: movie.trailerUrl,
-        thumbnailUrl: movie.backdropUrl,
-        isPrimary: true,
-      }];
+  const videos = movie.videos?.filter((video) => video.videoUrl?.trim()) ?? [];
   const primaryVideo = videos.find((video) => video.isPrimary) || videos[0];
   const activeVideo = videos.find((video) => video.id === activeVideoId) || primaryVideo;
   const galleryImages = movie.previewImages ?? [];
@@ -409,6 +400,10 @@ export function MovieDetailPage() {
   };
 
   const openTrailer = (videoId?: string) => {
+    if (!primaryVideo) {
+      return;
+    }
+
     setActiveVideoId(videoId ?? primaryVideo?.id ?? null);
     setShowTrailerModal(true);
   };
@@ -499,7 +494,7 @@ export function MovieDetailPage() {
     ...(movie.type === "series" ? [{ id: "episodes", label: t("movie.episodes") }] : []),
     ...(galleryImages.length > 0 ? [{ id: "gallery", label: t("movie.gallery") }] : []),
     { id: "cast", label: t("movie.cast_crew") },
-    { id: "trailers", label: t("movie.trailers_extras") },
+    ...(videos.length > 0 ? [{ id: "trailers", label: t("movie.trailers_extras") }] : []),
     { id: "reviews", label: t("movie.reviews") },
   ];
 
@@ -513,14 +508,16 @@ export function MovieDetailPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         </div>
 
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <button
-            onClick={() => openTrailer()}
-            className="flex h-20 w-20 scale-90 items-center justify-center rounded-full border border-white/20 bg-white/10 opacity-0 backdrop-blur-md transition-all duration-300 group-hover:scale-100 group-hover:opacity-100 hover:bg-accent/90"
-          >
-            <PlayIcon className="ml-1 h-8 w-8 fill-current text-white" />
-          </button>
-        </div>
+        {primaryVideo ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center">
+            <button
+              onClick={() => openTrailer()}
+              className="flex h-20 w-20 scale-90 items-center justify-center rounded-full border border-white/20 bg-white/10 opacity-0 backdrop-blur-md transition-all duration-300 group-hover:scale-100 group-hover:opacity-100 hover:bg-accent/90"
+            >
+              <PlayIcon className="ml-1 h-8 w-8 fill-current text-white" />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="container relative z-20 mx-auto -mt-64 px-4 md:px-8">
