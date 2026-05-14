@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCardIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { CreditCardIcon, HistoryIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -14,6 +15,7 @@ interface WalletModalProps {
 export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { balance, currency, addFunds } = useWallet();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [amount, setAmount] = useState(20);
   const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,6 +161,17 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
               >
                 {isSubmitting ? <Loader2Icon className="mr-2 h-5 w-5 animate-spin" /> : null}
                 {t('wallet.continue_payment')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate('/dashboard?tab=wallet');
+                }}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+              >
+                <HistoryIcon className="h-5 w-5" />
+                {t('wallet.view_transactions')}
               </button>
             </div>
           </motion.div>

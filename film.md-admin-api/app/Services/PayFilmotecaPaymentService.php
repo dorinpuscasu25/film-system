@@ -24,6 +24,14 @@ class PayFilmotecaPaymentService
 
     public function initiateTopUp(User $user, Wallet $wallet, array $payload, Request $request): PaymentTopUp
     {
+        Log::channel('single')->error('PayFilmoteca top-up initiation entered service', [
+            'user_id' => $user->id,
+            'wallet_id' => $wallet->id,
+            'wallet_currency' => $wallet->currency,
+            'payload_amount' => $payload['amount'] ?? null,
+            'payload_currency' => $payload['currency'] ?? null,
+        ]);
+
         $this->ensureConfigured();
 
         $subscriberId = $this->resolveSubscriberId($user, $wallet);
@@ -69,7 +77,7 @@ class PayFilmotecaPaymentService
             'raw_request' => $providerPayload,
         ]);
 
-        Log::info('PayFilmoteca payment request starting', [
+        Log::channel('single')->error('PayFilmoteca payment request starting', [
             'top_up_uuid' => $topUp->uuid,
             'user_id' => $user->id,
             'wallet_id' => $wallet->id,
@@ -89,7 +97,7 @@ class PayFilmotecaPaymentService
             $rawResponse = $this->responsePayload($response);
 
             if ($response->failed()) {
-                Log::warning('PayFilmoteca payment request rejected by provider', [
+                Log::channel('single')->error('PayFilmoteca payment request rejected by provider', [
                     'top_up_uuid' => $topUp->uuid,
                     'http_status' => $response->status(),
                     'provider_response' => $rawResponse,
@@ -113,7 +121,7 @@ class PayFilmotecaPaymentService
                 : null;
 
             if ($paymentUrl === null) {
-                Log::warning('PayFilmoteca payment request missing redirect URL', [
+                Log::channel('single')->error('PayFilmoteca payment request missing redirect URL', [
                     'top_up_uuid' => $topUp->uuid,
                     'http_status' => $response->status(),
                     'provider_order_id' => $orderId,
@@ -141,7 +149,7 @@ class PayFilmotecaPaymentService
                 'raw_response' => $rawResponse,
             ]);
 
-            Log::info('PayFilmoteca payment redirect created', [
+            Log::channel('single')->error('PayFilmoteca payment redirect created', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $orderId,
                 'http_status' => $response->status(),
@@ -152,7 +160,7 @@ class PayFilmotecaPaymentService
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (\Throwable $exception) {
-            Log::error('PayFilmoteca payment request failed with exception', [
+            Log::channel('single')->error('PayFilmoteca payment request failed with exception', [
                 'top_up_uuid' => $topUp->uuid,
                 'exception_class' => $exception::class,
                 'exception_message' => $exception->getMessage(),
@@ -373,8 +381,32 @@ class PayFilmotecaPaymentService
 
     protected function ensureSubscriber(string $subscriberId): void
     {
-        $response = $this->providerPost('new-subscriber', [
+        Log::channel('single')->error('PayFilmoteca subscriber registration starting', [
             'subscriber_id' => $subscriberId,
+            'provider_url' => rtrim((string) config('services.pay_filmoteca.base_url'), '/').'/new-subscriber',
+        ]);
+
+        try {
+            $response = $this->providerPost('new-subscriber', [
+                'subscriber_id' => $subscriberId,
+            ]);
+        } catch (\Throwable $exception) {
+            Log::channel('single')->error('PayFilmoteca subscriber registration failed with exception', [
+                'subscriber_id' => $subscriberId,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+                'exception_file' => $exception->getFile(),
+                'exception_line' => $exception->getLine(),
+                'exception' => $exception,
+            ]);
+
+            throw $exception;
+        }
+
+        Log::channel('single')->error('PayFilmoteca subscriber registration response received', [
+            'subscriber_id' => $subscriberId,
+            'http_status' => $response->status(),
+            'provider_response' => $this->responsePayload($response),
         ]);
 
         if ($response->successful() || in_array($response->status(), [409, 422], true)) {
@@ -627,7 +659,7 @@ class PayFilmotecaPaymentService
         }
 
         if ($missingKeys !== []) {
-            Log::error('PayFilmoteca payment integration is missing configuration', [
+            Log::channel('single')->error('PayFilmoteca payment integration is missing configuration', [
                 'missing_keys' => $missingKeys,
                 'has_callback_url' => ! empty($config['callback_url'] ?? null),
                 'has_success_url' => ! empty($config['success_url'] ?? null),

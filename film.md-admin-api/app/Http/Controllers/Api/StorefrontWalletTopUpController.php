@@ -7,6 +7,7 @@ use App\Services\PayFilmotecaPaymentService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,6 +23,17 @@ class StorefrontWalletTopUpController extends ApiController
     {
         $user = $request->user();
         $wallet = $this->wallets->ensureWallet($user);
+
+        Log::channel('single')->error('PayFilmoteca wallet top-up endpoint reached', [
+            'user_id' => $user?->id,
+            'wallet_id' => $wallet->id,
+            'wallet_currency' => $wallet->currency,
+            'request_amount' => $request->input('amount'),
+            'request_currency' => $request->input('currency'),
+            'client_ip' => $request->ip(),
+            'user_agent' => substr((string) $request->userAgent(), 0, 500),
+        ]);
+
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:20', 'max:20000'],
             'currency' => ['nullable', 'string', Rule::in(['MDL', 'EUR', 'USD'])],

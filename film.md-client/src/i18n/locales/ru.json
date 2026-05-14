@@ -39,7 +39,8 @@
     "dashboard": "Панель",
     "retry": "Повторить",
     "status": "Статус",
-    "order": "Заказ"
+    "order": "Заказ",
+    "close": "Закрыть"
   },
   "auth": {
     "login": "Войти",
@@ -81,6 +82,7 @@
     "episode": "Эпизод {{number}}",
     "season": "Сезон {{number}}",
     "trailers_extras": "Трейлеры и материалы",
+    "gallery": "Галерея",
     "reviews": "Отзывы",
     "related": "Вам также может понравиться",
     "original_title": "Оригинальное название: {{title}}",
@@ -166,6 +168,7 @@
     "for_days": "На {{days}} дней",
     "wallet_balance": "Баланс кошелька",
     "insufficient_funds": "Недостаточно средств. Пополните кошелёк.",
+    "top_up_wallet": "Пополнить счёт",
     "confirm_purchase": "Подтвердить покупку - {{price}}",
     "no_offer": "Нет доступного предложения",
     "purchase_failed": "Покупка не удалась.",
@@ -186,6 +189,7 @@
     "amount": "Сумма ({{currency}})",
     "phone": "Телефон для оплаты",
     "continue_payment": "Перейти к оплате",
+    "view_transactions": "Посмотреть транзакции",
     "provider_missing_url": "Провайдер не вернул URL оплаты.",
     "payment_start_failed": "Не удалось начать оплату."
   },

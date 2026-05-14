@@ -76,6 +76,7 @@ export interface Movie {
   backdropUrl: string;
   heroDesktopUrl?: string;
   heroMobileUrl?: string;
+  previewImages?: string[];
   shortDescription?: string;
   tagline?: string;
   description: string;

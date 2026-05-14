@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { XIcon, WalletIcon } from 'lucide-react';
+import { PlusIcon, XIcon, WalletIcon } from 'lucide-react';
 import { Movie, Offer } from '../types';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { WalletModal } from './WalletModal';
 
 interface PurchaseModalProps {
   isOpen: boolean;
@@ -62,6 +63,11 @@ function groupLabel(offer: Offer, t: (key: string, options?: Record<string, unkn
   return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { days: offer.rentalDays || 2 });
 }
 
+function offerDurationLabel(offer: Offer, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (offer.accessType === 'free') return t('checkout.free_access');
+  return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { days: offer.rentalDays || 2 });
+}
+
 export function PurchaseModal({
   isOpen,
   onClose,
@@ -72,6 +78,7 @@ export function PurchaseModal({
   const { t } = useLanguage();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const offers = useMemo(() => movie.offers && movie.offers.length > 0 ? movie.offers : buildFallbackOffers(movie), [movie]);
   const [selectedOfferId, setSelectedOfferId] = useState<string>(offers[0]?.id ?? '');
 
@@ -168,9 +175,9 @@ export function PurchaseModal({
                 {t('checkout.choose_option')}
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl mb-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-3xl mb-10">
                 {Object.entries(groupedOffers).map(([label, group]) =>
-                <div key={label} className="space-y-4">
+                <div key={label} className="space-y-3">
                     <h3 className="text-center text-white font-bold tracking-widest uppercase text-sm mb-4">
                       {label}
                     </h3>
@@ -179,10 +186,17 @@ export function PurchaseModal({
                   <button
                     key={offer.id}
                     onClick={() => setSelectedOfferId(offer.id)}
-                    className={`w-full p-6 rounded-xl backdrop-blur-md transition-all border-2 ${selectedOffer?.id === offer.id ? 'bg-white/20 border-white shadow-[0_0_30px_rgba(255,255,255,0.2)]' : 'bg-black/40 border-transparent hover:bg-black/60'}`}>
+                    className={`w-full p-5 rounded-xl backdrop-blur-md transition-all border-2 text-left ${selectedOffer?.id === offer.id ? 'bg-white/20 border-white shadow-[0_0_30px_rgba(255,255,255,0.2)]' : 'bg-black/40 border-white/10 hover:bg-black/60'}`}>
 
-                        <div className="text-3xl font-bold text-white mb-2">{offer.quality}</div>
-                        <div className="text-xl text-white font-medium">
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-[0.18em] text-gray-300">
+                              {offerDurationLabel(offer, t)}
+                            </div>
+                            <div className="mt-1 text-3xl font-bold text-white">{offer.quality}</div>
+                          </div>
+                        </div>
+                        <div className="text-2xl text-white font-semibold">
                           {formatCurrency(offer.price, offer.currency)}
                         </div>
                       </button>
@@ -205,9 +219,19 @@ export function PurchaseModal({
                 </div>
 
                 {!canAfford &&
-              <p className="text-accent text-sm mb-3">
-                    {t('checkout.insufficient_funds')}
-                  </p>
+                  <div className="mb-3 w-full rounded-xl border border-accent/30 bg-accent/10 p-3 text-center">
+                    <p className="mb-3 text-accent text-sm">
+                      {t('checkout.insufficient_funds')}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsWalletModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700"
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                      {t('checkout.top_up_wallet')}
+                    </button>
+                  </div>
               }
 
                 {errorMessage &&
@@ -231,6 +255,10 @@ export function PurchaseModal({
               </div>
             </div>
           </motion.div>
+          <WalletModal
+            isOpen={isWalletModalOpen}
+            onClose={() => setIsWalletModalOpen(false)}
+          />
         </div>
       }
     </AnimatePresence>);

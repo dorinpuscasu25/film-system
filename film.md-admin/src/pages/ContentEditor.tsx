@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftIcon,
+  HelpCircleIcon,
   PlusIcon,
   SaveIcon,
   TrashIcon,
@@ -328,12 +329,12 @@ function humanizeValidationField(field: string) {
 function friendlyErrorMessage(message: string, errors?: Record<string, string[]>) {
   const firstError = Object.values(errors ?? {}).flat().find(Boolean);
   if (firstError && !/^The .+ field/i.test(firstError)) {
-    return firstError;
+    return translateAdminValidationMessage(firstError);
   }
 
   const fields = Object.keys(errors ?? {});
   if (fields.length === 0) {
-    return message || "Nu am putut salva titlul.";
+    return translateAdminValidationMessage(message || "Nu am putut salva titlul.");
   }
 
   const labels = fields.slice(0, 3).map(humanizeValidationField);
@@ -343,6 +344,22 @@ function friendlyErrorMessage(message: string, errors?: Record<string, string[]>
     `Verifică ${labels.join(", ")}.`,
     remaining > 0 ? `Mai sunt ${remaining} câmpuri de corectat.` : null,
   ].filter(Boolean).join(" ");
+}
+
+function translateAdminValidationMessage(message: string) {
+  if (message.includes("active Bunny main format with the same quality") || message.includes("playback URL override")) {
+    return "Oferta are nevoie de un format Bunny activ cu aceeași calitate sau de un URL de playback completat manual.";
+  }
+
+  return message;
+}
+
+function firstOfferErrorMessage(errors: Record<string, Record<string, string[]>>) {
+  const firstError = Object.values(errors)
+    .flatMap((fieldErrors) => Object.values(fieldErrors).flat())
+    .find(Boolean);
+
+  return firstError ? translateAdminValidationMessage(firstError) : null;
 }
 
 function createEmptyCastMember(): AdminContentCastMember {
@@ -752,6 +769,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
+  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
 
   const contentMediaDirectories = useMemo(() => {
     const fallbackName =
@@ -801,6 +819,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
         setSubtitleTrackDrafts((response.content.subtitle_tracks ?? []).map((item) => mapSubtitleTrackToForm(item)));
         setPremiereEventDrafts((response.content.premiere_events ?? []).map((item) => mapPremiereEventToForm(item)));
         setOfferValidationErrors({});
+        setIsSlugManuallyEdited(true);
       } else {
         const response = await adminApi.getContentOptions();
         setOptions(response.options);
@@ -814,6 +833,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
         setSubtitleTrackDrafts([]);
         setPremiereEventDrafts([]);
         setOfferValidationErrors({});
+        setIsSlugManuallyEdited(false);
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Nu am putut încărca editorul.");
@@ -850,7 +870,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
         },
       };
 
-      if (field === "title" && locale === current.default_locale && current.slug.trim().length === 0) {
+      if (field === "title" && locale === current.default_locale && !isSlugManuallyEdited) {
         next.slug = slugify(value);
       }
 
@@ -1121,7 +1141,99 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   }
 
   function getOfferFieldError(localId: string, field: string) {
-    return offerValidationErrors[localId]?.[field]?.[0];
+    const message = offerValidationErrors[localId]?.[field]?.[0];
+    return message ? translateAdminValidationMessage(message) : undefined;
+  }
+
+  function getFirstEditorTabWithErrors(errors: Record<string, string[]>) {
+    const fields = Object.keys(errors);
+
+    if (fields.some((field) => ["slug", "original_title", "release_year", "country_code", "imdb_rating", "platform_rating", "runtime_minutes", "age_rating"].includes(field))) {
+      return "general";
+    }
+
+    if (fields.some((field) => field.startsWith("title.") || field.startsWith("tagline.") || field.startsWith("short_description.") || field.startsWith("description."))) {
+      return "localization";
+    }
+
+    if (fields.some((field) => field.startsWith("meta_") || field === "canonical_url" || field.startsWith("editor_notes."))) {
+      return "seo";
+    }
+
+    if (fields.some((field) => field.includes("poster") || field.includes("backdrop") || field.includes("hero") || field.includes("trailer") || field.includes("preview") || field.startsWith("videos"))) {
+      return "media";
+    }
+
+    if (fields.some((field) => field.includes("content_formats") || field.includes("rights_windows") || field.includes("subtitle"))) {
+      return "playback";
+    }
+
+    if (fields.some((field) => field.includes("cast_members") || field.includes("crew_members"))) {
+      return "credits";
+    }
+
+    if (fields.some((field) => field.includes("seasons") || field.includes("episodes"))) {
+      return "series";
+    }
+
+    if (fields.some((field) => field === "available_qualities" || field === "status" || field.includes("premiere"))) {
+      return "publishing";
+    }
+
+    return "general";
+  }
+
+  function hasErrorsForTab(tab: string) {
+    const fields = Object.keys(validationErrors);
+
+    if (tab === "commerce") {
+      return Object.values(offerValidationErrors).some((fieldErrors) => Object.keys(fieldErrors).length > 0);
+    }
+
+    return fields.some((field) => fieldBelongsToTab(field, tab));
+  }
+
+  function fieldBelongsToTab(field: string, tab: string) {
+    if (tab === "general") {
+      return ["slug", "original_title", "release_year", "country_code", "imdb_rating", "platform_rating", "runtime_minutes", "age_rating"].includes(field);
+    }
+
+    if (tab === "localization") {
+      return field.startsWith("title.") || field.startsWith("tagline.") || field.startsWith("short_description.") || field.startsWith("description.");
+    }
+
+    if (tab === "seo") {
+      return field.startsWith("meta_") || field === "canonical_url" || field.startsWith("editor_notes.");
+    }
+
+    if (tab === "media") {
+      return field.includes("poster") || field.includes("backdrop") || field.includes("hero") || field.includes("trailer") || field.includes("preview") || field.startsWith("videos");
+    }
+
+    if (tab === "playback") {
+      return field.includes("content_formats") || field.includes("rights_windows") || field.includes("subtitle");
+    }
+
+    if (tab === "credits") {
+      return field.includes("cast_members") || field.includes("crew_members");
+    }
+
+    if (tab === "series") {
+      return field.includes("seasons") || field.includes("episodes");
+    }
+
+    if (tab === "publishing") {
+      return field === "available_qualities" || field === "status" || field.includes("premiere");
+    }
+
+    return false;
+  }
+
+  function tabTriggerClass(tab: string) {
+    return cn(
+      "h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground",
+      hasErrorsForTab(tab) && "border-destructive text-destructive data-[state=active]:border-destructive data-[state=active]:text-destructive",
+    );
   }
 
   function validateOfferDraft(offer: OfferFormState) {
@@ -1409,7 +1521,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       await loadEditor();
     } catch (saveError) {
       const apiError = saveError as ApiRequestError;
-      setError(apiError.message ?? "Nu am putut salva oferta.");
+      setEditorTab("commerce");
+      setError(friendlyErrorMessage(apiError.message ?? "Nu am putut salva oferta.", apiError.errors));
       setOfferValidationErrors((current) => ({
         ...current,
         [localId]: apiError.errors ?? {},
@@ -1459,7 +1572,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     const clientErrors = validateForm();
     if (Object.keys(clientErrors).length > 0) {
       setValidationErrors(clientErrors);
-      setError("Completează câmpurile obligatorii pentru toate limbile și media minimă.");
+      setEditorTab(getFirstEditorTabWithErrors(clientErrors));
+      setError(friendlyErrorMessage("Completează câmpurile obligatorii pentru toate limbile și media minimă.", clientErrors));
 
       if (clientErrors["title.ro"] || clientErrors["short_description.ro"] || clientErrors["description.ro"]) {
         setLocaleTab("ro");
@@ -1510,7 +1624,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       if (Object.keys(offerErrors).length > 0) {
         setOfferValidationErrors(offerErrors);
         setEditorTab("commerce");
-        throw new Error("Titlul a fost salvat, dar una sau mai multe oferte au nevoie de corectări.");
+        const firstOfferMessage = firstOfferErrorMessage(offerErrors);
+        throw new Error(firstOfferMessage ?? "Titlul a fost salvat, dar una sau mai multe oferte au nevoie de corectări.");
       }
 
       const freshResponse = await adminApi.getContent(savedContentId);
@@ -1527,6 +1642,9 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     } catch (saveError) {
       const apiError = saveError as ApiRequestError;
       setValidationErrors(apiError.errors ?? {});
+      if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+        setEditorTab(getFirstEditorTabWithErrors(apiError.errors));
+      }
       setError(friendlyErrorMessage(apiError.message ?? "Nu am putut salva titlul.", apiError.errors));
     } finally {
       setIsSubmitting(false);
@@ -1611,37 +1729,37 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
 
       <Tabs value={editorTab} onValueChange={setEditorTab} className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-6 xl:grid-cols-11">
-          <TabsTrigger value="general" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="general" className={tabTriggerClass("general")}>
             General
           </TabsTrigger>
-          <TabsTrigger value="localization" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="localization" className={tabTriggerClass("localization")}>
             Localizare
           </TabsTrigger>
-          <TabsTrigger value="seo" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="seo" className={tabTriggerClass("seo")}>
             SEO și note
           </TabsTrigger>
-          <TabsTrigger value="media" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="media" className={tabTriggerClass("media")}>
             Media
           </TabsTrigger>
-          <TabsTrigger value="playback" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="playback" className={tabTriggerClass("playback")}>
             Bunny & Rights
           </TabsTrigger>
-          <TabsTrigger value="credits" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="credits" className={tabTriggerClass("credits")}>
             Distribuție
           </TabsTrigger>
-          <TabsTrigger value="series" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="series" className={tabTriggerClass("series")}>
             Serii
           </TabsTrigger>
-          <TabsTrigger value="publishing" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="publishing" className={tabTriggerClass("publishing")}>
             Publicare
           </TabsTrigger>
-          <TabsTrigger value="commerce" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="commerce" className={tabTriggerClass("commerce")}>
             Oferte
           </TabsTrigger>
-          <TabsTrigger value="costs" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="costs" className={tabTriggerClass("costs")}>
             Costuri
           </TabsTrigger>
-          <TabsTrigger value="reviews" className="h-auto rounded-lg border bg-background px-4 py-3 data-[state=active]:border-foreground">
+          <TabsTrigger value="reviews" className={tabTriggerClass("reviews")}>
             Review-uri
           </TabsTrigger>
         </TabsList>
@@ -1675,12 +1793,28 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                   onChange={(event) => setFormState((current) => ({ ...current, default_locale: event.target.value as TaxonomyLocale }))}
                   options={options.locales.map((item) => ({ label: item.label, value: item.value }))}
                 />
-                <FormField
-                  label="Slug"
-                  value={formState.slug}
-                  error={getFieldError("slug")}
-                  onChange={(event) => setFormState((current) => ({ ...current, slug: slugify(event.target.value) }))}
-                />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium">Slug</span>
+                    <HelpCircleIcon
+                      className="h-4 w-4 text-muted-foreground"
+                      aria-label="Regulă slug"
+                      title="Se generează automat din titlul în limba implicită până îl editezi manual. Sunt permise litere mici, cifre și cratime (-); spațiile și diacriticele se transformă în cratime."
+                    />
+                  </div>
+                  <FormField
+                    label="Slug"
+                    id="content-slug"
+                    value={formState.slug}
+                    error={getFieldError("slug")}
+                    helperText="Auto din titlu până îl modifici manual. Exemplu: carbon-4k-editie-speciala."
+                    className="[&>label]:sr-only"
+                    onChange={(event) => {
+                      setIsSlugManuallyEdited(true);
+                      setFormState((current) => ({ ...current, slug: slugify(event.target.value) }));
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1955,7 +2089,9 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                   <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
                     <div>
                       <CardTitle className="text-base">Gallery previews</CardTitle>
-                      <CardDescription>Card-uri și detalii gallery pentru storefront.</CardDescription>
+                      <CardDescription>
+                        Se afișează în storefront pe pagina filmului, în tabul „Galerie”. Tabul apare doar dacă există cel puțin o imagine aici.
+                      </CardDescription>
                     </div>
                     <Button type="button" variant="outline" onClick={addPreviewImage}>
                       <PlusIcon className="h-4 w-4" />
@@ -1963,6 +2099,9 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     </Button>
                   </CardHeader>
                   <CardContent className="space-y-4 pt-6">
+                    <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                      Folosește aici cadre de filmare, still-uri sau imagini de atmosferă. Nu sunt folosite în cardurile din catalog; acelea folosesc posterul.
+                    </div>
                     {formState.preview_images.length === 0 ? (
                       <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
                         Nu ai încă imagini secundare pentru galerie.

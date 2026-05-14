@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { FilmIcon, HeartIcon, HistoryIcon, PlayIcon, WalletIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useWallet } from "../contexts/WalletContext";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -10,6 +10,8 @@ import { WalletModal } from "../components/WalletModal";
 import { getFullCatalog } from "../lib/storefront";
 import { fetchContinueWatching } from "../lib/session";
 import { Movie } from "../types";
+
+const DASHBOARD_TABS = ["myfilms", "favorites", "wallet", "settings"];
 
 export function UserDashboardPage() {
   const {
@@ -41,6 +43,7 @@ export function UserDashboardPage() {
   const [isSavingAccount, setIsSavingAccount] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     let active = true;
@@ -101,6 +104,14 @@ export function UserDashboardPage() {
       active = false;
     };
   }, [currentLanguage.code, user]);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get("tab");
+
+    if (tab && DASHBOARD_TABS.includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (!user) {
@@ -262,7 +273,14 @@ export function UserDashboardPage() {
           </div>
         </div>
 
-        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        <Tabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            navigate(`/dashboard?tab=${tab}`, { replace: true });
+          }}
+        />
 
         <div className="mt-8">
           {activeTab === "myfilms" && (

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -107,6 +107,7 @@ export function MovieDetailPage() {
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [activeSeason, setActiveSeason] = useState(1);
@@ -122,10 +123,29 @@ export function MovieDetailPage() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const shareMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
+
+  useEffect(() => {
+    if (!isShareOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (shareMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsShareOpen(false);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [isShareOpen]);
 
   useEffect(() => {
     if (!id) {
@@ -335,6 +355,8 @@ export function MovieDetailPage() {
       }];
   const primaryVideo = videos.find((video) => video.isPrimary) || videos[0];
   const activeVideo = videos.find((video) => video.id === activeVideoId) || primaryVideo;
+  const galleryImages = movie.previewImages ?? [];
+  const activeGalleryImage = activeGalleryIndex !== null ? galleryImages[activeGalleryIndex] : null;
   const premiereCountdown = formatCountdown(movie.premiereEvent?.startsAt, t("movie.now_live"));
   const seasonsData = movie.seasonsData && movie.seasonsData.length > 0
     ? movie.seasonsData
@@ -475,6 +497,7 @@ export function MovieDetailPage() {
   const tabs = [
     { id: "description", label: t("movie.description") },
     ...(movie.type === "series" ? [{ id: "episodes", label: t("movie.episodes") }] : []),
+    ...(galleryImages.length > 0 ? [{ id: "gallery", label: t("movie.gallery") }] : []),
     { id: "cast", label: t("movie.cast_crew") },
     { id: "trailers", label: t("movie.trailers_extras") },
     { id: "reviews", label: t("movie.reviews") },
@@ -591,7 +614,7 @@ export function MovieDetailPage() {
               >
                 <HeartIcon className={`h-6 w-6 ${isFav ? "fill-current" : ""}`} />
               </button>
-              <div className="relative">
+              <div className="relative" ref={shareMenuRef}>
                 <button
                   onClick={() => setIsShareOpen((current) => !current)}
                   className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10"
@@ -704,6 +727,27 @@ export function MovieDetailPage() {
                         </div>
                       ))}
                     </div>
+                  </motion.div>
+                ) : null}
+
+                {activeTab === "gallery" ? (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {galleryImages.map((image, index) => (
+                      <button
+                        key={`${image}-${index}`}
+                        type="button"
+                        onClick={() => setActiveGalleryIndex(index)}
+                        className="group relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-black text-left"
+                      >
+                        <img
+                          src={image}
+                          alt={`${movie.title} - ${t("movie.gallery")} ${index + 1}`}
+                          className="h-full w-full object-cover opacity-80 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent opacity-0 transition group-hover:opacity-100" />
+                      </button>
+                    ))}
                   </motion.div>
                 ) : null}
 
@@ -838,6 +882,40 @@ export function MovieDetailPage() {
       />
 
       <AnimatePresence>
+        {activeGalleryImage ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
+            <motion.button
+              type="button"
+              aria-label={t("common.close")}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 cursor-default"
+              onClick={() => setActiveGalleryIndex(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="relative z-10 max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => setActiveGalleryIndex(null)}
+                className="absolute right-4 top-4 z-20 rounded-full bg-black/60 p-2 text-white transition hover:bg-black/80"
+                aria-label={t("common.close")}
+              >
+                <XIcon className="h-6 w-6" />
+              </button>
+              <img
+                src={activeGalleryImage}
+                alt={`${movie.title} - ${t("movie.gallery")}`}
+                className="max-h-[90vh] w-full object-contain"
+              />
+            </motion.div>
+          </div>
+        ) : null}
+
         {showTrailerModal ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-12">
             <motion.div

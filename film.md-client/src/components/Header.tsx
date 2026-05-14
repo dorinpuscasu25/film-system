@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { SearchIcon, WalletIcon, MenuIcon, XIcon } from 'lucide-react';
+import { HeartIcon, SearchIcon, WalletIcon, MenuIcon, XIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -98,6 +98,14 @@ export function Header() {
                     {currency} {balance.toFixed(2)}
                   </span>
                 </button>
+                <button
+                  onClick={() => navigate('/dashboard?tab=favorites')}
+                  className="hidden md:flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10"
+                  aria-label={t('dashboard.favorites')}
+                  title={t('dashboard.favorites')}
+                >
+                  <HeartIcon className="h-4 w-4 text-accent" />
+                </button>
 
                 {/* Profile Dropdown */}
                 {activeProfile &&
@@ -194,16 +202,27 @@ export function Header() {
                 {t('nav.movies_series')}
               </Link>
               {isAuthenticated ?
-            <button
-              onClick={() => {
-                setIsWalletModalOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="flex items-center space-x-2 text-accentGreen font-medium">
-              
-                  <WalletIcon className="w-5 h-5" />
-                  <span>{t('wallet.title')}: {currency} {balance.toFixed(2)}</span>
-                </button> :
+            <>
+                <button
+                  onClick={() => {
+                    setIsWalletModalOpen(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center space-x-2 text-accentGreen font-medium">
+                
+                    <WalletIcon className="w-5 h-5" />
+                    <span>{t('wallet.title')}: {currency} {balance.toFixed(2)}</span>
+                  </button>
+                <button
+                  onClick={() => {
+                    navigate('/dashboard?tab=favorites');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center space-x-2 text-white font-medium">
+                  <HeartIcon className="w-5 h-5 text-accent" />
+                  <span>{t('dashboard.favorites')}</span>
+                </button>
+              </> :
 
             <button
               onClick={() => {

@@ -108,6 +108,7 @@ interface PublicContentDetail extends PublicContentCard {
   meta_title?: string | null;
   meta_description?: string | null;
   canonical_url?: string | null;
+  preview_images?: string[] | null;
   cast: PublicCastMember[];
   crew: PublicCrewMember[];
   videos: PublicVideo[];
@@ -326,6 +327,7 @@ function mapCardToMovie(item: PublicContentCard): Movie {
     backdropUrl: item.backdrop_url,
     heroDesktopUrl: item.hero_desktop_url ?? undefined,
     heroMobileUrl: item.hero_mobile_url ?? undefined,
+    previewImages: item.preview_images?.filter(Boolean) ?? [],
     shortDescription: item.short_description ?? "",
     tagline: item.tagline ?? "",
     description: item.short_description ?? item.tagline ?? "",

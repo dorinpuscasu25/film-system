@@ -39,7 +39,8 @@
     "dashboard": "Dashboard",
     "retry": "Retry",
     "status": "Status",
-    "order": "Order"
+    "order": "Order",
+    "close": "Close"
   },
   "auth": {
     "login": "Log in",
@@ -81,6 +82,7 @@
     "episode": "Episode {{number}}",
     "season": "Season {{number}}",
     "trailers_extras": "Trailers & Extras",
+    "gallery": "Gallery",
     "reviews": "Reviews",
     "related": "You may also like",
     "original_title": "Original title: {{title}}",
@@ -166,6 +168,7 @@
     "for_days": "For {{days}} days",
     "wallet_balance": "Wallet balance",
     "insufficient_funds": "Insufficient funds. Please add money to your wallet.",
+    "top_up_wallet": "Top up account",
     "confirm_purchase": "Confirm purchase - {{price}}",
     "no_offer": "No offer available",
     "purchase_failed": "Purchase failed.",
@@ -186,6 +189,7 @@
     "amount": "Amount ({{currency}})",
     "phone": "Payment phone",
     "continue_payment": "Continue to payment",
+    "view_transactions": "View transactions",
     "provider_missing_url": "The provider did not return a payment URL.",
     "payment_start_failed": "We could not start the payment."
   },

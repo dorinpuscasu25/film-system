@@ -39,7 +39,8 @@
     "dashboard": "Dashboard",
     "retry": "Încearcă din nou",
     "status": "Status",
-    "order": "Comandă"
+    "order": "Comandă",
+    "close": "Închide"
   },
   "auth": {
     "login": "Autentificare",
@@ -81,6 +82,7 @@
     "episode": "Episodul {{number}}",
     "season": "Sezonul {{number}}",
     "trailers_extras": "Trailere și extra",
+    "gallery": "Galerie",
     "reviews": "Review-uri",
     "related": "S-ar putea să-ți placă",
     "original_title": "Titlu original: {{title}}",
@@ -166,6 +168,7 @@
     "for_days": "Pentru {{days}} zile",
     "wallet_balance": "Sold portofel",
     "insufficient_funds": "Fonduri insuficiente. Adaugă bani în portofel.",
+    "top_up_wallet": "Suplinește contul",
     "confirm_purchase": "Confirmă cumpărarea - {{price}}",
     "no_offer": "Nu există ofertă disponibilă",
     "purchase_failed": "Cumpărarea a eșuat.",
@@ -186,6 +189,7 @@
     "amount": "Suma ({{currency}})",
     "phone": "Telefon pentru plată",
     "continue_payment": "Continuă spre plată",
+    "view_transactions": "Vezi tranzacțiile",
     "provider_missing_url": "Providerul nu a returnat URL-ul de plată.",
     "payment_start_failed": "Nu am putut porni plata."
   },
