@@ -594,6 +594,17 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
+function normalizeSlugInput(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-{2,}/g, "-")
+    .slice(0, 80);
+}
+
 function contentUploadDirectory(baseDirectory: string, slug: string, fallbackName?: string) {
   const normalizedSlug = slugify(slug.trim()) || slugify(fallbackName?.trim() ?? "");
 
@@ -1795,7 +1806,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     <HelpCircleIcon
                       className="h-4 w-4 text-muted-foreground"
                       aria-label="Regulă slug"
-                      title="Se generează automat doar din Titlu original până îl editezi manual. Nu se traduce. Sunt permise litere mici, cifre și cratime (-); spațiile și diacriticele se transformă în cratime."
+                      title="Se generează automat doar din Titlu original până îl editezi manual. Nu se traduce. Poți tasta litere mici, cifre și cratime (-); spațiile și diacriticele se transformă în cratime."
                     />
                   </div>
                   <FormField
@@ -1803,11 +1814,11 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     id="content-slug"
                     value={formState.slug}
                     error={getFieldError("slug")}
-                    helperText="Auto doar din Titlu original până îl modifici manual. Exemplu: carbon-4k-editie-speciala."
+                    helperText="Auto doar din Titlu original până îl modifici manual. Poți introduce cratime manual. Exemplu: carbon-4k-editie-speciala."
                     className="[&>label]:sr-only"
                     onChange={(event) => {
                       setIsSlugManuallyEdited(true);
-                      setFormState((current) => ({ ...current, slug: slugify(event.target.value) }));
+                      setFormState((current) => ({ ...current, slug: normalizeSlugInput(event.target.value) }));
                     }}
                   />
                 </div>
