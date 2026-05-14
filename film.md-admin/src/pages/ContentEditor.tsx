@@ -553,6 +553,10 @@ function ensureLocalizedText(value?: LocalizedText | string | null): LocalizedTe
   };
 }
 
+function safeTrim(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function mapOfferToForm(offer: AdminOffer): OfferFormState {
   return {
     local_id: `offer-${offer.id}`,
@@ -610,7 +614,7 @@ function normalizeSlugInput(value: string) {
 }
 
 function contentUploadDirectory(baseDirectory: string, slug: string, fallbackName?: string) {
-  const normalizedSlug = slugify(slug.trim()) || slugify(fallbackName?.trim() ?? "");
+  const normalizedSlug = slugify(safeTrim(slug)) || slugify(safeTrim(fallbackName));
 
   if (!normalizedSlug) {
     return baseDirectory;
@@ -622,25 +626,25 @@ function contentUploadDirectory(baseDirectory: string, slug: string, fallbackNam
 function mapContentToForm(content: AdminContent): ContentFormState {
   return {
     type: content.type,
-    slug: content.slug,
+    slug: content.slug ?? "",
     default_locale: content.default_locale,
     status: content.status,
-    original_title: content.original_title,
-    title: { ...content.title },
-    tagline: { ...content.tagline },
-    short_description: { ...content.short_description },
-    description: { ...content.description },
-    editor_notes: { ...content.editor_notes },
-    meta_title: { ...content.meta_title },
-    meta_description: { ...content.meta_description },
+    original_title: content.original_title ?? "",
+    title: ensureLocalizedText(content.title),
+    tagline: ensureLocalizedText(content.tagline),
+    short_description: ensureLocalizedText(content.short_description),
+    description: ensureLocalizedText(content.description),
+    editor_notes: ensureLocalizedText(content.editor_notes),
+    meta_title: ensureLocalizedText(content.meta_title),
+    meta_description: ensureLocalizedText(content.meta_description),
     release_year: content.release_year ?? "",
     country_code: content.country_code ?? "",
     imdb_rating: content.imdb_rating ?? "",
     platform_rating: content.platform_rating ?? "",
     runtime_minutes: content.runtime_minutes ?? "",
     age_rating: content.age_rating ?? "",
-    poster_url: content.poster_url,
-    backdrop_url: content.backdrop_url,
+    poster_url: content.poster_url ?? "",
+    backdrop_url: content.backdrop_url ?? "",
     hero_desktop_url: content.hero_desktop_url ?? "",
     hero_mobile_url: content.hero_mobile_url ?? "",
     trailer_url: content.trailer_url ?? "",
@@ -684,9 +688,9 @@ function mapContentToForm(content: AdminContent): ContentFormState {
 
 function trimLocalizedText(value: LocalizedText): LocalizedText {
   return {
-    ro: value.ro.trim(),
-    ru: value.ru.trim(),
-    en: value.en.trim(),
+    ro: safeTrim(value.ro),
+    ru: safeTrim(value.ru),
+    en: safeTrim(value.en),
   };
 }
 
@@ -695,7 +699,7 @@ function isLocalizedTextEmpty(value: LocalizedText | null | undefined) {
     return true;
   }
 
-  return !value.ro.trim() && !value.ru.trim() && !value.en.trim();
+  return !safeTrim(value.ro) && !safeTrim(value.ru) && !safeTrim(value.en);
 }
 
 function statusVariant(status: AdminContentStatus) {
@@ -1268,12 +1272,12 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   function payloadFromOfferDraft(contentId: number, offer: OfferFormState): OfferPayload {
     return {
       content_id: contentId,
-      name: (offer.name ?? "").trim() || undefined,
+      name: safeTrim(offer.name) || undefined,
       offer_type: offer.offer_type,
       quality: offer.quality,
       currency: "MDL",
       price_amount: offer.offer_type === "free" ? 0 : Number(offer.price_amount || 0),
-      playback_url: (offer.playback_url ?? "").trim() || null,
+      playback_url: safeTrim(offer.playback_url) || null,
       rental_days: offer.offer_type === "rental" ? Number(offer.rental_days || 0) : null,
       is_active: offer.is_active,
       starts_at: offer.starts_at || null,
@@ -1285,32 +1289,32 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   function validateForm() {
     const nextErrors: Record<string, string[]> = {};
 
-    if (!formState.slug.trim()) {
+    if (!safeTrim(formState.slug)) {
       nextErrors.slug = ["Slug-ul este obligatoriu."];
     }
 
-    if (!formState.original_title.trim()) {
+    if (!safeTrim(formState.original_title)) {
       nextErrors.original_title = ["Titlul original este obligatoriu."];
     }
 
-    if (!formState.poster_url.trim()) {
+    if (!safeTrim(formState.poster_url)) {
       nextErrors.poster_url = ["URL-ul posterului este obligatoriu."];
     }
 
-    if (!formState.backdrop_url.trim()) {
+    if (!safeTrim(formState.backdrop_url)) {
       nextErrors.backdrop_url = ["URL-ul backdrop-ului este obligatoriu."];
     }
 
     for (const locale of options.locales) {
-      if (!formState.title[locale.value].trim()) {
+      if (!safeTrim(formState.title[locale.value])) {
         nextErrors[`title.${locale.value}`] = ["Titlul este obligatoriu."];
       }
 
-      if (!formState.short_description[locale.value].trim()) {
+      if (!safeTrim(formState.short_description[locale.value])) {
         nextErrors[`short_description.${locale.value}`] = ["Descrierea scurtă este obligatorie."];
       }
 
-      if (!formState.description[locale.value].trim()) {
+      if (!safeTrim(formState.description[locale.value])) {
         nextErrors[`description.${locale.value}`] = ["Descrierea este obligatorie."];
       }
     }
@@ -1321,44 +1325,44 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   function payloadFromForm(): ContentPayload {
     return {
       type: formState.type,
-      slug: formState.slug.trim(),
+      slug: safeTrim(formState.slug),
       default_locale: formState.default_locale,
       status: formState.status,
-      original_title: formState.original_title.trim(),
+      original_title: safeTrim(formState.original_title),
       title: {
-        ro: formState.title.ro.trim(),
-        ru: formState.title.ru.trim(),
-        en: formState.title.en.trim(),
+        ro: safeTrim(formState.title.ro),
+        ru: safeTrim(formState.title.ru),
+        en: safeTrim(formState.title.en),
       },
       tagline: {
-        ro: formState.tagline.ro.trim(),
-        ru: formState.tagline.ru.trim(),
-        en: formState.tagline.en.trim(),
+        ro: safeTrim(formState.tagline.ro),
+        ru: safeTrim(formState.tagline.ru),
+        en: safeTrim(formState.tagline.en),
       },
       short_description: {
-        ro: formState.short_description.ro.trim(),
-        ru: formState.short_description.ru.trim(),
-        en: formState.short_description.en.trim(),
+        ro: safeTrim(formState.short_description.ro),
+        ru: safeTrim(formState.short_description.ru),
+        en: safeTrim(formState.short_description.en),
       },
       description: {
-        ro: formState.description.ro.trim(),
-        ru: formState.description.ru.trim(),
-        en: formState.description.en.trim(),
+        ro: safeTrim(formState.description.ro),
+        ru: safeTrim(formState.description.ru),
+        en: safeTrim(formState.description.en),
       },
       editor_notes: {
-        ro: formState.editor_notes.ro.trim(),
-        ru: formState.editor_notes.ru.trim(),
-        en: formState.editor_notes.en.trim(),
+        ro: safeTrim(formState.editor_notes.ro),
+        ru: safeTrim(formState.editor_notes.ru),
+        en: safeTrim(formState.editor_notes.en),
       },
       meta_title: {
-        ro: formState.meta_title.ro.trim(),
-        ru: formState.meta_title.ru.trim(),
-        en: formState.meta_title.en.trim(),
+        ro: safeTrim(formState.meta_title.ro),
+        ru: safeTrim(formState.meta_title.ru),
+        en: safeTrim(formState.meta_title.en),
       },
       meta_description: {
-        ro: formState.meta_description.ro.trim(),
-        ru: formState.meta_description.ru.trim(),
-        en: formState.meta_description.en.trim(),
+        ro: safeTrim(formState.meta_description.ro),
+        ru: safeTrim(formState.meta_description.ru),
+        en: safeTrim(formState.meta_description.en),
       },
       release_year: formState.release_year === "" ? null : Number(formState.release_year),
       country_code: formState.country_code || null,
@@ -1366,41 +1370,41 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       platform_rating: formState.platform_rating === "" ? null : Number(formState.platform_rating),
       runtime_minutes: formState.runtime_minutes === "" ? null : Number(formState.runtime_minutes),
       age_rating: formState.age_rating || null,
-      poster_url: formState.poster_url.trim(),
-      backdrop_url: formState.backdrop_url.trim(),
-      hero_desktop_url: formState.hero_desktop_url.trim() || null,
-      hero_mobile_url: formState.hero_mobile_url.trim() || null,
-      trailer_url: formState.trailer_url.trim() || null,
-      preview_images: formState.preview_images.map((item) => item.trim()).filter(Boolean),
+      poster_url: safeTrim(formState.poster_url),
+      backdrop_url: safeTrim(formState.backdrop_url),
+      hero_desktop_url: safeTrim(formState.hero_desktop_url) || null,
+      hero_mobile_url: safeTrim(formState.hero_mobile_url) || null,
+      trailer_url: safeTrim(formState.trailer_url) || null,
+      preview_images: formState.preview_images.map((item) => safeTrim(item)).filter(Boolean),
       cast_members: formState.cast_members
-        .filter((member) => member.name.trim() && !isLocalizedTextEmpty(member.character_name))
+        .filter((member) => safeTrim(member.name) && !isLocalizedTextEmpty(member.character_name))
         .map((member, index) => ({
           id: member.id,
-          name: member.name.trim(),
+          name: safeTrim(member.name),
           credit_type: member.credit_type,
           character_name: trimLocalizedText(member.character_name),
-          avatar_url: member.avatar_url?.trim() || null,
+          avatar_url: safeTrim(member.avatar_url) || null,
           sort_order: member.sort_order ?? index,
         })),
       crew_members: formState.crew_members
-        .filter((member) => member.name.trim() && !isLocalizedTextEmpty(member.job_title))
+        .filter((member) => safeTrim(member.name) && !isLocalizedTextEmpty(member.job_title))
         .map((member, index) => ({
           id: member.id,
-          name: member.name.trim(),
+          name: safeTrim(member.name),
           credit_type: member.credit_type,
           job_title: trimLocalizedText(member.job_title),
-          avatar_url: member.avatar_url?.trim() || null,
+          avatar_url: safeTrim(member.avatar_url) || null,
           sort_order: member.sort_order ?? index,
         })),
       videos: formState.videos
-        .filter((video) => !isLocalizedTextEmpty(video.title) && video.video_url.trim())
+        .filter((video) => !isLocalizedTextEmpty(video.title) && safeTrim(video.video_url))
         .map((video, index) => ({
           id: video.id,
           type: video.type,
           title: trimLocalizedText(video.title),
           description: isLocalizedTextEmpty(video.description) ? null : trimLocalizedText(video.description),
-          video_url: video.video_url.trim(),
-          thumbnail_url: video.thumbnail_url?.trim() || null,
+          video_url: safeTrim(video.video_url),
+          thumbnail_url: safeTrim(video.thumbnail_url) || null,
           duration_seconds: video.duration_seconds ?? null,
           is_primary: Boolean(video.is_primary),
           sort_order: video.sort_order ?? index,
@@ -1412,7 +1416,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           season_number: season.season_number,
           title: isLocalizedTextEmpty(season.title) ? null : trimLocalizedText(season.title),
           description: isLocalizedTextEmpty(season.description) ? null : trimLocalizedText(season.description),
-          poster_url: season.poster_url?.trim() || null,
+          poster_url: safeTrim(season.poster_url) || null,
           sort_order: season.sort_order ?? seasonIndex,
           episodes: season.episodes
             .filter((episode) => !isLocalizedTextEmpty(episode.title))
@@ -1422,35 +1426,35 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
               title: trimLocalizedText(episode.title),
               description: isLocalizedTextEmpty(episode.description) ? null : trimLocalizedText(episode.description),
               runtime_minutes: episode.runtime_minutes ?? null,
-              thumbnail_url: episode.thumbnail_url?.trim() || null,
-              backdrop_url: episode.backdrop_url?.trim() || null,
-              video_url: episode.video_url?.trim() || null,
-              trailer_url: episode.trailer_url?.trim() || null,
+              thumbnail_url: safeTrim(episode.thumbnail_url) || null,
+              backdrop_url: safeTrim(episode.backdrop_url) || null,
+              video_url: safeTrim(episode.video_url) || null,
+              trailer_url: safeTrim(episode.trailer_url) || null,
               sort_order: episode.sort_order ?? episodeIndex,
             })),
         })),
       subtitle_locales: formState.subtitle_locales,
       content_formats: contentFormatDrafts
-        .filter((item) => item.bunny_library_id.trim() && item.bunny_video_id.trim())
+        .filter((item) => safeTrim(item.bunny_library_id) && safeTrim(item.bunny_video_id))
         .map((item, index) => ({
           id: item.id,
           quality: item.quality,
           format_type: item.format_type,
-          bunny_library_id: item.bunny_library_id.trim(),
-          bunny_video_id: item.bunny_video_id.trim(),
-          stream_url: item.stream_url.trim() || null,
-          token_path: item.token_path.trim() || null,
-          drm_policy: item.drm_policy.trim() || "tokenized",
+          bunny_library_id: safeTrim(item.bunny_library_id),
+          bunny_video_id: safeTrim(item.bunny_video_id),
+          stream_url: safeTrim(item.stream_url) || null,
+          token_path: safeTrim(item.token_path) || null,
+          drm_policy: safeTrim(item.drm_policy) || "tokenized",
           is_active: item.is_active,
           is_default: item.is_default,
           sort_order: item.sort_order === "" ? index : Number(item.sort_order),
           meta: {},
         })),
       rights_windows: rightsWindowDrafts
-        .filter((item) => item.country_codes.length > 0 || item.content_format_quality.trim())
+        .filter((item) => item.country_codes.length > 0 || safeTrim(item.content_format_quality))
         .map((item) => ({
           id: item.id,
-          content_format_quality: item.content_format_quality.trim() || null,
+          content_format_quality: safeTrim(item.content_format_quality) || null,
           country_codes: item.country_codes,
           country_code: item.country_codes.length === 1 ? item.country_codes[0] : null,
           is_allowed: item.is_allowed,
@@ -1459,21 +1463,21 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           meta: {},
         })),
       subtitle_tracks: subtitleTrackDrafts
-        .filter((item) => item.label.trim() && item.file_url.trim())
+        .filter((item) => safeTrim(item.label) && safeTrim(item.file_url))
         .map((item, index) => ({
           id: item.id,
-          content_format_quality: item.content_format_quality.trim() || null,
+          content_format_quality: safeTrim(item.content_format_quality) || null,
           locale: item.locale,
-          label: item.label.trim(),
-          file_url: item.file_url.trim(),
+          label: safeTrim(item.label),
+          file_url: safeTrim(item.file_url),
           is_default: item.is_default,
           sort_order: item.sort_order === "" ? index : Number(item.sort_order),
         })),
       premiere_events: premiereEventDrafts
-        .filter((item) => item.title.trim() && item.starts_at)
+        .filter((item) => safeTrim(item.title) && item.starts_at)
         .map((item) => ({
           id: item.id,
-          title: item.title.trim(),
+          title: safeTrim(item.title),
           starts_at: item.starts_at,
           ends_at: item.ends_at || null,
           is_active: item.is_active,
@@ -1488,7 +1492,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       currency: "MDL",
       rental_days: formState.is_free ? null : Number(formState.rental_days),
       sort_order: formState.sort_order === "" ? 0 : Number(formState.sort_order),
-      canonical_url: formState.canonical_url.trim() || null,
+      canonical_url: safeTrim(formState.canonical_url) || null,
       taxonomy_ids: formState.taxonomy_ids,
     };
   }
