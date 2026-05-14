@@ -870,10 +870,6 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
         },
       };
 
-      if (field === "title" && locale === current.default_locale && !isSlugManuallyEdited) {
-        next.slug = slugify(value);
-      }
-
       return next;
     });
   }
@@ -1799,7 +1795,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     <HelpCircleIcon
                       className="h-4 w-4 text-muted-foreground"
                       aria-label="Regulă slug"
-                      title="Se generează automat din titlul în limba implicită până îl editezi manual. Sunt permise litere mici, cifre și cratime (-); spațiile și diacriticele se transformă în cratime."
+                      title="Se generează automat doar din Titlu original până îl editezi manual. Nu se traduce. Sunt permise litere mici, cifre și cratime (-); spațiile și diacriticele se transformă în cratime."
                     />
                   </div>
                   <FormField
@@ -1807,7 +1803,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                     id="content-slug"
                     value={formState.slug}
                     error={getFieldError("slug")}
-                    helperText="Auto din titlu până îl modifici manual. Exemplu: carbon-4k-editie-speciala."
+                    helperText="Auto doar din Titlu original până îl modifici manual. Exemplu: carbon-4k-editie-speciala."
                     className="[&>label]:sr-only"
                     onChange={(event) => {
                       setIsSlugManuallyEdited(true);
@@ -1822,7 +1818,14 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                   label="Titlu original"
                   value={formState.original_title}
                   error={getFieldError("original_title")}
-                  onChange={(event) => setFormState((current) => ({ ...current, original_title: event.target.value }))}
+                  onChange={(event) => {
+                    const originalTitle = event.target.value;
+                    setFormState((current) => ({
+                      ...current,
+                      original_title: originalTitle,
+                      slug: isSlugManuallyEdited ? current.slug : slugify(originalTitle),
+                    }));
+                  }}
                 />
                 <FormField
                   label="An lansare"
