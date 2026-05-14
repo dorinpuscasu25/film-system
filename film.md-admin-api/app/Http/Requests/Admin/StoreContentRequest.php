@@ -73,7 +73,7 @@ class StoreContentRequest extends FormRequest
             'seasons.*.episodes.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'subtitle_locales' => ['nullable', 'array'],
             'subtitle_locales.*' => [Rule::in(Content::supportedLocales())],
-            'available_qualities' => ['required', 'array', 'min:1'],
+            'available_qualities' => ['nullable', 'array'],
             'available_qualities.*' => [Rule::in(Content::availableQualities())],
             'content_formats' => ['nullable', 'array'],
             'content_formats.*.id' => ['nullable', 'integer'],
@@ -247,12 +247,7 @@ class StoreContentRequest extends FormRequest
                 ->filter()
                 ->values()
                 ->all(),
-            'available_qualities' => collect($this->input('available_qualities', []))
-                ->map(fn (mixed $value): string => trim((string) $value))
-                ->filter()
-                ->unique()
-                ->values()
-                ->all(),
+            'available_qualities' => $this->normalizeAvailableQualities(),
             'content_formats' => $this->normalizeContentFormats(),
             'rights_windows' => $this->normalizeRightsWindows(),
             'subtitle_tracks' => $this->normalizeSubtitleTracks(),
@@ -323,6 +318,36 @@ class StoreContentRequest extends FormRequest
     protected function normalizeTranslatableField(string $field): array
     {
         return $this->normalizeTranslatableValue($this->input($field, []));
+    }
+
+    protected function normalizeAvailableQualities(): array
+    {
+        /** @var Content|null $content */
+        $content = $this->route('content');
+        $inputFormats = collect($this->normalizeContentFormats())
+            ->filter(fn (array $format): bool => $format['format_type'] === 'main' && (bool) $format['is_active'])
+            ->pluck('quality');
+        $existingFormats = $content
+            ? $content->formats()
+                ->where('format_type', 'main')
+                ->where('is_active', true)
+                ->pluck('quality')
+            : collect();
+        $offerQualities = $content
+            ? $content->offers()
+                ->where('is_active', true)
+                ->pluck('quality')
+            : collect();
+
+        return collect($this->input('available_qualities', []))
+            ->merge($inputFormats)
+            ->merge($existingFormats)
+            ->merge($offerQualities)
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     protected function normalizeContentFormats(): array

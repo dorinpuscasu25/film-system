@@ -61,6 +61,7 @@ class OfferController extends ApiController
         $offer = Offer::query()->create($request->normalizedPayload());
         $content = $offer->content()->first();
         $this->syncContentFreeFlag($content);
+        $this->syncContentAvailableQualities($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
 
         return response()->json([
@@ -76,6 +77,7 @@ class OfferController extends ApiController
         $offer->fill($request->normalizedPayload())->save();
         $content = $offer->content()->first();
         $this->syncContentFreeFlag($content);
+        $this->syncContentAvailableQualities($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
 
         return response()->json([
@@ -91,6 +93,7 @@ class OfferController extends ApiController
         $content = $offer->content()->first();
         $offer->delete();
         $this->syncContentFreeFlag($content);
+        $this->syncContentAvailableQualities($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
 
         return response()->json([], Response::HTTP_NO_CONTENT);
@@ -104,6 +107,32 @@ class OfferController extends ApiController
 
         $content->forceFill([
             'is_free' => $content->offers()->where('offer_type', Offer::TYPE_FREE)->exists(),
+        ])->save();
+    }
+
+    protected function syncContentAvailableQualities(?Content $content): void
+    {
+        if ($content === null) {
+            return;
+        }
+
+        $formatQualities = $content->formats()
+            ->where('format_type', 'main')
+            ->where('is_active', true)
+            ->pluck('quality');
+        $offerQualities = $content->offers()
+            ->where('is_active', true)
+            ->pluck('quality');
+
+        $qualities = $formatQualities
+            ->merge($offerQualities)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $content->forceFill([
+            'available_qualities' => $qualities,
         ])->save();
     }
 }

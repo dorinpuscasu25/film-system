@@ -88,4 +88,43 @@ class OfferApiTest extends TestCase
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['playback_url']);
     }
+
+    public function test_offer_can_use_active_bunny_format_even_when_quality_was_not_preselected(): void
+    {
+        $content = Content::query()->where('slug', 'afacerea-est')->firstOrFail();
+        $content->forceFill(['available_qualities' => ['HD']])->save();
+        $content->formats()->create([
+            'quality' => 'Full HD',
+            'format_type' => 'main',
+            'bunny_library_id' => 'library-fullhd',
+            'bunny_video_id' => 'movie-fullhd',
+            'stream_url' => 'https://storage.filmoteca.md/playback/afacerea-fullhd.mp4',
+            'drm_policy' => 'tokenized',
+            'is_active' => true,
+            'is_default' => false,
+            'sort_order' => 10,
+        ]);
+
+        $this->postJson('/api/v1/admin/offers', [
+            'content_id' => $content->id,
+            'offer_type' => 'rental',
+            'quality' => 'Full HD',
+            'price_amount' => 6.99,
+            'currency' => 'MDL',
+            'rental_days' => 2,
+            'is_active' => true,
+        ], [
+            'Authorization' => 'Bearer '.$this->token,
+        ])->assertCreated()
+            ->assertJsonPath('offer.quality', 'Full HD');
+
+        $this->assertDatabaseHas('offers', [
+            'content_id' => $content->id,
+            'offer_type' => 'rental',
+            'quality' => 'Full HD',
+            'rental_days' => 2,
+        ]);
+
+        $this->assertContains('Full HD', $content->fresh()->available_qualities);
+    }
 }

@@ -347,6 +347,10 @@ function friendlyErrorMessage(message: string, errors?: Record<string, string[]>
 }
 
 function translateAdminValidationMessage(message: string) {
+  if (message.includes("selected quality is not enabled")) {
+    return "Calitatea selectată nu este activată pentru acest titlu. Activeaz-o la Publicare sau adaugă un format Bunny main activ cu aceeași calitate.";
+  }
+
   if (message.includes("active Bunny main format with the same quality") || message.includes("playback URL override")) {
     return "Oferta are nevoie de un format Bunny activ cu aceeași calitate sau de un URL de playback completat manual.";
   }
@@ -863,6 +867,17 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
 
   const selectedTaxonomyCount = formState.taxonomy_ids.length;
   const previewImages = useMemo(() => formState.preview_images.filter(Boolean), [formState.preview_images]);
+  const derivedAvailableQualities = useMemo(() => {
+    const values = [
+      ...Array.from(activeMainFormatQualities),
+      ...offerDrafts.filter((offer) => offer.is_active).map((offer) => offer.quality),
+    ].filter(Boolean);
+    const uniqueValues = Array.from(new Set(values));
+    const knownValues = options.quality_options.filter((quality) => uniqueValues.includes(quality));
+    const customValues = uniqueValues.filter((quality) => !options.quality_options.includes(quality));
+
+    return [...knownValues, ...customValues];
+  }, [activeMainFormatQualities, offerDrafts, options.quality_options]);
 
   function getFieldError(field: string) {
     return validationErrors[field]?.[0];
@@ -908,13 +923,6 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     setFormState((current) => ({
       ...current,
       taxonomy_ids: toggleSelection(current.taxonomy_ids, id),
-    }));
-  }
-
-  function toggleQuality(quality: string) {
-    setFormState((current) => ({
-      ...current,
-      available_qualities: toggleSelection(current.available_qualities, quality),
     }));
   }
 
@@ -1183,7 +1191,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       return "series";
     }
 
-    if (fields.some((field) => field === "available_qualities" || field === "status" || field.includes("premiere"))) {
+    if (fields.some((field) => field === "status" || field.includes("premiere"))) {
       return "publishing";
     }
 
@@ -1230,7 +1238,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     }
 
     if (tab === "publishing") {
-      return field === "available_qualities" || field === "status" || field.includes("premiere");
+      return field === "status" || field.includes("premiere");
     }
 
     return false;
@@ -1260,12 +1268,12 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   function payloadFromOfferDraft(contentId: number, offer: OfferFormState): OfferPayload {
     return {
       content_id: contentId,
-      name: offer.name.trim() || undefined,
+      name: (offer.name ?? "").trim() || undefined,
       offer_type: offer.offer_type,
       quality: offer.quality,
       currency: "MDL",
       price_amount: offer.offer_type === "free" ? 0 : Number(offer.price_amount || 0),
-      playback_url: offer.playback_url.trim() || null,
+      playback_url: (offer.playback_url ?? "").trim() || null,
       rental_days: offer.offer_type === "rental" ? Number(offer.rental_days || 0) : null,
       is_active: offer.is_active,
       starts_at: offer.starts_at || null,
@@ -1291,10 +1299,6 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
 
     if (!formState.backdrop_url.trim()) {
       nextErrors.backdrop_url = ["URL-ul backdrop-ului este obligatoriu."];
-    }
-
-    if (formState.available_qualities.length === 0) {
-      nextErrors.available_qualities = ["Selectează cel puțin o calitate."];
     }
 
     for (const locale of options.locales) {
@@ -1476,7 +1480,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           is_public: item.is_public,
           meta: {},
         })),
-      available_qualities: formState.available_qualities,
+      available_qualities: derivedAvailableQualities,
       is_featured: formState.is_featured,
       is_trending: formState.is_trending,
       is_free: formState.is_free,
@@ -3009,31 +3013,29 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">Calități disponibile</div>
-                      {getFieldError("available_qualities") ? (
-                        <span className="text-sm text-destructive">{getFieldError("available_qualities")}</span>
-                      ) : null}
+                      <div>
+                        <div className="text-sm font-medium">Calități disponibile</div>
+                        <p className="text-sm text-muted-foreground">
+                          Se calculează automat din formatele Bunny main active și din ofertele active.
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {options.quality_options.map((quality) => {
-                        const selected = formState.available_qualities.includes(quality);
-                        return (
-                          <button
+                    {derivedAvailableQualities.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {derivedAvailableQualities.map((quality) => (
+                          <span
                             key={quality}
-                            type="button"
-                            onClick={() => toggleQuality(quality)}
-                            className={cn(
-                              "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                              selected
-                                ? "border-foreground bg-foreground text-background"
-                                : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
-                            )}
+                            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700"
                           >
                             {quality}
-                          </button>
-                        );
-                      })}
-                    </div>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                        Nu există încă nicio calitate calculată. Adaugă un format main în Bunny & Rights sau creează o ofertă activă.
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

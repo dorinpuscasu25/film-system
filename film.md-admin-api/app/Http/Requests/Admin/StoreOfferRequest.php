@@ -46,10 +46,6 @@ class StoreOfferRequest extends FormRequest
                 $validator->errors()->add('price_amount', 'Free offers must have a 0 price.');
             }
 
-            if ($content !== null && ! in_array((string) $this->input('quality'), $content->available_qualities ?? [], true)) {
-                $validator->errors()->add('quality', 'The selected quality is not enabled for this title.');
-            }
-
             if ($content !== null) {
                 $selectedQuality = (string) $this->input('quality');
                 $hasMatchingFormat = $content->formats()
@@ -57,8 +53,14 @@ class StoreOfferRequest extends FormRequest
                     ->where('quality', $selectedQuality)
                     ->where('is_active', true)
                     ->exists();
+                $hasEnabledQuality = in_array($selectedQuality, $content->available_qualities ?? [], true);
+                $hasPlaybackOverride = $this->filled('playback_url');
 
-                if (! $hasMatchingFormat && ! $this->filled('playback_url')) {
+                if (! $hasEnabledQuality && ! $hasMatchingFormat && ! $hasPlaybackOverride) {
+                    $validator->errors()->add('quality', 'The selected quality is not enabled for this title.');
+                }
+
+                if (! $hasMatchingFormat && ! $hasPlaybackOverride) {
                     $validator->errors()->add(
                         'playback_url',
                         'This offer needs either an active Bunny main format with the same quality or a playback URL override.'
