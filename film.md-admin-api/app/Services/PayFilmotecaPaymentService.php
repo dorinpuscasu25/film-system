@@ -62,7 +62,7 @@ class PayFilmotecaPaymentService
             'name' => $user->name ?: $user->email,
             'email' => $user->email,
             'phone' => (string) ($payload['phone'] ?? ''),
-            'client_ip_addr' => $request->ip() ?: '',
+            'client_ip_addr' => $this->resolveClientIp($request),
             'user_agent' => substr((string) $request->userAgent(), 0, 500),
             'lang' => $this->normalizeLocale((string) ($payload['locale'] ?? $user->preferred_locale ?? 'ro')),
             'callback_url' => $callbackUrl,
@@ -446,6 +446,35 @@ class PayFilmotecaPaymentService
                 'Auth-API-Key' => $config['api_key'],
             ])
             ->post(rtrim($config['base_url'], '/').'/'.ltrim($path, '/'), $payload);
+    }
+
+    protected function resolveClientIp(Request $request): string
+    {
+        foreach (['CF-Connecting-IP', 'True-Client-IP', 'X-Real-IP'] as $header) {
+            $value = trim((string) $request->headers->get($header, ''));
+            if ($this->isPublicIp($value)) {
+                return $value;
+            }
+        }
+
+        $forwardedFor = (string) $request->headers->get('X-Forwarded-For', '');
+        foreach (explode(',', $forwardedFor) as $value) {
+            $ip = trim($value);
+            if ($this->isPublicIp($ip)) {
+                return $ip;
+            }
+        }
+
+        return (string) ($request->ip() ?: '');
+    }
+
+    protected function isPublicIp(string $value): bool
+    {
+        return filter_var(
+            $value,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE,
+        ) !== false;
     }
 
     protected function appendQuery(string $url, array $query): string

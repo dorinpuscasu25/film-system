@@ -31,6 +31,9 @@ class StorefrontWalletTopUpController extends ApiController
             'request_amount' => $request->input('amount'),
             'request_currency' => $request->input('currency'),
             'client_ip' => $request->ip(),
+            'cf_connecting_ip' => $request->headers->get('CF-Connecting-IP'),
+            'x_real_ip' => $request->headers->get('X-Real-IP'),
+            'x_forwarded_for' => $request->headers->get('X-Forwarded-For'),
             'user_agent' => substr((string) $request->userAgent(), 0, 500),
         ]);
 
