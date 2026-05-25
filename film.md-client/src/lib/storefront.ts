@@ -80,6 +80,8 @@ interface PublicContentCard {
   release_year?: number | null;
   country_name?: string | null;
   country_code?: string | null;
+  country_names?: string[] | null;
+  country_codes?: string[] | null;
   imdb_rating?: number | null;
   platform_rating?: number | null;
   genres: string[];
@@ -318,7 +320,7 @@ function mapCardToMovie(item: PublicContentCard): Movie {
     originalTitle: item.original_title,
     year,
     genres: item.genres ?? [],
-    country: item.country_name || item.country_code || "Unknown",
+    country: item.country_names?.filter(Boolean).join(", ") || item.country_name || item.country_code || "Unknown",
     rating: Number(item.imdb_rating ?? 0),
     platformRating: Number(item.platform_rating ?? 0),
     price: Number(item.lowest_price ?? 0),
@@ -364,7 +366,7 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
     originalTitle: item.original_title,
     year,
     genres: item.genres ?? [],
-    country: item.country_name || item.country_code || "Unknown",
+    country: item.country_names?.filter(Boolean).join(", ") || item.country_name || item.country_code || "Unknown",
     rating: Number(item.imdb_rating ?? 0),
     platformRating: Number(item.platform_rating ?? 0),
     price: Number(item.lowest_price ?? 0),

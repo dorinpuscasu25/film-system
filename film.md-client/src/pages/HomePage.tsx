@@ -131,7 +131,7 @@ export function HomePage() {
       mobileImageUrl: movie.heroMobileUrl || movie.posterUrl,
       eyebrow: movie.isTrending ? t("movie.trending") : undefined,
       title: movie.title,
-      description: movie.shortDescription || movie.tagline || movie.description,
+      description: movie.shortDescription || movie.description,
       primaryCtaLabel: movie.price === 0 ? t("common.watch_free") : undefined,
       secondaryCtaLabel: t("common.more_info"),
       content: movie,
@@ -236,6 +236,12 @@ export function HomePage() {
             <h1 className="mb-4 text-5xl font-bold leading-tight text-white drop-shadow-lg md:text-7xl">
               {activeHeroSlide?.title || featuredMovie.title}
             </h1>
+
+            {featuredMovie.tagline ? (
+              <p className="mb-5 max-w-xl text-xl font-semibold leading-snug text-white drop-shadow md:text-2xl">
+                {featuredMovie.tagline}
+              </p>
+            ) : null}
 
             <div className="mb-6 flex flex-wrap items-center gap-4 text-sm font-medium text-gray-300 md:text-base">
               <span className="font-bold text-accentGold drop-shadow">★ {featuredMovie.rating.toFixed(1)}</span>

@@ -260,7 +260,20 @@ class ApiController extends Controller
             ? (float) $activeOffers->min('price_amount')
             : null);
         $countryOptions = Content::countryOptions();
-        $countryCode = $content->country_code;
+        $countryCodes = collect($content->country_codes ?? [])
+            ->map(fn (mixed $countryCode): string => strtoupper(trim((string) $countryCode)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($countryCodes->isEmpty() && $content->country_code !== null) {
+            $countryCodes = collect([$content->country_code]);
+        }
+
+        $countryCode = $countryCodes->first();
+        $countryNames = $countryCodes
+            ->map(fn (string $countryCode): string => $countryOptions[$countryCode] ?? $countryCode)
+            ->values();
         $defaultLocale = in_array($content->default_locale, Content::supportedLocales(), true)
             ? $content->default_locale
             : Content::supportedLocales()[0];
@@ -317,6 +330,7 @@ class ApiController extends Controller
             'type' => $content->type,
             'type_label' => Content::typeLabel($content->type, $resolvedLocale),
             'slug' => $content->slug,
+            'movie_id' => $content->movie_id,
             'default_locale' => $defaultLocale,
             'status' => $content->status,
             'original_title' => $content->original_title,
@@ -327,14 +341,14 @@ class ApiController extends Controller
             'editor_notes' => $content->getTranslations('editor_notes'),
             'meta_title' => $content->getTranslations('meta_title'),
             'meta_description' => $content->getTranslations('meta_description'),
-            'localized_title' => $content->getTranslation('title', $resolvedLocale, false)
-                ?? $content->getTranslation('title', $defaultLocale, false)
-                ?? $content->original_title,
+            'localized_title' => $this->localizedTitle($content, $resolvedLocale, $defaultLocale),
             'localized_short_description' => $content->getTranslation('short_description', $resolvedLocale, false)
                 ?? $content->getTranslation('short_description', $defaultLocale, false),
             'release_year' => $content->release_year,
             'country_code' => $countryCode,
-            'country_name' => $countryCode ? ($countryOptions[$countryCode] ?? $countryCode) : null,
+            'country_codes' => $countryCodes->all(),
+            'country_name' => $countryNames->first(),
+            'country_names' => $countryNames->all(),
             'imdb_rating' => $content->imdb_rating,
             'platform_rating' => $content->platform_rating,
             'runtime_minutes' => $content->runtime_minutes,
@@ -372,6 +386,13 @@ class ApiController extends Controller
                 ->map(function (array $member) use ($defaultLocale, $resolvedLocale) {
                     $creditType = (string) (data_get($member, 'credit_type') ?: 'director');
                     $jobTitle = data_get($member, 'job_title', data_get($member, 'job'));
+                    $localizedJobTitle = $this->localizedValue($jobTitle, $resolvedLocale, $defaultLocale)
+                        ?: Content::localizedOptionLabel(
+                            Content::crewCreditTypeTranslations(),
+                            $creditType,
+                            $resolvedLocale,
+                            $defaultLocale,
+                        );
 
                     return [
                         'id' => (string) data_get($member, 'id'),
@@ -384,8 +405,8 @@ class ApiController extends Controller
                             $defaultLocale,
                         ),
                         'job_title' => $this->translatableValue($jobTitle),
-                        'localized_job_title' => $this->localizedValue($jobTitle, $resolvedLocale, $defaultLocale),
-                        'job' => $this->localizedValue($jobTitle, $resolvedLocale, $defaultLocale),
+                        'localized_job_title' => $localizedJobTitle,
+                        'job' => $localizedJobTitle,
                         'avatar_url' => data_get($member, 'avatar_url'),
                         'sort_order' => (int) data_get($member, 'sort_order', 0),
                     ];
@@ -536,13 +557,14 @@ class ApiController extends Controller
             'title' => $adminData['localized_title'],
             'original_title' => $adminData['original_title'],
             'slug' => $adminData['slug'],
+            'movie_id' => $adminData['movie_id'],
             'short_description' => $adminData['localized_short_description'] ?? '',
-            'tagline' => data_get($adminData, "tagline.$locale")
-                ?? data_get($adminData, 'tagline.ro')
-                ?? '',
+            'tagline' => $this->localizedValue($adminData['tagline'] ?? null, $locale, $adminData['default_locale'] ?? 'ro') ?? '',
             'release_year' => $adminData['release_year'],
             'country_code' => $adminData['country_code'],
+            'country_codes' => $adminData['country_codes'],
             'country_name' => $adminData['country_name'],
+            'country_names' => $adminData['country_names'],
             'imdb_rating' => $adminData['imdb_rating'],
             'platform_rating' => $adminData['platform_rating'],
             'genres' => collect($adminData['genres'])->pluck('localized_name')->filter()->values(),
@@ -737,6 +759,19 @@ class ApiController extends Controller
         $stringValue = trim((string) $value);
 
         return $stringValue !== '' ? $stringValue : null;
+    }
+
+    protected function localizedTitle(Content $content, string $locale, string $fallbackLocale): string
+    {
+        foreach (array_unique([$locale, 'ro', 'en', 'ru', $fallbackLocale]) as $candidateLocale) {
+            $title = trim((string) $content->getTranslation('title', $candidateLocale, false));
+
+            if ($title !== '') {
+                return $title;
+            }
+        }
+
+        return $content->original_title;
     }
 
     protected function hasLocalizedPayload(array $value): bool

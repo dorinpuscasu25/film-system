@@ -536,8 +536,15 @@ export function MovieDetailPage() {
             transition={{ delay: 0.1 }}
             className="flex-1 pt-8 md:pt-32"
           >
-            <h1 className="mb-2 text-4xl font-bold text-white md:text-5xl">{movie.title}</h1>
-            <p className="mb-6 text-gray-400">{t("movie.original_title", { title: movie.originalTitle })}</p>
+            <h1 className="mb-3 text-4xl font-bold text-white md:text-5xl">{movie.title}</h1>
+            {movie.tagline ? (
+              <p className="mb-4 max-w-3xl text-xl font-semibold leading-snug text-white md:text-2xl">
+                {movie.tagline}
+              </p>
+            ) : null}
+            {movie.originalTitle && movie.originalTitle.trim().toLowerCase() !== movie.title.trim().toLowerCase() ? (
+              <p className="mb-6 text-gray-400">{t("movie.original_title", { title: movie.originalTitle })}</p>
+            ) : null}
 
             <div className="mb-8 flex flex-wrap items-center gap-4">
               <div className="flex items-center space-x-1 rounded-full bg-surfaceHover px-3 py-1 text-sm">

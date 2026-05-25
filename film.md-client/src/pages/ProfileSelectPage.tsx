@@ -174,20 +174,22 @@ export function ProfileSelectPage() {
         className="flex max-w-4xl flex-wrap justify-center gap-8 md:gap-12"
       >
         {sortedProfiles.map((profile) => (
-          <motion.div key={profile.id} variants={itemVariants} className="relative group">
+          <motion.div key={profile.id} variants={itemVariants} className="group relative flex w-32 flex-col items-center">
             <div className={`relative ${isManaging ? "cursor-pointer hover:opacity-90" : ""}`}>
               <ProfileAvatar profile={profile} size="xl" onClick={() => handleSelect(profile.id)} />
-
-              {profile.isKids && (
-                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                  {t("profiles.kids")}
-                </span>
-              )}
 
               {isManaging && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
                   <Edit2Icon className="h-8 w-8 text-white" />
                 </div>
+              )}
+            </div>
+
+            <div className="mt-2 flex h-7 items-start justify-center">
+              {profile.isKids && (
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
+                  {t("profiles.kids")}
+                </span>
               )}
             </div>
 

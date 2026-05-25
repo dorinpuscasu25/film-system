@@ -803,6 +803,7 @@ export interface AdminContent {
   type: AdminContentType;
   type_label?: string;
   slug: string;
+  movie_id: string | null;
   default_locale: TaxonomyLocale;
   status: AdminContentStatus;
   original_title: string;
@@ -817,7 +818,9 @@ export interface AdminContent {
   localized_short_description: string | null;
   release_year: number | null;
   country_code: string | null;
+  country_codes?: string[];
   country_name: string | null;
+  country_names?: string[];
   imdb_rating: number | null;
   platform_rating: number | null;
   runtime_minutes: number | null;
@@ -976,6 +979,7 @@ export interface OfferIndexResponse {
 export interface ContentPayload {
   type: AdminContentType;
   slug: string;
+  movie_id?: string | null;
   default_locale: TaxonomyLocale;
   status: AdminContentStatus;
   original_title: string;
@@ -988,6 +992,7 @@ export interface ContentPayload {
   meta_description: LocalizedText;
   release_year?: number | null;
   country_code?: string | null;
+  country_codes?: string[];
   imdb_rating?: number | null;
   platform_rating?: number | null;
   runtime_minutes?: number | null;

@@ -138,6 +138,7 @@ function AppFrame() {
   const location = useLocation();
   const { currentLanguage } = useLanguage();
   const isPlayerRoute = location.pathname.startsWith('/watch/');
+  const isProfileRoute = location.pathname === '/profiles';
   const [isMaintenanceUnlocked, setIsMaintenanceUnlocked] = useState(() => {
     return localStorage.getItem(MAINTENANCE_ACCESS_KEY) === 'true';
   });
@@ -154,7 +155,7 @@ function AppFrame() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-white font-sans selection:bg-accent selection:text-white">
-      {!isPlayerRoute ? <Header /> : null}
+      {!isPlayerRoute && !isProfileRoute ? <Header /> : null}
       {!isPlayerRoute ? <AuthModal /> : null}
       <main className="flex-grow">
         <Routes>

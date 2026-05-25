@@ -140,6 +140,8 @@
   "search": {
     "placeholder": "Caută filme, seriale, actori...",
     "advanced_filters": "Filtre avansate",
+    "filter_button": "Filtrează",
+    "hide_filters": "Ascunde",
     "type": "Tip",
     "access": "Acces",
     "genres": "Genuri",

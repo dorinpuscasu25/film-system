@@ -11,6 +11,7 @@ use Spatie\Translatable\HasTranslations;
 #[Fillable([
     'type',
     'slug',
+    'movie_id',
     'default_locale',
     'status',
     'original_title',
@@ -23,6 +24,7 @@ use Spatie\Translatable\HasTranslations;
     'meta_description',
     'release_year',
     'country_code',
+    'country_codes',
     'imdb_rating',
     'platform_rating',
     'runtime_minutes',
@@ -214,7 +216,19 @@ class Content extends Model
 
     public static function availableAgeRatings(): array
     {
-        return ['0+', '6+', '12+', '16+', '18+'];
+        return ['AG', 'A.P.-12', 'N-15', 'I.M.-18', 'I.M.-18-XXX', 'I.C.'];
+    }
+
+    public static function ageRatingLabels(): array
+    {
+        return [
+            'AG' => 'Audiență Generală - AG',
+            'A.P.-12' => 'A.P. - 12',
+            'N-15' => 'N - 15',
+            'I.M.-18' => 'I.M. - 18',
+            'I.M.-18-XXX' => 'I.M. - 18-XXX',
+            'I.C.' => 'I.C. - Interdicție de comunicare',
+        ];
     }
 
     public static function availableQualities(): array
@@ -320,6 +334,7 @@ class Content extends Model
     {
         return [
             'release_year' => 'integer',
+            'country_codes' => 'array',
             'imdb_rating' => 'float',
             'platform_rating' => 'float',
             'runtime_minutes' => 'integer',

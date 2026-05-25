@@ -27,7 +27,7 @@ class ContentController extends ApiController
     public function index(): JsonResponse
     {
         $user = request()->user();
-        $locale = $user?->preferred_locale ?? Content::supportedLocales()[0];
+        $locale = Taxonomy::LOCALE_RO;
         $items = $this->contentScope->scopeContentQuery($user, Content::query())
             ->with('taxonomies', 'offers')
             ->orderByDesc('is_featured')
@@ -62,7 +62,7 @@ class ContentController extends ApiController
     public function show(Content $content): JsonResponse
     {
         $this->contentScope->assertCanAccessContent(request()->user(), $content);
-        $locale = request()->user()?->preferred_locale ?? Content::supportedLocales()[0];
+        $locale = Taxonomy::LOCALE_RO;
 
         return response()->json([
             'content' => $this->contentData($content->load('taxonomies', 'offers', 'formats', 'rightsWindows', 'subtitleTracks', 'creators', 'premiereEvents'), $locale),
@@ -90,7 +90,7 @@ class ContentController extends ApiController
         return response()->json([
             'content' => $this->contentData(
                 $freshContent,
-                $request->user()?->preferred_locale ?? Content::supportedLocales()[0],
+                Taxonomy::LOCALE_RO,
             ),
         ], Response::HTTP_CREATED);
     }
@@ -116,7 +116,7 @@ class ContentController extends ApiController
         return response()->json([
             'content' => $this->contentData(
                 $freshContent,
-                $request->user()?->preferred_locale ?? Content::supportedLocales()[0],
+                Taxonomy::LOCALE_RO,
             ),
         ]);
     }

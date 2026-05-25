@@ -21,7 +21,7 @@ class StorefrontParentalController extends ApiController
         $this->assertOwn($request, $profile);
         $data = $request->validate([
             'pin' => ['required', 'string', 'regex:/^\d{4,6}$/'],
-            'max_age_rating' => ['nullable', 'string', 'in:G,PG,PG-13,R,NC-17,18+'],
+            'max_age_rating' => ['nullable', 'string', 'in:AG,A.P.-12,N-15,I.M.-18,I.M.-18-XXX,I.C.'],
         ]);
         $this->parental->setPin($profile, $data['pin']);
         if (array_key_exists('max_age_rating', $data)) {

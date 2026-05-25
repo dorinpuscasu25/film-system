@@ -139,6 +139,7 @@ interface CountryMultiSelectProps {
   onChange: (value: string[]) => void;
   options?: SelectOption[];
   placeholder?: string;
+  emptyLabel?: string;
   disabled?: boolean;
   helperText?: string;
   className?: string;
@@ -150,6 +151,7 @@ export function CountryMultiSelect({
   onChange,
   options = ALL_COUNTRY_OPTIONS,
   placeholder = "Caută țări...",
+  emptyLabel = "Global / toate țările",
   disabled = false,
   helperText,
   className,
@@ -180,7 +182,7 @@ export function CountryMultiSelect({
           onClick={() => setOpen(true)}
         >
           {selectedOptions.length === 0 ? (
-            <span className="py-1.5 text-sm text-muted-foreground">Global / toate țările</span>
+            <span className="py-1.5 text-sm text-muted-foreground">{emptyLabel}</span>
           ) : (
             selectedOptions.map((option) => (
               <button
@@ -221,7 +223,7 @@ export function CountryMultiSelect({
                 value.length === 0 ? "bg-accent" : "",
               )}
             >
-              <span>Global / toate țările</span>
+              <span>{emptyLabel}</span>
               {value.length === 0 ? <CheckIcon className="h-4 w-4" /> : null}
             </button>
             {visibleOptions.map((option) => {

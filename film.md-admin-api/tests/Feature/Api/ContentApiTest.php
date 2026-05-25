@@ -52,11 +52,11 @@ class ContentApiTest extends TestCase
         $response = $this->postJson('/api/v1/admin/content', [
             'type' => Content::TYPE_MOVIE,
             'slug' => 'milika',
+            'movie_id' => 'F0001',
             'default_locale' => 'ro',
             'status' => Content::STATUS_DRAFT,
-            'original_title' => 'Milika',
             'title' => [
-                'ro' => 'Milika',
+                'ro' => '',
                 'ru' => 'Милика',
                 'en' => 'Milika',
             ],
@@ -91,9 +91,9 @@ class ContentApiTest extends TestCase
                 'en' => 'Meta EN',
             ],
             'release_year' => 2023,
-            'country_code' => 'MD',
+            'country_codes' => ['MD', 'RO'],
             'runtime_minutes' => 85,
-            'age_rating' => '12+',
+            'age_rating' => 'A.P.-12',
             'poster_url' => $imageUrl,
             'backdrop_url' => 'https://example.com/backdrop.jpg',
             'hero_desktop_url' => $imageUrl,
@@ -112,6 +112,12 @@ class ContentApiTest extends TestCase
                     'en' => 'Milika',
                 ],
                 'avatar_url' => $imageUrl,
+                'sort_order' => 1,
+            ], [
+                'name' => 'Mihai Principal',
+                'credit_type' => 'lead_actor',
+                'avatar_url' => $imageUrl,
+                'sort_order' => 0,
             ]],
             'crew_members' => [[
                 'name' => 'Ion Test',
@@ -122,6 +128,12 @@ class ContentApiTest extends TestCase
                     'en' => 'Director',
                 ],
                 'avatar_url' => 'https://example.com/crew.jpg',
+                'sort_order' => 0,
+            ], [
+                'name' => 'Maria Producer',
+                'credit_type' => 'producer',
+                'avatar_url' => 'https://example.com/producer.jpg',
+                'sort_order' => 1,
             ]],
             'videos' => [[
                 'type' => 'trailer',
@@ -156,18 +168,28 @@ class ContentApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('content.slug', 'milika')
+            ->assertJsonPath('content.movie_id', 'F0001')
+            ->assertJsonPath('content.original_title', 'Milika')
+            ->assertJsonPath('content.localized_title', 'Milika')
+            ->assertJsonPath('content.country_code', 'MD')
+            ->assertJsonPath('content.country_codes.1', 'RO')
             ->assertJsonPath('content.hero_mobile_url', 'https://example.com/hero-mobile.jpg')
             ->assertJsonPath('content.genres.0.slug', 'drama')
             ->assertJsonPath('content.badges.0.slug', 'editor-choice')
-            ->assertJsonPath('content.cast.0.character_name.ro', 'Milika')
+            ->assertJsonPath('content.cast.0.name', 'Mihai Principal')
+            ->assertJsonPath('content.cast.1.character_name.ro', 'Milika')
             ->assertJsonPath('content.crew.0.job_title.en', 'Director')
+            ->assertJsonPath('content.crew.1.job_title.en', 'Producer')
             ->assertJsonPath('content.videos.0.title.en', 'Official Trailer');
 
         $this->assertDatabaseHas('contents', [
             'slug' => 'milika',
+            'movie_id' => 'F0001',
             'country_code' => 'MD',
             'status' => Content::STATUS_DRAFT,
         ]);
+
+        $this->assertSame(['MD', 'RO'], Content::query()->where('slug', 'milika')->firstOrFail()->country_codes);
     }
 
     public function test_admin_can_delete_content(): void

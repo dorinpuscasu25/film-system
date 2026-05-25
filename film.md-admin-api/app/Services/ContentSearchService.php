@@ -136,7 +136,7 @@ class ContentSearchService
         $searchParams = [
             'limit' => $pageSize,
             'offset' => ($page - 1) * $pageSize,
-            'facets' => ['genre_slugs', 'release_year', 'country_code', 'type', 'is_free'],
+            'facets' => ['genre_slugs', 'release_year', 'country_codes', 'type', 'is_free'],
             'sort' => ['is_featured:desc', 'sort_order:asc', 'release_year:desc', 'published_timestamp:desc'],
             'locales' => config("search.locales.{$locale}", [$locale]),
         ];
@@ -273,7 +273,11 @@ class ContentSearchService
 
         $countryCode = $this->resolveCountryCode(Arr::get($filters, 'country'));
         if ($countryCode !== null) {
-            $query->where('country_code', $countryCode);
+            $query->where(function (Builder $builder) use ($countryCode): void {
+                $builder
+                    ->where('country_code', $countryCode)
+                    ->orWhereJsonContains('country_codes', $countryCode);
+            });
         }
 
         $minRating = (float) Arr::get($filters, 'min_rating', 0);
@@ -314,7 +318,7 @@ class ContentSearchService
 
         $countryCode = $this->resolveCountryCode(Arr::get($filters, 'country'));
         if ($countryCode !== null) {
-            $expressions[] = sprintf('country_code = "%s"', $this->escapeFilterValue($countryCode));
+            $expressions[] = sprintf('country_codes = "%s"', $this->escapeFilterValue($countryCode));
         }
 
         $minRating = (float) Arr::get($filters, 'min_rating', 0);
@@ -359,7 +363,7 @@ class ContentSearchService
                 ])
                 ->sortByDesc(fn (array $item) => (int) $item['value'])
                 ->values(),
-            'countries' => collect($facetDistribution['country_code'] ?? [])
+            'countries' => collect($facetDistribution['country_codes'] ?? $facetDistribution['country_code'] ?? [])
                 ->map(fn ($count, $code): array => [
                     'value' => (string) $code,
                     'label' => $countryOptions[$code] ?? (string) $code,
@@ -435,7 +439,19 @@ class ContentSearchService
                 ->sortByDesc(fn (array $item) => (int) $item['value'])
                 ->values(),
             'countries' => $contents
-                ->pluck('country_code')
+                ->flatMap(function (Content $content): array {
+                    $countryCodes = collect($content->country_codes ?? [])
+                        ->map(fn (mixed $countryCode): string => strtoupper(trim((string) $countryCode)))
+                        ->filter()
+                        ->unique()
+                        ->values();
+
+                    if ($countryCodes->isEmpty() && $content->country_code !== null) {
+                        $countryCodes = collect([$content->country_code]);
+                    }
+
+                    return $countryCodes->all();
+                })
                 ->filter()
                 ->countBy()
                 ->map(fn ($count, $code): array => [
@@ -515,6 +531,20 @@ class ContentSearchService
             ->flatMap(fn (array $season) => data_get($season, 'episodes', []))
             ->values();
 
+        $countryCodes = collect($content->country_codes ?? [])
+            ->map(fn (mixed $countryCode): string => strtoupper(trim((string) $countryCode)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($countryCodes->isEmpty() && $content->country_code !== null) {
+            $countryCodes = collect([$content->country_code]);
+        }
+
+        $countryNames = $countryCodes
+            ->map(fn (string $countryCode): string => Content::countryOptions()[$countryCode] ?? $countryCode)
+            ->values();
+
         $document = [
             'id' => (string) $content->getKey(),
             'slug' => $content->slug,
@@ -522,8 +552,10 @@ class ContentSearchService
             'status' => $content->status,
             'original_title' => $content->original_title,
             'release_year' => $content->release_year,
-            'country_code' => $content->country_code,
-            'country_name' => Content::countryOptions()[$content->country_code] ?? $content->country_code,
+            'country_code' => $countryCodes->first(),
+            'country_codes' => $countryCodes->all(),
+            'country_name' => $countryNames->first(),
+            'country_names' => $countryNames->all(),
             'imdb_rating' => (float) ($content->imdb_rating ?? 0),
             'platform_rating' => (float) ($content->platform_rating ?? 0),
             'is_featured' => (bool) $content->is_featured,
@@ -718,6 +750,7 @@ class ContentSearchService
                 'genre_slugs',
                 'release_year',
                 'country_code',
+                'country_codes',
                 'is_free',
             ]),
             $index->updateSortableAttributes([

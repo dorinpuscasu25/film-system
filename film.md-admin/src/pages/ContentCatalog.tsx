@@ -83,7 +83,9 @@ export function ContentCatalog() {
     return items.filter((item) => {
       const matchesType = activeTab === "all" ? true : item.type === activeTab;
       const matchesStatus = statusFilter === "all" ? true : item.status === statusFilter;
-      const matchesCountry = countryFilter === "all" ? true : item.country_code === countryFilter;
+      const matchesCountry = countryFilter === "all"
+        ? true
+        : (item.country_codes ?? (item.country_code ? [item.country_code] : [])).includes(countryFilter);
       const matchesGenre =
         genreFilter === "all" ? true : item.genres.some((genre) => genre.localized_name === genreFilter);
 
@@ -97,9 +99,13 @@ export function ContentCatalog() {
         ...item,
         search_index: [
           item.slug,
+          item.movie_id ?? "",
           item.localized_title,
-          item.original_title,
+          item.title.ro,
+          item.title.en,
+          item.title.ru,
           item.country_name ?? "",
+          ...(item.country_names ?? []),
           ...item.genres.map((genre) => genre.localized_name),
           ...item.tags.map((tag) => tag.localized_name),
           ...item.badges.map((badge) => badge.localized_name),
@@ -140,7 +146,6 @@ export function ContentCatalog() {
           />
           <div className="space-y-1">
             <div className="font-medium">{item.localized_title}</div>
-            <div className="text-xs text-muted-foreground">{item.original_title}</div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">{item.slug}</div>
           </div>
         </div>

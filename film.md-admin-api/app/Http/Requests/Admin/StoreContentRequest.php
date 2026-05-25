@@ -21,11 +21,14 @@ class StoreContentRequest extends FormRequest
         return [
             'type' => ['required', Rule::in(Content::availableTypes())],
             'slug' => ['required', 'string', 'max:255', Rule::unique('contents', 'slug')],
+            'movie_id' => ['nullable', 'string', 'max:255'],
             'default_locale' => ['required', Rule::in(Content::supportedLocales())],
             'status' => ['required', Rule::in(Content::availableStatuses())],
-            'original_title' => ['required', 'string', 'max:255'],
+            'original_title' => ['nullable', 'string', 'max:255'],
             'release_year' => ['nullable', 'integer', 'between:1900,2100'],
             'country_code' => ['nullable', Rule::in(array_keys(Content::countryOptions()))],
+            'country_codes' => ['nullable', 'array'],
+            'country_codes.*' => ['nullable', Rule::in(array_keys(Content::countryOptions()))],
             'imdb_rating' => ['nullable', 'numeric', 'between:0,10'],
             'platform_rating' => ['nullable', 'numeric', 'between:0,5'],
             'runtime_minutes' => ['nullable', 'integer', 'min:1', 'max:1200'],
@@ -126,7 +129,7 @@ class StoreContentRequest extends FormRequest
             'canonical_url' => ['nullable', 'url', 'max:2048'],
             'taxonomy_ids' => ['nullable', 'array'],
             'taxonomy_ids.*' => ['integer', Rule::exists('taxonomies', 'id')],
-            ...$this->localizedRules('title', true, 255),
+            ...$this->localizedRules('title', false, 255),
             ...$this->localizedRules('tagline', false, 255),
             ...$this->localizedRules('short_description', true, 400),
             ...$this->localizedRules('description', true, 5000),
@@ -149,6 +152,7 @@ class StoreContentRequest extends FormRequest
         return [
             'type' => 'tip conținut',
             'slug' => 'slug',
+            'movie_id' => 'MovieID',
             'original_title' => 'titlu original',
             'poster_url' => 'poster',
             'backdrop_url' => 'backdrop',
@@ -185,6 +189,14 @@ class StoreContentRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
+            $titles = collect($this->input('title', []))
+                ->map(fn (mixed $value): string => trim((string) $value))
+                ->filter();
+
+            if ($titles->isEmpty()) {
+                $validator->errors()->add('title', 'Completează cel puțin un titlu.');
+            }
+
             if ($this->filled('taxonomy_ids')) {
                 $taxonomyIds = collect($this->input('taxonomy_ids', []))
                     ->map(fn (mixed $value): int => (int) $value)
@@ -208,14 +220,16 @@ class StoreContentRequest extends FormRequest
         $publishedAt = $status === Content::STATUS_PUBLISHED
             ? ($this->route('content')?->published_at ?? now())
             : null;
+        $title = $this->normalizeTranslatableField('title');
 
         return [
             'type' => (string) $this->input('type'),
             'slug' => trim((string) $this->input('slug')),
+            'movie_id' => $this->filled('movie_id') ? trim((string) $this->input('movie_id')) : null,
             'default_locale' => (string) $this->input('default_locale'),
             'status' => $status,
-            'original_title' => trim((string) $this->input('original_title')),
-            'title' => $this->normalizeTranslatableField('title'),
+            'original_title' => $this->resolvedOriginalTitle($title),
+            'title' => $title,
             'tagline' => $this->normalizeTranslatableField('tagline'),
             'short_description' => $this->normalizeTranslatableField('short_description'),
             'description' => $this->normalizeTranslatableField('description'),
@@ -223,7 +237,8 @@ class StoreContentRequest extends FormRequest
             'meta_title' => $this->normalizeTranslatableField('meta_title'),
             'meta_description' => $this->normalizeTranslatableField('meta_description'),
             'release_year' => $this->filled('release_year') ? (int) $this->input('release_year') : null,
-            'country_code' => $this->filled('country_code') ? (string) $this->input('country_code') : null,
+            'country_code' => $this->normalizedCountryCodes()->first(),
+            'country_codes' => $this->normalizedCountryCodes()->all(),
             'imdb_rating' => $this->filled('imdb_rating') ? (float) $this->input('imdb_rating') : null,
             'platform_rating' => $this->filled('platform_rating') ? (float) $this->input('platform_rating') : null,
             'runtime_minutes' => $this->filled('runtime_minutes') ? (int) $this->input('runtime_minutes') : null,
@@ -320,6 +335,25 @@ class StoreContentRequest extends FormRequest
         return $this->normalizeTranslatableValue($this->input($field, []));
     }
 
+    protected function resolvedOriginalTitle(array $title): string
+    {
+        $explicitTitle = trim((string) $this->input('original_title'));
+
+        if ($explicitTitle !== '') {
+            return $explicitTitle;
+        }
+
+        foreach (['ro', 'en', 'ru'] as $locale) {
+            $localizedTitle = trim((string) ($title[$locale] ?? ''));
+
+            if ($localizedTitle !== '') {
+                return $localizedTitle;
+            }
+        }
+
+        return 'Untitled';
+    }
+
     protected function normalizeAvailableQualities(): array
     {
         /** @var Content|null $content */
@@ -348,6 +382,21 @@ class StoreContentRequest extends FormRequest
             ->unique()
             ->values()
             ->all();
+    }
+
+    protected function normalizedCountryCodes(): \Illuminate\Support\Collection
+    {
+        $countryCodes = collect($this->input('country_codes', []))
+            ->map(fn (mixed $value): string => strtoupper(trim((string) $value)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($countryCodes->isEmpty() && $this->filled('country_code')) {
+            $countryCodes = collect([strtoupper((string) $this->input('country_code'))]);
+        }
+
+        return $countryCodes;
     }
 
     protected function normalizeContentFormats(): array
@@ -461,7 +510,7 @@ class StoreContentRequest extends FormRequest
                     'sort_order' => (int) data_get($member, 'sort_order', $index),
                 ];
             })
-            ->filter(fn (array $member): bool => $member['name'] !== '' && $this->hasTranslatedValue($member['character_name']))
+            ->filter(fn (array $member): bool => $member['name'] !== '')
             ->sortBy('sort_order')
             ->values()
             ->all();
@@ -471,22 +520,36 @@ class StoreContentRequest extends FormRequest
     {
         return collect($this->input('crew_members', []))
             ->map(function (mixed $member, int $index): array {
+                $creditType = (string) (data_get($member, 'credit_type') ?: 'director');
                 $jobTitle = $this->normalizeTranslatableValue(
                     data_get($member, 'job_title', data_get($member, 'job')),
                 );
 
+                if (! $this->hasTranslatedValue($jobTitle)) {
+                    $jobTitle = $this->localizedOptionValue(Content::crewCreditTypeTranslations(), $creditType);
+                }
+
                 return [
                     'id' => data_get($member, 'id') ?: Str::uuid()->toString(),
                     'name' => trim((string) data_get($member, 'name')),
-                    'credit_type' => (string) (data_get($member, 'credit_type') ?: 'director'),
+                    'credit_type' => $creditType,
                     'job_title' => $jobTitle,
                     'avatar_url' => $this->filledArrayValue($member, 'avatar_url'),
                     'sort_order' => (int) data_get($member, 'sort_order', $index),
                 ];
             })
-            ->filter(fn (array $member): bool => $member['name'] !== '' && $this->hasTranslatedValue($member['job_title']))
+            ->filter(fn (array $member): bool => $member['name'] !== '')
             ->sortBy('sort_order')
             ->values()
+            ->all();
+    }
+
+    protected function localizedOptionValue(array $translations, string $value): array
+    {
+        $labels = $translations[$value] ?? [];
+
+        return collect(Content::supportedLocales())
+            ->mapWithKeys(fn (string $locale): array => [$locale => (string) ($labels[$locale] ?? $labels['ro'] ?? $labels['en'] ?? $value)])
             ->all();
     }
 

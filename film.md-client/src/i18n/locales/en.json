@@ -140,6 +140,8 @@
   "search": {
     "placeholder": "Search movies, series, actors...",
     "advanced_filters": "Advanced filters",
+    "filter_button": "Filter",
+    "hide_filters": "Hide",
     "type": "Type",
     "access": "Access",
     "genres": "Genres",

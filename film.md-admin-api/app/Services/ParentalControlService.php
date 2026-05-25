@@ -15,7 +15,20 @@ use Illuminate\Support\Facades\Cache;
  */
 class ParentalControlService
 {
-    public const AGE_RATINGS_ORDERED = ['G', 'PG', 'PG-13', 'R', 'NC-17', '18+'];
+    public const AGE_RATINGS_ORDERED = ['AG', 'A.P.-12', 'N-15', 'I.M.-18', 'I.M.-18-XXX', 'I.C.'];
+
+    private const LEGACY_RATING_ALIASES = [
+        'G' => 'AG',
+        'PG' => 'A.P.-12',
+        'PG-13' => 'N-15',
+        'R' => 'I.M.-18',
+        'NC-17' => 'I.M.-18-XXX',
+        '0+' => 'AG',
+        '6+' => 'AG',
+        '12+' => 'A.P.-12',
+        '16+' => 'N-15',
+        '18+' => 'I.M.-18',
+    ];
 
     public function setPin(AccountProfile $profile, string $pin): void
     {
@@ -58,12 +71,12 @@ class ParentalControlService
 
     public function canAccessContent(AccountProfile $profile, Content $content): bool
     {
-        if ($profile->is_kids && $this->ratingExceeds((string) ($content->age_rating ?? 'G'), 'PG')) {
+        if ($profile->is_kids && $this->ratingExceeds((string) ($content->age_rating ?? 'AG'), 'A.P.-12')) {
             return false;
         }
 
         $maxRating = $profile->max_age_rating;
-        if ($maxRating !== null && $this->ratingExceeds((string) ($content->age_rating ?? 'G'), $maxRating)) {
+        if ($maxRating !== null && $this->ratingExceeds((string) ($content->age_rating ?? 'AG'), $maxRating)) {
             return $this->isUnlocked($profile);
         }
 
@@ -80,7 +93,9 @@ class ParentalControlService
 
     private function ratingIndex(string $rating): int
     {
-        $idx = array_search(strtoupper($rating), self::AGE_RATINGS_ORDERED, true);
+        $normalizedRating = strtoupper(trim($rating));
+        $normalizedRating = self::LEGACY_RATING_ALIASES[$normalizedRating] ?? $normalizedRating;
+        $idx = array_search($normalizedRating, self::AGE_RATINGS_ORDERED, true);
 
         return is_int($idx) ? $idx : 0;
     }

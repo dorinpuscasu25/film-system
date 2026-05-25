@@ -97,6 +97,11 @@ export function MovieCard({ movie }: MovieCardProps) {
           <h3 className="text-white font-bold text-sm md:text-base line-clamp-1 mb-1">
             {movie.title}
           </h3>
+          {movie.tagline ? (
+            <p className="mb-2 line-clamp-2 text-xs font-medium leading-snug text-white/85">
+              {movie.tagline}
+            </p>
+          ) : null}
           <div className="flex items-center space-x-2 text-xs text-gray-300 mb-2">
             <span>{movie.year}</span>
             <span>•</span>

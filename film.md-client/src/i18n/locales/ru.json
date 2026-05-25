@@ -140,6 +140,8 @@
   "search": {
     "placeholder": "Ищите фильмы, сериалы, актёров...",
     "advanced_filters": "Расширенные фильтры",
+    "filter_button": "Фильтры",
+    "hide_filters": "Скрыть",
     "type": "Тип",
     "access": "Доступ",
     "genres": "Жанры",

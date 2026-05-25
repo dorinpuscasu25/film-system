@@ -122,7 +122,7 @@ export function PurchaseModal({
   return (
     <AnimatePresence>
       {isOpen &&
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-stretch justify-center p-0 sm:items-center sm:p-4">
           <motion.div
           initial={{
             opacity: 0
@@ -149,7 +149,7 @@ export function PurchaseModal({
             scale: 0.95,
             opacity: 0
           }}
-          className="relative w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl z-10 min-h-[500px] flex flex-col">
+          className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden rounded-none shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-4xl sm:rounded-2xl md:min-h-[500px]">
 
             <div className="absolute inset-0 z-0">
               <img
@@ -162,23 +162,23 @@ export function PurchaseModal({
 
             <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors z-20 bg-black/20 rounded-full p-2 backdrop-blur-md">
+            className="absolute right-3 top-3 z-20 rounded-full bg-black/25 p-2 text-white/70 backdrop-blur-md transition-colors hover:text-white sm:right-4 sm:top-4">
 
-              <XIcon className="w-6 h-6" />
+              <XIcon className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
 
-            <div className="relative z-10 flex flex-col items-center justify-center p-8 flex-1">
-              <h2 className="text-3xl font-bold text-white mb-2 text-center drop-shadow-lg">
+            <div className="relative z-10 flex flex-1 flex-col items-center overflow-y-auto px-4 pb-5 pt-14 sm:p-8">
+              <h2 className="mb-1 max-w-[85%] text-center text-xl font-bold leading-tight text-white drop-shadow-lg sm:mb-2 sm:max-w-none sm:text-3xl">
                 {movie.title}
               </h2>
-              <p className="text-gray-300 mb-10 text-center max-w-lg drop-shadow">
+              <p className="mb-5 max-w-lg text-center text-sm text-gray-300 drop-shadow sm:mb-10 sm:text-base">
                 {t('checkout.choose_option')}
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-3xl mb-10">
+              <div className="mb-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:mb-10 md:grid-cols-2 md:gap-5">
                 {Object.entries(groupedOffers).map(([label, group]) =>
-                <div key={label} className="space-y-3">
-                    <h3 className="text-center text-white font-bold tracking-widest uppercase text-sm mb-4">
+                <div key={label} className="space-y-2 sm:space-y-3">
+                    <h3 className="mb-2 text-center text-xs font-bold uppercase tracking-[0.22em] text-white sm:mb-4 sm:text-sm">
                       {label}
                     </h3>
 
@@ -186,17 +186,17 @@ export function PurchaseModal({
                   <button
                     key={offer.id}
                     onClick={() => setSelectedOfferId(offer.id)}
-                    className={`w-full p-5 rounded-xl backdrop-blur-md transition-all border-2 text-left ${selectedOffer?.id === offer.id ? 'bg-white/20 border-white shadow-[0_0_30px_rgba(255,255,255,0.2)]' : 'bg-black/40 border-white/10 hover:bg-black/60'}`}>
+                    className={`w-full rounded-xl border-2 p-3 text-left backdrop-blur-md transition-all sm:p-5 ${selectedOffer?.id === offer.id ? 'bg-white/20 border-white shadow-[0_0_30px_rgba(255,255,255,0.2)]' : 'bg-black/40 border-white/10 hover:bg-black/60'}`}>
 
-                        <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="mb-2 flex items-start justify-between gap-3 sm:mb-4">
                           <div>
-                            <div className="text-xs font-bold uppercase tracking-[0.18em] text-gray-300">
+                            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-300 sm:text-xs">
                               {offerDurationLabel(offer, t)}
                             </div>
-                            <div className="mt-1 text-3xl font-bold text-white">{offer.quality}</div>
+                            <div className="mt-0.5 text-2xl font-bold leading-tight text-white sm:mt-1 sm:text-3xl">{offer.quality}</div>
                           </div>
                         </div>
-                        <div className="text-2xl text-white font-semibold">
+                        <div className="text-xl font-semibold text-white sm:text-2xl">
                           {formatCurrency(offer.price, offer.currency)}
                         </div>
                       </button>
@@ -205,9 +205,9 @@ export function PurchaseModal({
                 )}
               </div>
 
-              <div className="w-full max-w-md flex flex-col items-center">
-                <div className="flex justify-between items-center w-full mb-4 px-4">
-                  <span className="text-gray-300 flex items-center text-sm">
+              <div className="flex w-full max-w-md flex-col items-center">
+                <div className="mb-3 flex w-full items-center justify-between px-1 sm:mb-4 sm:px-4">
+                  <span className="flex items-center text-sm text-gray-300">
                     <WalletIcon className="w-4 h-4 mr-2" />
                     {t('checkout.wallet_balance')}
                   </span>
@@ -220,7 +220,7 @@ export function PurchaseModal({
 
                 {!canAfford &&
                   <div className="mb-3 w-full rounded-xl border border-accent/30 bg-accent/10 p-3 text-center">
-                    <p className="mb-3 text-accent text-sm">
+                    <p className="mb-3 text-sm text-accent">
                       {t('checkout.insufficient_funds')}
                     </p>
                     <button
@@ -243,7 +243,7 @@ export function PurchaseModal({
                 <button
                 onClick={handlePurchase}
                 disabled={!selectedOffer || !canAfford || isProcessing}
-                className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center ${canAfford ? 'bg-white text-background hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed backdrop-blur-md'}`}>
+                className={`flex w-full items-center justify-center rounded-xl py-3 text-sm font-bold transition-all sm:py-4 sm:text-lg ${canAfford ? 'bg-white text-background hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed backdrop-blur-md'}`}>
 
                   {isProcessing ?
                 <div className="w-6 h-6 border-2 border-background border-t-transparent rounded-full animate-spin" /> :
