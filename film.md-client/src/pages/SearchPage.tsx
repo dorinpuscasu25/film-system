@@ -123,52 +123,44 @@ export function SearchPage() {
   const selectedCountryLabel = filters.countries.find((country) => country.value === selectedCountry)?.label;
 
   const selectClassName =
-    "h-9 min-w-[138px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-3 pr-8 text-xs font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50";
+    "h-8 min-w-[126px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-2.5 pr-7 text-[11px] font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50";
 
   return (
     <div className="min-h-screen bg-background pt-24 pb-20">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="mx-auto mb-12 max-w-3xl">
+        <div className="mx-auto mb-7 max-w-2xl">
           <div className="relative">
-            <SearchIcon className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-gray-400" />
+            <SearchIcon className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("search.placeholder")}
-              className="w-full rounded-2xl border border-white/10 bg-surface py-4 pl-14 pr-6 text-xl text-white shadow-lg transition-colors placeholder:text-gray-500 focus:border-accent focus:outline-none"
+              className="h-12 w-full rounded-xl border border-white/10 bg-surface pl-11 pr-4 text-base text-white shadow-lg shadow-black/20 transition-colors placeholder:text-gray-500 focus:border-accent focus:outline-none"
               autoFocus
             />
           </div>
         </div>
 
-        <div className="mb-8 flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center gap-4 text-3xl font-bold uppercase tracking-wide md:text-4xl">
-              <span className="text-white/35">{t("nav.search")}</span>
-              <span className={isFiltersOpen ? "text-white" : "text-white/35"}>
-                {t("search.advanced_filters")}
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-gray-400">
-              {isLoading ? t("search.loading") : t("search.found_results", { count: total })}
-            </p>
-          </div>
+        <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-gray-400">
+            {isLoading ? t("search.loading") : t("search.found_results", { count: total })}
+          </p>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setIsFiltersOpen((value) => !value)}
-              className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${
+              className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition ${
                 isFiltersOpen
                   ? "border-white/70 bg-white text-background"
                   : "border-white/20 bg-white/5 text-white hover:border-white/50 hover:bg-white/10"
               }`}
             >
-              <FilterIcon className="h-4 w-4" />
+              <FilterIcon className="h-3.5 w-3.5" />
               {isFiltersOpen ? t("search.hide_filters") : t("search.filter_button")}
               {activeFilterCount > 0 ? (
-                <span className={`rounded-full px-2 py-0.5 text-xs ${isFiltersOpen ? "bg-background text-white" : "bg-accent text-white"}`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isFiltersOpen ? "bg-background text-white" : "bg-accent text-white"}`}>
                   {activeFilterCount}
                 </span>
               ) : null}
@@ -178,9 +170,9 @@ export function SearchPage() {
         </div>
 
         {isFiltersOpen ? (
-          <div className="mb-8 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-3 md:px-4">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="flex h-9 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
+          <div className="mb-7 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-3 shadow-lg shadow-black/10">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex h-8 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
                 {[
                   { value: null, label: t("common.all") },
                   { value: "movie", label: t("nav.movies") },
@@ -190,7 +182,7 @@ export function SearchPage() {
                     key={option.label}
                     type="button"
                     onClick={() => setSelectedType(option.value)}
-                    className={`rounded px-3 text-xs font-semibold transition ${
+                    className={`rounded px-2.5 text-[11px] font-semibold transition ${
                       selectedType === option.value
                         ? "bg-white text-background"
                         : "text-gray-400 hover:text-white"
@@ -215,7 +207,7 @@ export function SearchPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
+                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
               </div>
 
               <div className="relative">
@@ -232,14 +224,14 @@ export function SearchPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
+                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
               </div>
 
               <div className="relative">
                 <select
                   value={selectedYear || ""}
                   onChange={(e) => setSelectedYear(e.target.value || null)}
-                  className="h-9 min-w-[110px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-3 pr-8 text-xs font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50"
+                  className="h-8 min-w-[98px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-2.5 pr-7 text-[11px] font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50"
                   aria-label={t("search.release_year")}
                 >
                   <option value="">{t("search.all_years")}</option>
@@ -249,10 +241,10 @@ export function SearchPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
+                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
               </div>
 
-              <div className="flex h-9 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
+              <div className="flex h-8 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
                 {[
                   { value: null, label: t("common.all") },
                   { value: "free", label: t("common.free") },
@@ -262,7 +254,7 @@ export function SearchPage() {
                     key={option.label}
                     type="button"
                     onClick={() => setSelectedPrice(option.value)}
-                    className={`rounded px-3 text-xs font-semibold transition ${
+                    className={`rounded px-2.5 text-[11px] font-semibold transition ${
                       selectedPrice === option.value
                         ? "bg-white text-background"
                         : "text-gray-400 hover:text-white"
@@ -273,7 +265,7 @@ export function SearchPage() {
                 ))}
               </div>
 
-              <label className="flex h-9 min-w-[210px] items-center gap-2.5 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs font-semibold text-white">
+              <label className="flex h-8 min-w-[190px] items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 text-[11px] font-semibold text-white">
                 <span className="whitespace-nowrap">{t("search.min_rating")}</span>
                 <input
                   type="range"
@@ -282,7 +274,7 @@ export function SearchPage() {
                   step="0.5"
                   value={minRating}
                   onChange={(e) => setMinRating(Number(e.target.value))}
-                  className="h-1 min-w-20 cursor-pointer appearance-none rounded-lg bg-white/20 accent-accentGold"
+                  className="h-1 min-w-16 cursor-pointer appearance-none rounded-lg bg-white/20 accent-accentGold"
                 />
                 <span className="min-w-[3ch] text-accentGold">{minRating}+</span>
               </label>
@@ -290,28 +282,24 @@ export function SearchPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="ml-auto h-9 rounded-md bg-white px-4 text-xs font-bold text-background transition hover:bg-gray-200"
+                className="ml-auto h-8 rounded-md bg-white px-3 text-[11px] font-bold text-background transition hover:bg-gray-200"
               >
                 {t("common.clear_filters")}
               </button>
             </div>
 
             {activeFilterCount > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/60">
-                {selectedType ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedType === "movie" ? t("nav.movies") : t("nav.series")}</span> : null}
-                {selectedGenre ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedGenreLabel ?? selectedGenre}</span> : null}
-                {selectedCountry ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedCountryLabel ?? selectedCountry}</span> : null}
-                {selectedYear ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedYearLabel ?? selectedYear}</span> : null}
-                {selectedPrice ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedPrice === "free" ? t("common.free") : t("common.paid")}</span> : null}
-                {minRating > 0 ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">IMDb {minRating}+</span> : null}
+              <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                {selectedType ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedType === "movie" ? t("nav.movies") : t("nav.series")}</span> : null}
+                {selectedGenre ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedGenreLabel ?? selectedGenre}</span> : null}
+                {selectedCountry ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedCountryLabel ?? selectedCountry}</span> : null}
+                {selectedYear ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedYearLabel ?? selectedYear}</span> : null}
+                {selectedPrice ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedPrice === "free" ? t("common.free") : t("common.paid")}</span> : null}
+                {minRating > 0 ? <span className="rounded-full bg-white/10 px-2 py-0.5">IMDb {minRating}+</span> : null}
               </div>
             ) : null}
           </div>
         ) : null}
-
-        <div className="mb-6 flex items-center justify-between text-gray-400">
-          <span>{isLoading ? t("search.loading") : t("search.found_results", { count: total })}</span>
-        </div>
 
         {error ? (
           <div className="glass-panel rounded-2xl py-20 text-center">
