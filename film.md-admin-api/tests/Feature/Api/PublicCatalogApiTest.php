@@ -9,6 +9,7 @@ use Database\Seeders\ContentSeeder;
 use Database\Seeders\HomePageSectionSeeder;
 use Database\Seeders\TaxonomySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class PublicCatalogApiTest extends TestCase
@@ -36,6 +37,18 @@ class PublicCatalogApiTest extends TestCase
             ->assertJsonPath('sections.0.title', 'În trend acum')
             ->assertJsonPath('sections.1.source_mode', HomePageSection::SOURCE_DYNAMIC)
             ->assertJsonPath('featured.0.hero_desktop_url', 'https://picsum.photos/seed/carbon-hero-desktop/1600/760');
+    }
+
+    public function test_public_home_handles_empty_translatable_arrays(): void
+    {
+        DB::table('contents')
+            ->where('slug', 'carbon')
+            ->update(['tagline' => json_encode([])]);
+
+        $this->getJson('/api/v1/public/home?locale=ro')
+            ->assertOk()
+            ->assertJsonPath('hero.slug', 'carbon')
+            ->assertJsonPath('hero.tagline', '');
     }
 
     public function test_public_catalog_can_filter_by_type_genre_and_access(): void

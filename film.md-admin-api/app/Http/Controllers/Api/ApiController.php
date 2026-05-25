@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountProfile;
 use App\Models\Content;
+use App\Models\ContentEntitlement;
 use App\Models\Invitation;
 use App\Models\Offer;
 use App\Models\Permission;
-use App\Models\Role;
-use App\Models\AccountProfile;
-use App\Models\Taxonomy;
-use App\Models\ContentEntitlement;
 use App\Models\PremiereEvent;
+use App\Models\Role;
+use App\Models\Taxonomy;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -727,11 +727,11 @@ class ApiController extends Controller
     {
         if (is_array($value) && $this->hasLocalizedPayload($value)) {
             return collect(Content::supportedLocales())
-                ->mapWithKeys(fn (string $locale) => [$locale => trim((string) ($value[$locale] ?? ''))])
+                ->mapWithKeys(fn (string $locale) => [$locale => $this->stringValue($value[$locale] ?? '')])
                 ->all();
         }
 
-        $stringValue = trim((string) $value);
+        $stringValue = $this->stringValue($value);
 
         return collect(Content::supportedLocales())
             ->mapWithKeys(fn (string $locale) => [$locale => $stringValue])
@@ -750,15 +750,40 @@ class ApiController extends Controller
     protected function localizedValue(mixed $value, string $locale, string $fallbackLocale): ?string
     {
         if (is_array($value) && $this->hasLocalizedPayload($value)) {
-            $resolved = trim((string) ($value[$locale] ?? ''))
-                ?: trim((string) ($value[$fallbackLocale] ?? ''));
+            $resolved = $this->stringValue($value[$locale] ?? '')
+                ?: $this->stringValue($value[$fallbackLocale] ?? '');
 
             return $resolved !== '' ? $resolved : null;
         }
 
-        $stringValue = trim((string) $value);
+        $stringValue = $this->stringValue($value);
 
         return $stringValue !== '' ? $stringValue : null;
+    }
+
+    protected function stringValue(mixed $value): string
+    {
+        if (is_array($value)) {
+            foreach ($value as $nestedValue) {
+                $stringValue = $this->stringValue($nestedValue);
+
+                if ($stringValue !== '') {
+                    return $stringValue;
+                }
+            }
+
+            return '';
+        }
+
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_object($value) && ! method_exists($value, '__toString')) {
+            return '';
+        }
+
+        return trim((string) $value);
     }
 
     protected function localizedTitle(Content $content, string $locale, string $fallbackLocale): string

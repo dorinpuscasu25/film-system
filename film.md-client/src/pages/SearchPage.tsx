@@ -123,7 +123,7 @@ export function SearchPage() {
   const selectedCountryLabel = filters.countries.find((country) => country.value === selectedCountry)?.label;
 
   const selectClassName =
-    "h-12 min-w-[150px] appearance-none rounded-lg border border-white/20 bg-[#151515] px-4 pr-10 text-sm font-semibold text-white outline-none transition hover:border-white/45 focus:border-white";
+    "h-9 min-w-[138px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-3 pr-8 text-xs font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50";
 
   return (
     <div className="min-h-screen bg-background pt-24 pb-20">
@@ -159,9 +159,9 @@ export function SearchPage() {
             <button
               type="button"
               onClick={() => setIsFiltersOpen((value) => !value)}
-              className={`inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold transition ${
+              className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition ${
                 isFiltersOpen
-                  ? "border-white bg-white text-background"
+                  ? "border-white/70 bg-white text-background"
                   : "border-white/20 bg-white/5 text-white hover:border-white/50 hover:bg-white/10"
               }`}
             >
@@ -178,9 +178,9 @@ export function SearchPage() {
         </div>
 
         {isFiltersOpen ? (
-          <div className="mb-10 rounded-2xl border border-white/10 bg-[#101010] p-4 shadow-2xl md:p-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex h-12 rounded-lg border border-white/20 bg-[#151515] p-1">
+          <div className="mb-8 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-3 md:px-4">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex h-9 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
                 {[
                   { value: null, label: t("common.all") },
                   { value: "movie", label: t("nav.movies") },
@@ -190,7 +190,7 @@ export function SearchPage() {
                     key={option.label}
                     type="button"
                     onClick={() => setSelectedType(option.value)}
-                    className={`rounded-md px-4 text-sm font-semibold transition ${
+                    className={`rounded px-3 text-xs font-semibold transition ${
                       selectedType === option.value
                         ? "bg-white text-background"
                         : "text-gray-400 hover:text-white"
@@ -215,7 +215,7 @@ export function SearchPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
               </div>
 
               <div className="relative">
@@ -232,14 +232,14 @@ export function SearchPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
               </div>
 
               <div className="relative">
                 <select
                   value={selectedYear || ""}
                   onChange={(e) => setSelectedYear(e.target.value || null)}
-                  className="h-12 min-w-[120px] appearance-none rounded-lg border border-white/20 bg-[#151515] px-4 pr-10 text-sm font-semibold text-white outline-none transition hover:border-white/45 focus:border-white"
+                  className="h-9 min-w-[110px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-3 pr-8 text-xs font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50"
                   aria-label={t("search.release_year")}
                 >
                   <option value="">{t("search.all_years")}</option>
@@ -249,10 +249,10 @@ export function SearchPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
               </div>
 
-              <div className="flex h-12 rounded-lg border border-white/20 bg-[#151515] p-1">
+              <div className="flex h-9 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
                 {[
                   { value: null, label: t("common.all") },
                   { value: "free", label: t("common.free") },
@@ -262,7 +262,7 @@ export function SearchPage() {
                     key={option.label}
                     type="button"
                     onClick={() => setSelectedPrice(option.value)}
-                    className={`rounded-md px-4 text-sm font-semibold transition ${
+                    className={`rounded px-3 text-xs font-semibold transition ${
                       selectedPrice === option.value
                         ? "bg-white text-background"
                         : "text-gray-400 hover:text-white"
@@ -273,7 +273,7 @@ export function SearchPage() {
                 ))}
               </div>
 
-              <label className="flex h-12 min-w-[220px] items-center gap-3 rounded-lg border border-white/20 bg-[#151515] px-4 text-sm font-semibold text-white">
+              <label className="flex h-9 min-w-[210px] items-center gap-2.5 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs font-semibold text-white">
                 <span className="whitespace-nowrap">{t("search.min_rating")}</span>
                 <input
                   type="range"
@@ -290,20 +290,20 @@ export function SearchPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="ml-auto h-12 rounded-lg bg-white px-6 text-sm font-bold text-background transition hover:bg-gray-200"
+                className="ml-auto h-9 rounded-md bg-white px-4 text-xs font-bold text-background transition hover:bg-gray-200"
               >
                 {t("common.clear_filters")}
               </button>
             </div>
 
             {activeFilterCount > 0 ? (
-              <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
-                {selectedType ? <span className="rounded-full bg-white/10 px-3 py-1">{selectedType === "movie" ? t("nav.movies") : t("nav.series")}</span> : null}
-                {selectedGenre ? <span className="rounded-full bg-white/10 px-3 py-1">{selectedGenreLabel ?? selectedGenre}</span> : null}
-                {selectedCountry ? <span className="rounded-full bg-white/10 px-3 py-1">{selectedCountryLabel ?? selectedCountry}</span> : null}
-                {selectedYear ? <span className="rounded-full bg-white/10 px-3 py-1">{selectedYearLabel ?? selectedYear}</span> : null}
-                {selectedPrice ? <span className="rounded-full bg-white/10 px-3 py-1">{selectedPrice === "free" ? t("common.free") : t("common.paid")}</span> : null}
-                {minRating > 0 ? <span className="rounded-full bg-white/10 px-3 py-1">IMDb {minRating}+</span> : null}
+              <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/60">
+                {selectedType ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedType === "movie" ? t("nav.movies") : t("nav.series")}</span> : null}
+                {selectedGenre ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedGenreLabel ?? selectedGenre}</span> : null}
+                {selectedCountry ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedCountryLabel ?? selectedCountry}</span> : null}
+                {selectedYear ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedYearLabel ?? selectedYear}</span> : null}
+                {selectedPrice ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">{selectedPrice === "free" ? t("common.free") : t("common.paid")}</span> : null}
+                {minRating > 0 ? <span className="rounded-full bg-white/10 px-2.5 py-0.5">IMDb {minRating}+</span> : null}
               </div>
             ) : null}
           </div>
