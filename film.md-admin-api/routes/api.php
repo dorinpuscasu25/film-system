@@ -12,11 +12,14 @@ use App\Http\Controllers\Api\Admin\ContentFinancialsController;
 use App\Http\Controllers\Api\Admin\ContentReviewController as AdminContentReviewController;
 use App\Http\Controllers\Api\Admin\CostSettingsController;
 use App\Http\Controllers\Api\Admin\CouponController;
+use App\Http\Controllers\Api\Admin\CmsPageController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ExportController;
 use App\Http\Controllers\Api\Admin\FinancialSummaryController;
 use App\Http\Controllers\Api\Admin\GeoStatsController;
 use App\Http\Controllers\Api\Admin\HomeCurationController;
+use App\Http\Controllers\Api\Admin\MenuController;
+use App\Http\Controllers\Api\Admin\MenuItemController;
 use App\Http\Controllers\Api\Admin\OfferController;
 use App\Http\Controllers\Api\Admin\PlatformSettingsController;
 use App\Http\Controllers\Api\Admin\PlaybackOpsController;
@@ -33,6 +36,7 @@ use App\Http\Controllers\Api\BunnyWebhookController;
 use App\Http\Controllers\Api\ContentReviewController;
 use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\PayFilmotecaCallbackController;
+use App\Http\Controllers\Api\PublicCmsController;
 use App\Http\Controllers\Api\PublicCatalogController;
 use App\Http\Controllers\Api\PublicPlatformSettingsController;
 use App\Http\Controllers\Api\SettingsController;
@@ -65,6 +69,8 @@ use Illuminate\Support\Facades\Route;
         Route::get('content/{slug}', [PublicCatalogController::class, 'show']);
         Route::get('content/{slug}/reviews', [ContentReviewController::class, 'index']);
         Route::get('content/{slug}/premiere', [PublicCatalogController::class, 'premiere']);
+        Route::get('pages/{slug}', [PublicCmsController::class, 'page']);
+        Route::get('menus/{location}', [PublicCmsController::class, 'menu']);
         Route::get('settings', [PublicPlatformSettingsController::class, 'show']);
 
         // Watch parties — public room read access (anonymous viewers can see room state)
@@ -207,6 +213,25 @@ use Illuminate\Support\Facades\Route;
 
             Route::post('upload', [UploadController::class, 'store'])->middleware('permission:content.create');
             Route::delete('upload', [UploadController::class, 'destroy'])->middleware('permission:content.edit');
+            Route::post('pages/upload', [UploadController::class, 'store'])->middleware('permission:cms.create,cms.edit');
+
+            Route::get('pages', [CmsPageController::class, 'index'])->middleware('permission:cms.view');
+            Route::get('pages/options', [CmsPageController::class, 'options'])->middleware('permission:cms.view');
+            Route::post('pages', [CmsPageController::class, 'store'])->middleware('permission:cms.create');
+            Route::get('pages/{cmsPage}', [CmsPageController::class, 'show'])->middleware('permission:cms.view');
+            Route::patch('pages/{cmsPage}', [CmsPageController::class, 'update'])->middleware('permission:cms.edit');
+            Route::delete('pages/{cmsPage}', [CmsPageController::class, 'destroy'])->middleware('permission:cms.delete');
+
+            Route::get('menus', [MenuController::class, 'index'])->middleware('permission:cms.view');
+            Route::get('menus/options', [MenuController::class, 'options'])->middleware('permission:cms.view');
+            Route::post('menus', [MenuController::class, 'store'])->middleware('permission:cms.create');
+            Route::get('menus/{menu}', [MenuController::class, 'show'])->middleware('permission:cms.view');
+            Route::patch('menus/{menu}', [MenuController::class, 'update'])->middleware('permission:cms.edit');
+            Route::delete('menus/{menu}', [MenuController::class, 'destroy'])->middleware('permission:cms.delete');
+            Route::post('menus/{menu}/items', [MenuItemController::class, 'store'])->middleware('permission:cms.edit');
+            Route::patch('menus/{menu}/items/{item}', [MenuItemController::class, 'update'])->middleware('permission:cms.edit');
+            Route::delete('menus/{menu}/items/{item}', [MenuItemController::class, 'destroy'])->middleware('permission:cms.edit');
+            Route::put('menus/{menu}/items/reorder', [MenuItemController::class, 'reorder'])->middleware('permission:cms.edit');
 
             Route::get('content', [ContentController::class, 'index'])->middleware('permission:content.view');
             Route::get('content/options', [ContentController::class, 'options'])->middleware('permission:content.view');

@@ -1,281 +1,142 @@
-import React, { useState } from 'react';
-import { FileTextIcon, EditIcon, PlusIcon, TrashIcon } from 'lucide-react';
-import { Modal } from '../components/shared/Modal';
-import { FormField } from '../components/shared/FormField';
-import { useAdmin } from '../hooks/useAdmin';
+import { useEffect, useState } from "react";
+import { EditIcon, FileTextIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { adminApi, CmsPage } from "../lib/api";
+import { useAdmin } from "../hooks/useAdmin";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+
+function formatDate(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("ro-RO", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
 export function CMSPages() {
   const { can } = useAdmin();
-  const [pages, setPages] = useState([
-  {
-    id: 1,
-    title: 'Termeni și condiții',
-    slug: '/terms',
-    updated: '2023-10-01',
-    status: 'Publicată',
-    content: 'Conținut termeni și condiții...'
-  },
-  {
-    id: 2,
-    title: 'Politica de confidențialitate',
-    slug: '/privacy',
-    updated: '2023-10-01',
-    status: 'Publicată',
-    content: 'Conținut politică de confidențialitate...'
-  },
-  {
-    id: 3,
-    title: 'Despre noi',
-    slug: '/about',
-    updated: '2023-08-15',
-    status: 'Publicată',
-    content: 'Conținut despre noi...'
-  },
-  {
-    id: 4,
-    title: 'Ajutor și întrebări frecvente',
-    slug: '/help',
-    updated: '2023-10-20',
-    status: 'Publicată',
-    content: 'Conținut ajutor...'
-  },
-  {
-    id: 5,
-    title: 'Contact',
-    slug: '/contact',
-    updated: '2023-05-10',
-    status: 'Publicată',
-    content: 'Informații de contact...'
-  }]
-  );
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPage, setEditingPage] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    slug: '',
-    status: 'Ciornă',
-    content: ''
-  });
-  const handleOpenModal = (page?: any) => {
-    if (page) {
-      setEditingPage(page);
-      setFormData({
-        title: page.title,
-        slug: page.slug,
-        status: page.status,
-        content: page.content || ''
-      });
-    } else {
-      setEditingPage(null);
-      setFormData({
-        title: '',
-        slug: '/',
-        status: 'Ciornă',
-        content: ''
-      });
-    }
-    setIsModalOpen(true);
-  };
-  const handleSave = () => {
-    const pageData = {
-      ...formData,
-      updated: new Date().toISOString().split('T')[0]
-    };
-    if (editingPage) {
-      setPages(
-        pages.map((p) =>
-        p.id === editingPage.id ?
-        {
-          ...p,
-          ...pageData
-        } :
-        p
-        )
-      );
-    } else {
-      setPages([
-      {
-        id: Date.now(),
-        ...pageData
-      },
-      ...pages]
-      );
-    }
-    setIsModalOpen(false);
-  };
-  const handleDelete = (id: number) => {
-    if (confirm('Sigur vrei să ștergi această pagină?')) {
-      setPages(pages.filter((p) => p.id !== id));
+  const navigate = useNavigate();
+  const [pages, setPages] = useState<CmsPage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadPages = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await adminApi.getPages();
+      setPages(response.items);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Nu am putut încărca paginile.");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    void loadPages();
+  }, []);
+
+  const deletePage = async (page: CmsPage) => {
+    if (!confirm(`Ștergi pagina "${page.title}"?`)) {
+      return;
+    }
+
+    await adminApi.deletePage(page.id);
+    setPages((current) => current.filter((item) => item.id !== page.id));
+  };
+
   return (
     <div className="w-full space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Pagini CMS</h1>
-        {can('cms.create') &&
-        <button
-          onClick={() => handleOpenModal()}
-          className="inline-flex items-center px-4 py-2 border border-indigo-600 text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700">
-          
-            <PlusIcon className="w-4 h-4 mr-2" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="page-header">
+          <h1 className="page-title">Pagini</h1>
+          <p className="page-description">Pagini statice publicabile pe site, cu conținut rich text și SEO separat.</p>
+        </div>
+
+        {can("cms.create") ? (
+          <Button onClick={() => navigate("/cms/new")}>
+            <PlusIcon className="h-4 w-4" />
             Creează pagină
-          </button>
-        }
+          </Button>
+        ) : null}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      <Card className="overflow-hidden rounded-lg">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Titlu pagină
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Slug
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Ultima actualizare
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Stare
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
-                Acțiuni
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Titlu pagină</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Slug</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Ultima actualizare</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-medium uppercase text-slate-500">Acțiuni</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {pages.map((page) =>
-            <tr key={page.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <FileTextIcon className="w-5 h-5 text-slate-400" />
-                    <span className="text-sm font-medium text-slate-900">
-                      {page.title}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  {page.slug}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  {page.updated}
-                </td>
-                <td
-                className={`px-2 py-1 rounded-full text-xs font-medium ${page.status === 'Publicată' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-                
-                  {page.status}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="flex justify-end gap-2">
-                    {can('cms.edit') &&
-                  <button
-                    onClick={() => handleOpenModal(page)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors">
-                    
-                        <EditIcon className="w-4 h-4" />
-                      </button>
-                  }
-                    {can('cms.delete') &&
-                  <button
-                    onClick={() => handleDelete(page.id)}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
-                    
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                  }
-                  </div>
+            {isLoading ? (
+              <tr>
+                <td className="px-6 py-8 text-center text-sm text-slate-500" colSpan={5}>
+                  Se încarcă paginile...
                 </td>
               </tr>
+            ) : pages.length === 0 ? (
+              <tr>
+                <td className="px-6 py-8 text-center text-sm text-slate-500" colSpan={5}>
+                  Nu există pagini încă.
+                </td>
+              </tr>
+            ) : (
+              pages.map((page) => (
+                <tr key={page.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <FileTextIcon className="h-5 w-5 text-slate-400" />
+                      <span className="text-sm font-medium text-slate-900">{page.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500">/page/{page.slug}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{formatDate(page.updated_at)}</td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={
+                        page.status === "published"
+                          ? "inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800"
+                          : "inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                      }
+                    >
+                      {page.status_label}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end gap-2">
+                      {can("cms.edit") ? (
+                        <Button variant="ghost" size="icon" onClick={() => navigate(`/cms/${page.id}`)}>
+                          <EditIcon className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                      {can("cms.delete") ? (
+                        <Button variant="ghost" size="icon" onClick={() => void deletePage(page)}>
+                          <TrashIcon className="h-4 w-4 text-red-500" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
-      </div>
-
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingPage ? 'Editează pagina' : 'Creează pagină'}
-        size="lg"
-        footer={
-        <>
-            <button
-            onClick={() => setIsModalOpen(false)}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
-            
-              Cancel
-              Anulează
-            </button>
-            <button
-            onClick={handleSave}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
-            
-              Salvează pagina
-            </button>
-          </>
-        }>
-        
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              label="Titlu pagină"
-              value={formData.title}
-              onChange={(e) => {
-                const title = e.target.value;
-                setFormData({
-                  ...formData,
-                  title,
-                  slug: editingPage ?
-                  formData.slug :
-                  '/' + title.toLowerCase().replace(/\s+/g, '-')
-                });
-              }} />
-            
-            <FormField
-              label="Slug URL"
-              value={formData.slug}
-              onChange={(e) =>
-              setFormData({
-                ...formData,
-                slug: e.target.value
-              })
-              } />
-            
-          </div>
-          <FormField
-            label="Stare"
-            type="select"
-            value={formData.status}
-            onChange={(e) =>
-            setFormData({
-              ...formData,
-              status: e.target.value
-            })
-            }
-            options={[
-            {
-              label: 'Ciornă',
-              value: 'Ciornă'
-            },
-            {
-              label: 'Publicată',
-              value: 'Publicată'
-            }]
-            } />
-          
-          <FormField
-            label="Conținut pagină (HTML/Markdown)"
-            type="textarea"
-            rows={10}
-            value={formData.content}
-            onChange={(e) =>
-            setFormData({
-              ...formData,
-              content: e.target.value
-            })
-            } />
-          
-        </div>
-      </Modal>
-    </div>);
-
+      </Card>
+    </div>
+  );
 }

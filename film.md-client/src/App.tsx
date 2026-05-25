@@ -15,6 +15,7 @@ import { SearchPage } from './pages/SearchPage';
 import { UserDashboardPage } from './pages/UserDashboardPage';
 import { WatchPartyPage } from './pages/WatchPartyPage';
 import { PaymentStatusPage } from './pages/PaymentStatusPage';
+import { CmsPage } from './pages/CmsPage';
 import { stripHashRouteFromUrl } from './lib/url';
 import { applyDefaultSeo } from './lib/seo';
 import filmotecaCover from './assets/filmoteca-cover.png';
@@ -164,6 +165,7 @@ function AppFrame() {
           <Route path="/movie/:id" element={<MovieDetailPage />} />
           <Route path="/watch/:id" element={<PlayerPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/page/:slug" element={<CmsPage />} />
           <Route path="/dashboard" element={<UserDashboardPage />} />
           <Route path="/payment/success" element={<PaymentStatusPage fallbackStatus="success" />} />
           <Route path="/payment/failed" element={<PaymentStatusPage fallbackStatus="failed" />} />

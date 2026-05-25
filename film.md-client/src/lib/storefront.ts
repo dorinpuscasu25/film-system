@@ -206,6 +206,43 @@ interface CatalogResponse {
   search_engine?: "meilisearch" | "database";
 }
 
+export interface PublicCmsPage {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+  content: string;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
+  canonical_url?: string | null;
+  updated_at?: string | null;
+}
+
+export interface PublicMenuItem {
+  id: number;
+  menu_id: number;
+  parent_id: number | null;
+  label: string;
+  type: "page" | "content" | "custom";
+  resolved_url: string;
+  target: "_self" | "_blank";
+  active: boolean;
+  nestable: boolean;
+  sort_order: number;
+  depth: number;
+}
+
+export interface PublicMenuResponse {
+  menu: {
+    id: number;
+    name: string;
+    slug: string;
+    location: string;
+  } | null;
+  items: PublicMenuItem[];
+}
+
 export interface HomeSections {
   hero: Movie | null;
   heroSlides: HomeHeroSlide[];
@@ -536,4 +573,12 @@ export async function getContentDetail(locale: LocaleCode, slug: string): Promis
 
 export async function fetchContentReviews(slug: string): Promise<PublicReviewsResponse> {
   return fetchJson<PublicReviewsResponse>(`/public/content/${slug}/reviews`);
+}
+
+export async function getCmsPage(locale: LocaleCode, slug: string): Promise<PublicCmsPage> {
+  return fetchJson<PublicCmsPage>(`/public/pages/${slug}`, { locale });
+}
+
+export async function getPublicMenu(locale: LocaleCode, location: "header" | "footer"): Promise<PublicMenuResponse> {
+  return fetchJson<PublicMenuResponse>(`/public/menus/${location}`, { locale });
 }

@@ -50,6 +50,103 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
+export type LocaleMap = Record<string, string>;
+
+export interface CmsPage {
+  id: number;
+  title: string;
+  slug: string;
+  status: "published" | "unpublished";
+  status_label: string;
+  published_at: string | null;
+  updated_at: string | null;
+  title_translations?: LocaleMap;
+  slug_translations?: LocaleMap;
+  excerpt_translations?: LocaleMap;
+  content_translations?: LocaleMap;
+  meta_title_translations?: LocaleMap;
+  meta_description_translations?: LocaleMap;
+  meta_keywords_translations?: LocaleMap;
+  canonical_url?: string | null;
+}
+
+export interface CmsPagePayload {
+  title: LocaleMap;
+  slug: LocaleMap;
+  status: "published" | "unpublished";
+  excerpt: LocaleMap;
+  content: LocaleMap;
+  meta_title: LocaleMap;
+  meta_description: LocaleMap;
+  meta_keywords: LocaleMap;
+  canonical_url?: string | null;
+}
+
+export interface MenuItem {
+  id: number;
+  menu_id: number;
+  parent_id: number | null;
+  title: LocaleMap;
+  label: string;
+  type: "page" | "content" | "custom";
+  cms_page_id: number | null;
+  content_id: number | null;
+  url: string | null;
+  resolved_url: string;
+  target: "_self" | "_blank";
+  active: boolean;
+  public_visible: boolean;
+  nestable: boolean;
+  sort_order: number;
+  depth: number;
+}
+
+export interface Menu {
+  id: number;
+  name: string;
+  slug: string;
+  location: "header" | "footer";
+  location_label: string;
+  description: string;
+  active: boolean;
+  items_count: number;
+  updated_at: string | null;
+  name_translations?: LocaleMap;
+  description_translations?: LocaleMap;
+}
+
+export interface MenuPayload {
+  name: LocaleMap;
+  slug?: string;
+  location: "header" | "footer";
+  description: LocaleMap;
+  active: boolean;
+}
+
+export interface MenuItemPayload {
+  title: LocaleMap;
+  type: "page" | "content" | "custom";
+  cms_page_id?: number | null;
+  content_id?: number | null;
+  url?: string | null;
+  target: "_self" | "_blank";
+  active: boolean;
+  nestable: boolean;
+  parent_id?: number | null;
+  sort_order?: number;
+}
+
+export interface CmsOptions {
+  locales: Array<{ value: string; label: string }>;
+  statuses?: Array<{ value: "published" | "unpublished"; label: string }>;
+}
+
+export interface MenuOptions extends CmsOptions {
+  locations: Array<{ value: "header" | "footer"; label: string }>;
+  pages: Array<{ id: number; title: string; slug: string; status: string }>;
+  contents: Array<{ id: number; title: string; slug: string; status: string }>;
+}
+
 export interface ApiRequestError extends Error {
   status?: number;
   errors?: Record<string, string[]>;
@@ -241,6 +338,70 @@ export const adminApi = {
 
   getContentIndex() {
     return request<{ items: AdminContent[]; filters: AdminContentFilters }>("GET", "/admin/content");
+  },
+
+  getPages() {
+    return request<{ items: CmsPage[]; options: CmsOptions }>("GET", "/admin/pages");
+  },
+
+  getPage(pageId: number) {
+    return request<{ page: CmsPage; options: CmsOptions }>("GET", `/admin/pages/${pageId}`);
+  },
+
+  createPage(payload: CmsPagePayload) {
+    return request<{ page: CmsPage }>("POST", "/admin/pages", { data: payload });
+  },
+
+  updatePage(pageId: number, payload: CmsPagePayload) {
+    return request<{ page: CmsPage }>("PATCH", `/admin/pages/${pageId}`, { data: payload });
+  },
+
+  deletePage(pageId: number) {
+    return request<void>("DELETE", `/admin/pages/${pageId}`);
+  },
+
+  uploadCmsImage(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("directory", "cms");
+
+    return request<{ url: string }>("POST", "/admin/pages/upload", { data: formData });
+  },
+
+  getMenus() {
+    return request<{ items: Menu[]; options: MenuOptions }>("GET", "/admin/menus");
+  },
+
+  getMenu(menuId: number) {
+    return request<{ menu: Menu; items: MenuItem[]; options: MenuOptions }>("GET", `/admin/menus/${menuId}`);
+  },
+
+  createMenu(payload: MenuPayload) {
+    return request<{ menu: Menu }>("POST", "/admin/menus", { data: payload });
+  },
+
+  updateMenu(menuId: number, payload: MenuPayload) {
+    return request<{ menu: Menu }>("PATCH", `/admin/menus/${menuId}`, { data: payload });
+  },
+
+  deleteMenu(menuId: number) {
+    return request<void>("DELETE", `/admin/menus/${menuId}`);
+  },
+
+  createMenuItem(menuId: number, payload: MenuItemPayload) {
+    return request<{ item: MenuItem }>("POST", `/admin/menus/${menuId}/items`, { data: payload });
+  },
+
+  updateMenuItem(menuId: number, itemId: number, payload: MenuItemPayload) {
+    return request<{ item: MenuItem }>("PATCH", `/admin/menus/${menuId}/items/${itemId}`, { data: payload });
+  },
+
+  deleteMenuItem(menuId: number, itemId: number) {
+    return request<void>("DELETE", `/admin/menus/${menuId}/items/${itemId}`);
+  },
+
+  reorderMenuItems(menuId: number, items: Array<{ id: number; parent_id: number | null; sort_order: number; depth: number }>) {
+    return request<{ items: MenuItem[] }>("PUT", `/admin/menus/${menuId}/items/reorder`, { data: { items } });
   },
 
   getContentOptions() {

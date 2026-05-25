@@ -25,6 +25,7 @@ export type AdminPage =
   | 'seo'
   | 'discovery'
   | 'cms'
+  | 'menus'
   | 'playback'
   | 'users'
   | 'roles'
@@ -56,6 +57,7 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
     seo: '/seo',
     discovery: '/discovery',
     cms: '/cms',
+    menus: '/menus',
     playback: '/playback',
     users: '/users',
     roles: '/roles',
@@ -87,7 +89,8 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     'home-curation': 'Pagina principală',
     seo: 'SEO',
     discovery: 'Căutare',
-    cms: 'CMS',
+    cms: 'Pagini',
+    menus: 'Meniuri',
     playback: 'Playback',
     users: 'Utilizatori',
     roles: 'Roluri',
@@ -136,6 +139,7 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
     'home-curation': 'settings.edit_home_curation',
     discovery: 'settings.edit_search_config',
     cms: 'cms.view',
+    menus: 'cms.view',
     playback: 'playback.view_sessions',
     users: 'users.view',
     moderation: 'moderation.view_queue',
@@ -153,6 +157,7 @@ export function firstAvailablePage(user: AdminUser | null): AdminPage {
     'roles',
     'catalog',
     'cms',
+    'menus',
     'media',
     'playback',
     'account',

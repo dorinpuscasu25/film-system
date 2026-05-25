@@ -17,6 +17,10 @@ import { PlaybackOps } from './pages/PlaybackOps';
 import { Users } from './pages/Users';
 import { Billing } from './pages/Billing';
 import { CMSPages } from './pages/CMSPages';
+import { CMSPageEditor } from './pages/CMSPageEditor';
+import { Menus } from './pages/Menus';
+import { MenuEditor } from './pages/MenuEditor';
+import { MenuDetails } from './pages/MenuDetails';
 import { Moderation } from './pages/Moderation';
 import { RolesPermissions } from './pages/RolesPermissions';
 import { Coupons } from './pages/Coupons';
@@ -74,6 +78,36 @@ function LegacyEditorRedirect() {
   return <Navigate to={`/movies/${contentId ?? 'new'}`} replace />;
 }
 
+function CmsEditorRoute() {
+  const { pageId } = useParams();
+
+  return (
+    <RoutePage page="cms" contentId={pageId ?? null} breadcrumbs={['Pagini', pageId === 'new' ? 'Creează pagină' : `Pagina #${pageId}`]}>
+      <CMSPageEditor pageId={pageId} />
+    </RoutePage>
+  );
+}
+
+function MenuDetailsRoute() {
+  const { menuId } = useParams();
+
+  return (
+    <RoutePage page="menus" contentId={menuId ?? null} breadcrumbs={['Pagini', 'Meniuri', `Meniu #${menuId}`]}>
+      <MenuDetails menuId={menuId ?? ''} />
+    </RoutePage>
+  );
+}
+
+function MenuEditorRoute() {
+  const { menuId } = useParams();
+
+  return (
+    <RoutePage page="menus" contentId={menuId ?? null} breadcrumbs={['Pagini', 'Meniuri', 'Editează meniu']}>
+      <MenuEditor menuId={menuId} />
+    </RoutePage>
+  );
+}
+
 function AdminRouter() {
   const { isAuthenticated, isBooting } = useAdmin();
 
@@ -119,7 +153,13 @@ function AdminRouter() {
       <Route path="/home-curation" element={<RoutePage page="home-curation" breadcrumbs={['Pagina principală']}><HomeCuration /></RoutePage>} />
       <Route path="/seo" element={<RoutePage page="seo" breadcrumbs={['SEO']}><SeoSettings /></RoutePage>} />
       <Route path="/discovery" element={<RoutePage page="discovery" breadcrumbs={['Căutare']}><SearchDiscovery /></RoutePage>} />
-      <Route path="/cms" element={<RoutePage page="cms" breadcrumbs={['CMS']}><CMSPages /></RoutePage>} />
+      <Route path="/cms" element={<RoutePage page="cms" breadcrumbs={['Pagini']}><CMSPages /></RoutePage>} />
+      <Route path="/cms/new" element={<RoutePage page="cms" breadcrumbs={['Pagini', 'Creează pagină']}><CMSPageEditor pageId="new" /></RoutePage>} />
+      <Route path="/cms/:pageId" element={<CmsEditorRoute />} />
+      <Route path="/menus" element={<RoutePage page="menus" breadcrumbs={['Pagini', 'Meniuri']}><Menus /></RoutePage>} />
+      <Route path="/menus/new" element={<RoutePage page="menus" breadcrumbs={['Pagini', 'Meniuri', 'Creează meniu']}><MenuEditor menuId="new" /></RoutePage>} />
+      <Route path="/menus/:menuId" element={<MenuDetailsRoute />} />
+      <Route path="/menus/:menuId/edit" element={<MenuEditorRoute />} />
       <Route path="/playback" element={<RoutePage page="playback" breadcrumbs={['Playback']}><PlaybackOps /></RoutePage>} />
       <Route path="/moderation" element={<RoutePage page="moderation" breadcrumbs={['Moderare']}><Moderation /></RoutePage>} />
       <Route path="/bunny-health" element={<RoutePage page="bunny-health" breadcrumbs={['Bunny Health']}><BunnyHealth /></RoutePage>} />

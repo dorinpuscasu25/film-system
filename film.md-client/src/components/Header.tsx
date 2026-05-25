@@ -5,6 +5,106 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { WalletModal } from './WalletModal';
+import { getPublicMenu, PublicMenuItem } from '../lib/storefront';
+
+type MenuNode = PublicMenuItem & { children: MenuNode[] };
+
+function buildMenuTree(items: PublicMenuItem[]): MenuNode[] {
+  const nodes = new Map<number, MenuNode>();
+  const roots: MenuNode[] = [];
+  items.forEach((item) => nodes.set(item.id, { ...item, children: [] }));
+  items.forEach((item) => {
+    const node = nodes.get(item.id);
+    if (!node) return;
+    if (item.parent_id && nodes.has(item.parent_id)) {
+      nodes.get(item.parent_id)?.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  const sortNodes = (nodesToSort: MenuNode[]) => {
+    nodesToSort.sort((a, b) => a.sort_order - b.sort_order);
+    nodesToSort.forEach((node) => sortNodes(node.children));
+  };
+  sortNodes(roots);
+  return roots;
+}
+
+function MenuLink({
+  item,
+  className,
+  onClick,
+}: {
+  item: PublicMenuItem;
+  className: string;
+  onClick?: () => void;
+}) {
+  const isExternal = item.resolved_url.startsWith('http') || item.target === '_blank';
+  if (isExternal) {
+    return (
+      <a href={item.resolved_url} target={item.target === '_blank' ? '_blank' : undefined} rel="noreferrer" className={className} onClick={onClick}>
+        {item.label}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={item.resolved_url} className={className} onClick={onClick}>
+      {item.label}
+    </Link>
+  );
+}
+
+function DesktopSubmenuNode({ item }: { item: MenuNode }) {
+  return (
+    <div className="group/sub relative">
+      <MenuLink item={item} className="flex rounded-md px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white" />
+      {item.children.length > 0 ? (
+        <div className="invisible absolute left-full top-0 min-w-56 rounded-lg border border-white/10 bg-surface p-2 opacity-0 shadow-xl transition group-hover/sub:visible group-hover/sub:opacity-100">
+          {item.children.map((child) => (
+            <DesktopSubmenuNode key={child.id} item={child} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DesktopMenuNode({ item, isActive }: { item: MenuNode; isActive: boolean }) {
+  return (
+    <div className="group relative">
+      <MenuLink
+        item={item}
+        className={`text-sm font-medium transition-colors ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'}`}
+      />
+      {item.children.length > 0 ? (
+        <div className="invisible absolute left-0 top-full min-w-56 rounded-lg border border-white/10 bg-surface p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
+          {item.children.map((child) => (
+            <DesktopSubmenuNode key={child.id} item={child} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MobileMenuNode({ item, depth = 0, onClick }: { item: MenuNode; depth?: number; onClick: () => void }) {
+  return (
+    <>
+      <MenuLink
+        item={item}
+        onClick={onClick}
+        className="block text-white font-medium"
+      />
+      {item.children.map((child) => (
+        <div key={child.id} style={{ paddingLeft: `${(depth + 1) * 16}px` }}>
+          <MobileMenuNode item={child} depth={depth + 1} onClick={onClick} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 export function Header() {
   const { isAuthenticated, activeProfile, logout, openAuthModal, isLoading: isAuthLoading } = useAuth();
   const { balance, currency } = useWallet();
@@ -15,6 +115,7 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [menuItems, setMenuItems] = useState<MenuNode[]>([]);
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -22,6 +123,18 @@ export function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+  useEffect(() => {
+    const loadMenu = async () => {
+      try {
+        const response = await getPublicMenu(currentLanguage.code, 'header');
+        setMenuItems(buildMenuTree(response.items));
+      } catch {
+        setMenuItems([]);
+      }
+    };
+
+    void loadMenu();
+  }, [currentLanguage.code]);
   // Don't show header on player page
   if (location.pathname.startsWith('/watch')) return null;
   return (
@@ -39,26 +152,24 @@ export function Header() {
               filmoteca<span className="text-accent">.</span>md
             </Link>
 
-            {/* Nav links always visible */}
             <nav className="hidden md:flex items-center space-x-6">
-              <Link
-                to="/"
-                className={`text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-white' : 'text-gray-400 hover:text-white'}`}>
-                
-                {t('nav.home')}
-              </Link>
-              <Link
-                to="/search?type=movie"
-                className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
-                
-                {t('nav.movies')}
-              </Link>
-              <Link
-                to="/search?type=series"
-                className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
-                
-                {t('nav.series')}
-              </Link>
+              {menuItems.length > 0 ? (
+                menuItems.map((item) => (
+                  <DesktopMenuNode key={item.id} item={item} isActive={location.pathname === item.resolved_url} />
+                ))
+              ) : (
+                <>
+                  <Link to="/" className={`text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-white' : 'text-gray-400 hover:text-white'}`}>
+                    {t('nav.home')}
+                  </Link>
+                  <Link to="/search?type=movie" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                    {t('nav.movies')}
+                  </Link>
+                  <Link to="/search?type=series" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                    {t('nav.series')}
+                  </Link>
+                </>
+              )}
             </nav>
           </div>
 
@@ -187,20 +298,20 @@ export function Header() {
         {isMobileMenuOpen &&
         <div className="md:hidden absolute top-full left-0 w-full bg-surface border-b border-white/10 py-4 px-4 shadow-xl">
             <nav className="flex flex-col space-y-4">
-              <Link
-              to="/"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="text-white font-medium">
-              
-                {t('nav.home')}
-              </Link>
-              <Link
-              to="/search"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="text-white font-medium">
-              
-                {t('nav.movies_series')}
-              </Link>
+              {menuItems.length > 0 ? (
+                menuItems.map((item) => (
+                  <MobileMenuNode key={item.id} item={item} onClick={() => setIsMobileMenuOpen(false)} />
+                ))
+              ) : (
+                <>
+                  <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-white font-medium">
+                    {t('nav.home')}
+                  </Link>
+                  <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="text-white font-medium">
+                    {t('nav.movies_series')}
+                  </Link>
+                </>
+              )}
               {isAuthenticated ?
             <>
                 <button

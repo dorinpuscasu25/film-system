@@ -1,12 +1,81 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getPublicMenu, PublicMenuItem } from '../lib/storefront';
 
 const footerButtonClass = 'hover:text-white transition-colors';
+type FooterMenuNode = PublicMenuItem & { children: FooterMenuNode[] };
+
+function buildFooterTree(items: PublicMenuItem[]): FooterMenuNode[] {
+  const nodes = new Map<number, FooterMenuNode>();
+  const roots: FooterMenuNode[] = [];
+  items.forEach((item) => nodes.set(item.id, { ...item, children: [] }));
+  items.forEach((item) => {
+    const node = nodes.get(item.id);
+    if (!node) return;
+    if (item.parent_id && nodes.has(item.parent_id)) {
+      nodes.get(item.parent_id)?.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  const sortNodes = (nodesToSort: FooterMenuNode[]) => {
+    nodesToSort.sort((a, b) => a.sort_order - b.sort_order);
+    nodesToSort.forEach((node) => sortNodes(node.children));
+  };
+  sortNodes(roots);
+  return roots;
+}
+
+function FooterMenuLink({ item }: { item: PublicMenuItem }) {
+  const isExternal = item.resolved_url.startsWith('http') || item.target === '_blank';
+
+  if (isExternal) {
+    return (
+      <a href={item.resolved_url} target={item.target === '_blank' ? '_blank' : undefined} rel="noreferrer" className="hover:text-white transition-colors">
+        {item.label}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={item.resolved_url} className="hover:text-white transition-colors">
+      {item.label}
+    </Link>
+  );
+}
+
+function FooterMenuItem({ item }: { item: FooterMenuNode }) {
+  return (
+    <li>
+      <FooterMenuLink item={item} />
+      {item.children.length > 0 ? (
+        <ul className="mt-2 space-y-2 border-l border-white/10 pl-3">
+          {item.children.map((child) => (
+            <FooterMenuItem key={child.id} item={child} />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
 
 export function Footer() {
   const location = useLocation();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  const [footerItems, setFooterItems] = useState<FooterMenuNode[]>([]);
+  useEffect(() => {
+    const loadMenu = async () => {
+      try {
+        const response = await getPublicMenu(currentLanguage.code, 'footer');
+        setFooterItems(buildFooterTree(response.items));
+      } catch {
+        setFooterItems([]);
+      }
+    };
+
+    void loadMenu();
+  }, [currentLanguage.code]);
   // Hide footer on player page and auth/profile pages
   if (
   location.pathname.startsWith('/watch') ||
@@ -31,26 +100,32 @@ export function Footer() {
           <div>
             <h4 className="text-white font-medium mb-4">{t('footer.navigation')}</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li>
-                <Link to="/" className="hover:text-white transition-colors">
-                  {t('nav.home')}
-                </Link>
-              </li>
-              <li>
-                <Link to="/search?type=movie" className="hover:text-white transition-colors">
-                  {t('nav.movies')}
-                </Link>
-              </li>
-              <li>
-                <Link to="/search?type=series" className="hover:text-white transition-colors">
-                  {t('nav.series')}
-                </Link>
-              </li>
-              <li>
-                <Link to="/search" className="hover:text-white transition-colors">
-                  {t('nav.trending')}
-                </Link>
-              </li>
+              {footerItems.length > 0 ? (
+                footerItems.map((item) => <FooterMenuItem key={item.id} item={item} />)
+              ) : (
+                <>
+                  <li>
+                    <Link to="/" className="hover:text-white transition-colors">
+                      {t('nav.home')}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/search?type=movie" className="hover:text-white transition-colors">
+                      {t('nav.movies')}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/search?type=series" className="hover:text-white transition-colors">
+                      {t('nav.series')}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/search" className="hover:text-white transition-colors">
+                      {t('nav.trending')}
+                    </Link>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
 

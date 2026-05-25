@@ -108,4 +108,41 @@
     border: 2px solid transparent;
     background-clip: padding-box;
   }
+
+  .cms-editor .ck-editor__editable_inline {
+    min-height: 460px;
+    padding: 1.25rem;
+  }
+
+  .cms-content h1,
+  .cms-editor .ck-content h1 {
+    @apply mb-4 mt-6 text-4xl font-bold;
+  }
+
+  .cms-content h2,
+  .cms-editor .ck-content h2 {
+    @apply mb-3 mt-5 text-2xl font-semibold;
+  }
+
+  .cms-content p,
+  .cms-editor .ck-content p {
+    @apply mb-4 leading-7;
+  }
+
+  .cms-content ul,
+  .cms-content ol,
+  .cms-editor .ck-content ul,
+  .cms-editor .ck-content ol {
+    @apply mb-4 pl-6;
+  }
+
+  .cms-content ul,
+  .cms-editor .ck-content ul {
+    @apply list-disc;
+  }
+
+  .cms-content ol,
+  .cms-editor .ck-content ol {
+    @apply list-decimal;
+  }
 }
