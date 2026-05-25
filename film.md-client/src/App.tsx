@@ -17,6 +17,7 @@ import { WatchPartyPage } from './pages/WatchPartyPage';
 import { PaymentStatusPage } from './pages/PaymentStatusPage';
 import { stripHashRouteFromUrl } from './lib/url';
 import { applyDefaultSeo } from './lib/seo';
+import filmotecaCover from './assets/filmoteca-cover.png';
 
 const MAINTENANCE_PASSWORD = 'superfilm';
 const MAINTENANCE_ACCESS_KEY = 'filmoteca_maintenance_access';
@@ -24,6 +25,7 @@ const MAINTENANCE_ACCESS_KEY = 'filmoteca_maintenance_access';
 function MaintenanceGate({ onUnlock }: { onUnlock: () => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoginVisible, setIsLoginVisible] = useState(false);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,43 +40,95 @@ function MaintenanceGate({ onUnlock }: { onUnlock: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white">
-      <main className="flex min-h-screen items-center justify-center px-6 py-12">
-        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5 rounded-lg border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
-          <div className="space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-accent">filmoteca.md</p>
-            <h1 className="text-2xl font-semibold">Site în mentenanță</h1>
-            <p className="text-sm leading-6 text-white/65">
-              Pregătim conținutul. Introdu parola pentru acces temporar.
+    <div className="relative min-h-screen overflow-hidden bg-[#09090D] text-white">
+      <img
+        src={filmotecaCover}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover opacity-75"
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#09090D] via-[#09090D]/82 to-[#09090D]/20" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#09090D] via-transparent to-black/45" />
+
+      <header className="relative z-10 flex items-center justify-between px-5 py-5 md:px-10">
+        <div className="text-sm font-semibold uppercase tracking-[0.22em] text-white/90">
+          FILMOTECA<span className="text-accent">.</span>md
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setIsLoginVisible((visible) => !visible);
+            setError(null);
+          }}
+          className="rounded-full border border-white/20 bg-black/35 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/85 backdrop-blur-md transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+        >
+          Login
+        </button>
+      </header>
+
+      <main className="relative z-10 flex min-h-[calc(100vh-76px)] items-center px-5 pb-12 pt-8 md:px-10">
+        <section className="grid w-full items-end gap-8 lg:grid-cols-[minmax(0,760px)_360px]">
+          <div className="max-w-3xl pb-4">
+            <h1 className="max-w-3xl text-4xl font-bold leading-[1.05] text-white drop-shadow-2xl md:text-6xl">
+              FILMOTECA.md - Cinematografia Moldovei, mai aproape de tine.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-white/88 md:text-xl">
+              Îți mulțumim pentru interesul față de cinematografia națională.
             </p>
+            <div className="mt-8 max-w-2xl space-y-5 text-base leading-7 text-white/74 md:text-lg md:leading-8">
+              <p>Îți mulțumim pentru interesul față de cinematografia națională.</p>
+              <p>
+                FILMOTECA.md se pregătește de lansare — prima platformă digitală dedicată filmului moldovenesc și
+                conținutului audiovizual local și internațional, cu acces individual și legal.
+              </p>
+              <p>
+                Momentan suntem în etapa finală de testare și calibrare a platformei. Lucrăm la ultimele detalii
+                pentru ca experiența să fie exact așa cum ne-am imaginat-o.
+              </p>
+              <p className="font-semibold text-white">Ne vedem curând la primul play.</p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="maintenance-password" className="text-sm font-medium text-white/80">
-              Parolă
-            </label>
-            <input
-              id="maintenance-password"
-              type="password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                setError(null);
-              }}
-              className="h-11 w-full rounded-md border border-white/15 bg-black/30 px-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-accent focus:ring-2 focus:ring-accent/30"
-              placeholder="Introdu parola"
-              autoFocus
-            />
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          </div>
+          {isLoginVisible ? (
+            <form
+              onSubmit={handleSubmit}
+              className="w-full space-y-5 rounded-lg border border-white/12 bg-black/55 p-5 shadow-2xl backdrop-blur-xl"
+            >
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Acces temporar</p>
+                <h2 className="text-xl font-semibold">Login</h2>
+                <p className="text-sm leading-6 text-white/65">
+                  Introdu parola temporară pentru a accesa sistemul.
+                </p>
+              </div>
 
-          <button
-            type="submit"
-            className="h-11 w-full rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent/90"
-          >
-            Intră pe site
-          </button>
-        </form>
+              <div className="space-y-2">
+                <label htmlFor="maintenance-password" className="text-sm font-medium text-white/80">
+                  Parolă
+                </label>
+                <input
+                  id="maintenance-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setError(null);
+                  }}
+                  className="h-11 w-full rounded-md border border-white/15 bg-black/40 px-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                  placeholder="Introdu parola"
+                  autoFocus
+                />
+                {error ? <p className="text-sm text-red-300">{error}</p> : null}
+              </div>
+
+              <button
+                type="submit"
+                className="h-11 w-full rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent/90"
+              >
+                Intră pe site
+              </button>
+            </form>
+          ) : null}
+        </section>
       </main>
     </div>
   );
