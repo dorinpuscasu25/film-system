@@ -83,7 +83,7 @@ class ContentCreatorController extends ApiController
         $payload = $this->validatePayload($request);
         DB::transaction(function () use ($payload, $creator): void {
             $creator->fill([
-                'user_id' => $payload['user_id'] ?? $creator->user_id,
+                'user_id' => array_key_exists('user_id', $payload) ? $payload['user_id'] : $creator->user_id,
                 'name' => $payload['name'] ?? $creator->name,
                 'email' => $payload['email'] ?? $creator->email,
                 'company_name' => $payload['company_name'] ?? $creator->company_name,

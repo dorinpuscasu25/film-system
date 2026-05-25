@@ -10,7 +10,7 @@ import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { adminApi } from "../lib/api";
-import type { AdminContent } from "../types";
+import type { AdminContent, AdminUser } from "../types";
 
 interface Creator {
   id: number;
@@ -28,6 +28,7 @@ export function ContentCreators() {
   const { t } = useTranslation();
   const [items, setItems] = useState<Creator[]>([]);
   const [contentOptions, setContentOptions] = useState<AdminContent[]>([]);
+  const [userOptions, setUserOptions] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Creator | null>(null);
@@ -47,12 +48,14 @@ export function ContentCreators() {
   async function load() {
     setLoading(true);
     try {
-      const [creatorsResponse, contentResponse] = await Promise.all([
+      const [creatorsResponse, contentResponse, usersResponse] = await Promise.all([
         adminApi.getContentCreators(),
         adminApi.getContentIndex(),
+        adminApi.getUsers(),
       ]);
       setItems(creatorsResponse.items);
       setContentOptions(contentResponse.items);
+      setUserOptions(usersResponse.users);
     } finally {
       setLoading(false);
     }
@@ -123,6 +126,17 @@ export function ContentCreators() {
     const response = await adminApi.getCreatorStatements(creator.id);
     setStatements(response.items);
   }
+
+  const availableUserOptions = useMemo(() => {
+    const currentCreatorUserId = editing?.user?.id ?? null;
+    const assignedUserIds = new Set(
+      items
+        .map((creator) => creator.user?.id)
+        .filter((userId): userId is number => Boolean(userId) && userId !== currentCreatorUserId),
+    );
+
+    return userOptions.filter((user) => !assignedUserIds.has(user.id));
+  }, [editing?.user?.id, items, userOptions]);
 
   return (
     <div className="p-6">
@@ -219,11 +233,17 @@ export function ContentCreators() {
               />
             </Field>
             <Field label={t("creators.form.user")}>
-              <Input
-                type="number"
-                placeholder="user_id"
-                value={form.user_id}
-                onChange={(event) => setForm({ ...form, user_id: event.target.value })}
+              <UserSelect
+                users={availableUserOptions}
+                selectedId={form.user_id ? Number(form.user_id) : null}
+                onChange={(user) =>
+                  setForm({
+                    ...form,
+                    user_id: user?.id ?? "",
+                    name: user && !form.name.trim() ? user.name : form.name,
+                    email: user && !form.email.trim() ? user.email : form.email,
+                  })
+                }
               />
             </Field>
             <Field label={t("creators.form.company_name")}>
@@ -304,6 +324,115 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     <div className="space-y-2">
       <Label>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function UserSelect({
+  users,
+  selectedId,
+  onChange,
+}: {
+  users: AdminUser[];
+  selectedId: number | null;
+  onChange: (user: AdminUser | null) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selectedUser = users.find((user) => user.id === selectedId) ?? null;
+  const filteredUsers = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+
+    return users.filter((user) => {
+      if (!needle) return true;
+
+      return [user.name, user.email, user.status, ...user.roles.map((role) => role.name)]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle);
+    });
+  }, [query, users]);
+
+  return (
+    <div className="relative">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-10 w-full justify-between px-3 text-left"
+        onClick={() => setIsOpen((value) => !value)}
+      >
+        <span className={selectedUser ? "truncate text-sm" : "truncate text-sm text-muted-foreground"}>
+          {selectedUser ? `${selectedUser.name} • ${selectedUser.email}` : "Alege utilizator existent"}
+        </span>
+        <ChevronsUpDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </Button>
+
+      {isOpen ? (
+        <div className="absolute left-0 top-11 z-40 w-full min-w-[340px] overflow-hidden rounded-xl border bg-popover shadow-xl">
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <SearchIcon className="h-4 w-4 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Caută după nume, email sau rol..."
+              className="h-8 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              autoFocus
+            />
+          </div>
+
+          {selectedId ? (
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setIsOpen(false);
+                setQuery("");
+              }}
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+            >
+              Fără cont login asociat
+            </button>
+          ) : null}
+
+          <div className="admin-scrollbar max-h-72 overflow-y-auto p-1">
+            {filteredUsers.map((user) => {
+              const checked = user.id === selectedId;
+
+              return (
+                <button
+                  key={user.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(user);
+                    setIsOpen(false);
+                    setQuery("");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted"
+                >
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-input"}`}>
+                    {checked ? <CheckIcon className="h-3 w-3" /> : null}
+                  </span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{user.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {user.email} • {user.status} • {user.roles.map((role) => role.name).join(", ") || "fără rol"}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+
+            {filteredUsers.length === 0 ? (
+              <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                Nu am găsit utilizatori disponibili.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
