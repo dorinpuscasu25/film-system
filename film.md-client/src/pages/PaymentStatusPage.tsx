@@ -84,10 +84,10 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
     };
   }, [fallbackStatus, refreshWallet, searchParamKey, t]);
 
-  const isPaid = fallbackStatus === 'success' && (topUp?.status === 'paid' || !topUp);
+  const isPaid = fallbackStatus === 'success';
   const isFailed = fallbackStatus === 'failed' || topUp?.status === 'failed' || topUp?.status === 'canceled' || topUp?.status === 'refunded';
   const isPending = topUp && ['pending', 'redirect_created', 'processing'].includes(topUp.status);
-  const isChecking = Boolean(isLoading || isPending);
+  const isChecking = fallbackStatus !== 'success' && Boolean(isLoading || isPending);
   const isSuccessView = !isChecking && isPaid && !isFailed;
   const Icon = isChecking ? Loader2Icon : isSuccessView ? CheckCircle2Icon : XCircleIcon;
 
