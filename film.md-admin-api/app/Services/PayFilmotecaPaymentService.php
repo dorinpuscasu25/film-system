@@ -67,6 +67,7 @@ class PayFilmotecaPaymentService
         $failedUrl = $this->appendQuery((string) config('services.pay_filmoteca.failed_url'), ['topup_id' => $topUp->uuid]);
         $callbackUrl = $this->appendQuery((string) config('services.pay_filmoteca.callback_url'), ['topup_id' => $topUp->uuid]);
         $phone = $this->normalizePhoneForProvider((string) ($payload['phone'] ?? ''));
+        $userAgent = $this->normalizeUserAgentForProvider();
         $providerPayload = [
             'subscriber_id' => $subscriberId,
             'amount' => 1,
@@ -77,7 +78,7 @@ class PayFilmotecaPaymentService
             'email' => $user->email,
             'phone' => $phone,
             'client_ip_addr' => $this->resolveClientIp($request),
-            'user_agent' => substr((string) $request->userAgent(), 0, 500),
+            'user_agent' => $userAgent,
             'lang' => $this->normalizeLocale((string) ($payload['locale'] ?? $user->preferred_locale ?? 'ro')),
         ];
 
@@ -101,6 +102,8 @@ class PayFilmotecaPaymentService
             'client_ip_addr' => $providerPayload['client_ip_addr'],
             'lang' => $providerPayload['lang'],
             'phone_diagnostics' => $this->phoneDiagnostics($phone),
+            'original_user_agent_length' => strlen((string) $request->userAgent()),
+            'normalized_user_agent' => $userAgent,
         ]);
 
         try {
@@ -1005,6 +1008,11 @@ class PayFilmotecaPaymentService
         return $digits !== ''
             ? '[provided:last4='.substr($digits, -4).']'
             : '[provided]';
+    }
+
+    protected function normalizeUserAgentForProvider(): string
+    {
+        return 'Mozilla/5.0';
     }
 
     protected function maskEmail(string $email): string
