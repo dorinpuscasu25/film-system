@@ -2,8 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPublicMenu, PublicMenuItem } from '../lib/storefront';
+import amexLogo from '../assets/payment/amex.png';
+import maibLogo from '../assets/payment/maib.png';
+import mastercardLogo from '../assets/payment/mastercard.png';
+import visaLogo from '../assets/payment/visa.png';
 
 const footerButtonClass = 'hover:text-white transition-colors';
+const paymentLogos = [
+  { src: maibLogo, alt: 'maib', className: 'h-6 w-auto md:h-7' },
+  { src: visaLogo, alt: 'Visa', className: 'h-4 w-auto md:h-5' },
+  { src: mastercardLogo, alt: 'Mastercard', className: 'h-6 w-auto md:h-7' },
+  { src: amexLogo, alt: 'American Express', className: 'h-8 w-auto md:h-9' },
+];
 type FooterMenuNode = PublicMenuItem & { children: FooterMenuNode[] };
 
 function buildFooterTree(items: PublicMenuItem[]): FooterMenuNode[] {
@@ -172,8 +182,22 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between text-xs text-gray-600">
+        <div className="pt-8 border-t border-white/5 flex flex-col items-center gap-5 text-xs text-gray-600 md:flex-row md:justify-between">
           <p>&copy; {new Date().getFullYear()} filmoteca.md. {t('footer.rights')}</p>
+          <div
+            className="flex flex-wrap items-center justify-center gap-3 rounded-md border border-white/10 bg-white/[0.03] px-4 py-3"
+            aria-label="Sisteme de plată acceptate"
+          >
+            {paymentLogos.map((logo) => (
+              <img
+                key={logo.alt}
+                src={logo.src}
+                alt={logo.alt}
+                className={`${logo.className} object-contain`}
+                loading="lazy"
+              />
+            ))}
+          </div>
           <div className="flex space-x-4 mt-4 md:mt-0">
             <span>English</span>
             <span>Română</span>
