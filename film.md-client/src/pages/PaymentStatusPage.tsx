@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle2Icon, Loader2Icon, XCircleIcon } from 'lucide-react';
+import { CheckCircle2Icon, ClapperboardIcon, Loader2Icon, RotateCcwIcon, XCircleIcon } from 'lucide-react';
 import {
   fetchLatestStorefrontWalletTopUp,
   fetchStorefrontWalletTopUp,
@@ -76,15 +76,16 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
     };
   }, [searchParamKey]);
 
-  const isPaid = topUp?.status === 'paid';
+  const isPaid = topUp?.status === 'paid' || (!topUp && fallbackStatus === 'success');
   const isFailed = topUp?.status === 'failed' || topUp?.status === 'canceled' || topUp?.status === 'refunded' || (!topUp && fallbackStatus === 'failed');
   const isPending = topUp && ['pending', 'redirect_created', 'processing'].includes(topUp.status);
+  const isChecking = Boolean(isLoading || isPending);
 
   return (
     <div className="min-h-[70vh] bg-background px-4 pt-32 pb-20">
       <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-surface p-8 text-center shadow-2xl">
         <div className="mb-6 flex justify-center">
-          {isLoading || isPending ? (
+          {isChecking ? (
             <div className="rounded-full bg-white/10 p-4">
               <Loader2Icon className="h-10 w-10 animate-spin text-white" />
             </div>
@@ -100,14 +101,18 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
         </div>
 
         <h1 className="mb-3 text-3xl font-bold text-white">
-          {isPaid ? t('payment.paid_title') : isFailed ? t('payment.failed_title') : t('payment.checking_title')}
+          {isChecking ? t('payment.checking_title') : isPaid ? t('payment.paid_title') : t('payment.failed_title')}
         </h1>
         <p className="mb-6 text-gray-400">
-          {isPaid
-            ? t('payment.paid_message', { currency: topUp?.currency, amount: topUp?.amount.toFixed(2) })
-            : isFailed
+          {isChecking
+            ? t('payment.checking_message')
+            : isPaid
+              ? topUp
+                ? t('payment.paid_message', { currency: topUp.currency, amount: topUp.amount.toFixed(2) })
+                : t('payment.paid_message_generic')
+              : isFailed
               ? t('payment.failed_message')
-              : t('payment.checking_message')}
+              : t('payment.failed_message')}
         </p>
 
         {errorMessage ? (
@@ -130,11 +135,13 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Link to="/dashboard" className="rounded-lg bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200">
-            {t('common.dashboard')}
+          <Link to="/search" className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200">
+            <ClapperboardIcon className="h-5 w-5" />
+            {isPaid ? t('payment.start_watching') : t('payment.go_to_films')}
           </Link>
-          <Link to="/" className="rounded-lg border border-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/10">
-            {t('nav.home')}
+          <Link to="/dashboard?tab=wallet" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/10">
+            <RotateCcwIcon className="h-5 w-5" />
+            {t('payment.view_wallet')}
           </Link>
         </div>
       </div>

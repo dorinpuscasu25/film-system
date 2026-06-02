@@ -232,13 +232,17 @@
     "rights": "Toate drepturile rezervate."
   },
   "payment": {
-    "paid_title": "Plata a fost confirmată",
+    "paid_title": "Plata a fost efectuată cu succes",
     "failed_title": "Plata nu a fost finalizată",
     "checking_title": "Verificăm plata",
     "paid_message": "Contul tău a fost suplinit cu {{currency}} {{amount}}.",
-    "failed_message": "Poți încerca din nou sau verifica tranzacția mai târziu.",
+    "paid_message_generic": "Îți mulțumim. Plata a fost înregistrată, iar fondurile vor fi disponibile în cont în scurt timp.",
+    "failed_message": "Plata nu a fost procesată. Poți reveni la filme și încerca din nou când dorești.",
     "checking_message": "Așteptăm confirmarea providerului de plată. De obicei durează câteva secunde.",
-    "verify_failed": "Nu am putut verifica plata."
+    "verify_failed": "Nu am putut verifica plata.",
+    "start_watching": "Descoperă filmele",
+    "go_to_films": "Înapoi la filme",
+    "view_wallet": "Vezi portofelul"
   },
   "dashboard": {
     "my_films": "Filmele mele",

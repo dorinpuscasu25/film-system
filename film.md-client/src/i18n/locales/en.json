@@ -232,13 +232,17 @@
     "rights": "All rights reserved."
   },
   "payment": {
-    "paid_title": "Payment confirmed",
+    "paid_title": "Payment completed successfully",
     "failed_title": "Payment was not completed",
     "checking_title": "Checking payment",
     "paid_message": "Your account was topped up with {{currency}} {{amount}}.",
-    "failed_message": "You can try again or check the transaction later.",
+    "paid_message_generic": "Thank you. The payment was registered and the funds will be available in your account shortly.",
+    "failed_message": "The payment was not processed. You can return to the films and try again whenever you want.",
     "checking_message": "We are waiting for payment provider confirmation. This usually takes a few seconds.",
-    "verify_failed": "We could not verify the payment."
+    "verify_failed": "We could not verify the payment.",
+    "start_watching": "Start watching",
+    "go_to_films": "Back to films",
+    "view_wallet": "View wallet"
   },
   "dashboard": {
     "my_films": "My films",
