@@ -527,9 +527,6 @@ export function VideoPlayer({
                 {episodeTitle ? <p className="truncate text-xs text-gray-300 sm:text-sm">{episodeTitle}</p> : null}
               </div>
             </div>
-            <span className="hidden rounded-full border border-white/10 bg-black/50 px-3 py-1 text-sm text-gray-200 sm:block">
-              Player extern
-            </span>
           </div>
         </div>
       </div>
