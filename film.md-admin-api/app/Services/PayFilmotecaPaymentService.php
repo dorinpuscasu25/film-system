@@ -78,12 +78,6 @@ class PayFilmotecaPaymentService
             'client_ip_addr' => $this->resolveClientIp($request),
             'user_agent' => substr((string) $request->userAgent(), 0, 500),
             'lang' => $this->normalizeLocale((string) ($payload['locale'] ?? $user->preferred_locale ?? 'ro')),
-            'callback_url' => $callbackUrl,
-            'CallbackURL' => $callbackUrl,
-            'success_url' => $successUrl,
-            'SuccessURL' => $successUrl,
-            'failed_url' => $failedUrl,
-            'FailedURL' => $failedUrl,
         ];
 
         $topUp->update([
@@ -98,6 +92,7 @@ class PayFilmotecaPaymentService
             'amount' => $amount,
             'currency' => $currency,
             'provider_url' => rtrim((string) config('services.pay_filmoteca.base_url'), '/').'/payment-request',
+            'documented_payload_only' => true,
             'provider_payload' => $this->sanitizeProviderPayloadForLog($providerPayload),
             'callback_url' => $callbackUrl,
             'success_url' => $successUrl,
