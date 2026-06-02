@@ -94,7 +94,7 @@ return [
         'callback_url' => env('PAY_FILMOTECA_CALLBACK_URL'),
         'success_url' => env('PAY_FILMOTECA_SUCCESS_URL'),
         'failed_url' => env('PAY_FILMOTECA_FAILED_URL'),
-        'timeout' => (int) env('PAY_FILMOTECA_TIMEOUT', 20),
+        'timeout' => (int) env('PAY_FILMOTECA_TIMEOUT', 60),
     ],
 
 ];

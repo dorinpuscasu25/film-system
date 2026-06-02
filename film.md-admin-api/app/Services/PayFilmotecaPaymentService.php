@@ -6,6 +6,7 @@ use App\Models\PaymentTopUp;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use GuzzleHttp\Psr7\Response as PsrResponse;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 
 class PayFilmotecaPaymentService
 {
@@ -621,7 +623,7 @@ class PayFilmotecaPaymentService
     {
         $config = $this->config();
         $url = rtrim($config['base_url'], '/').'/'.ltrim($path, '/');
-        $formBody = http_build_query($payload, '', '&', PHP_QUERY_RFC1738);
+        $formBody = http_build_query($payload, '', '&', PHP_QUERY_RFC3986);
 
         Log::channel('payments')->info('PayFilmoteca provider POST starting', [
             'provider_path' => $path,
@@ -629,21 +631,51 @@ class PayFilmotecaPaymentService
             'timeout' => $config['timeout'],
             'transport' => 'raw_form_body_curl_like',
             'http_user_agent' => 'curl/8.7.1',
+            'body_bytes' => strlen($formBody),
             'has_username' => ! empty($config['username']),
             'has_password' => ! empty($config['password']),
             'has_api_key' => ! empty($config['api_key']),
             'payload' => $this->sanitizeProviderPayloadForLog($payload),
         ]);
 
-        $response = Http::withBody($formBody, 'application/x-www-form-urlencoded')
-            ->timeout($config['timeout'])
-            ->withBasicAuth($config['username'], $config['password'])
-            ->withUserAgent('curl/8.7.1')
-            ->withHeaders([
-                'Auth-API-Key' => $config['api_key'],
-                'Content-Type' => 'application/x-www-form-urlencoded',
-            ])
-            ->post($url);
+        try {
+            $response = Http::withBody($formBody, 'application/x-www-form-urlencoded')
+                ->timeout($config['timeout'])
+                ->connectTimeout(min(10, (int) $config['timeout']))
+                ->withBasicAuth($config['username'], $config['password'])
+                ->withUserAgent('curl/8.7.1')
+                ->withHeaders([
+                    'Auth-API-Key' => $config['api_key'],
+                    'Accept' => 'application/json, */*',
+                    'Expect' => '',
+                    'Content-Length' => (string) strlen($formBody),
+                ])
+                ->withOptions([
+                    'expect' => false,
+                    'version' => 1.1,
+                    'http_errors' => false,
+                    'curl' => [
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_TCP_KEEPALIVE => 0,
+                        CURLOPT_FORBID_REUSE => 1,
+                        CURLOPT_FRESH_CONNECT => 1,
+                    ],
+                ])
+                ->post($url);
+        } catch (\Throwable $exception) {
+            Log::channel('payments')->error('PayFilmoteca provider POST failed before response', [
+                'provider_path' => $path,
+                'provider_url' => $url,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+            ]);
+
+            if ($path === 'payment-request') {
+                return $this->providerPostWithCurlFallback($path, $url, $payload, $config, $exception->getMessage());
+            }
+
+            throw $exception;
+        }
 
         Log::channel('payments')->info('PayFilmoteca provider POST completed', [
             'provider_path' => $path,
@@ -654,7 +686,82 @@ class PayFilmotecaPaymentService
             'response' => $this->responsePayload($response),
         ]);
 
+        if ($path === 'payment-request' && $response->status() === 504) {
+            return $this->providerPostWithCurlFallback($path, $url, $payload, $config, 'laravel_http_504');
+        }
+
         return $response;
+    }
+
+    protected function providerPostWithCurlFallback(string $path, string $url, array $payload, array $config, string $reason): Response
+    {
+        $command = [
+            'curl',
+            '-sS',
+            '--max-time',
+            (string) $config['timeout'],
+            '-u',
+            $config['username'].':'.$config['password'],
+            '-H',
+            'Auth-API-Key: '.$config['api_key'],
+            '-H',
+            'Content-Type: application/x-www-form-urlencoded',
+            '-w',
+            "\n__PAYFILMOTECA_HTTP_CODE__:%{http_code}",
+        ];
+
+        foreach ($payload as $key => $value) {
+            $command[] = '--data-urlencode';
+            $command[] = $key.'='.(string) $value;
+        }
+
+        $command[] = $url;
+
+        Log::channel('payments')->warning('PayFilmoteca provider POST retrying with curl fallback', [
+            'provider_path' => $path,
+            'provider_url' => $url,
+            'reason' => $reason,
+            'timeout' => $config['timeout'],
+            'payload' => $this->sanitizeProviderPayloadForLog($payload),
+        ]);
+
+        $process = new Process($command);
+        $process->setTimeout(((int) $config['timeout']) + 10);
+        $process->run();
+
+        $response = $this->responseFromCurlFallbackOutput($process->getOutput());
+
+        Log::channel('payments')->info('PayFilmoteca provider POST curl fallback completed', [
+            'provider_path' => $path,
+            'provider_url' => $url,
+            'exit_code' => $process->getExitCode(),
+            'successful_process' => $process->isSuccessful(),
+            'stderr' => trim($process->getErrorOutput()),
+            'http_status' => $response->status(),
+            'successful' => $response->successful(),
+            'failed' => $response->failed(),
+            'response' => $this->responsePayload($response),
+        ]);
+
+        return $response;
+    }
+
+    protected function responseFromCurlFallbackOutput(string $output): Response
+    {
+        $marker = "\n__PAYFILMOTECA_HTTP_CODE__:";
+        $status = 599;
+        $body = $output;
+
+        if (str_contains($output, $marker)) {
+            [$body, $statusText] = explode($marker, $output, 2);
+            $status = (int) trim($statusText);
+        }
+
+        if ($status < 100) {
+            $status = 599;
+        }
+
+        return new Response(new PsrResponse($status, [], $body));
     }
 
     protected function resolveClientIp(Request $request): string
