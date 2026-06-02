@@ -73,6 +73,13 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'payments' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/payments.log'),
+            'level' => env('PAYMENTS_LOG_LEVEL', env('LOG_LEVEL', 'debug')),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

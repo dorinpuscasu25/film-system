@@ -19,17 +19,18 @@ class PayFilmotecaPaymentService
 {
     public function __construct(
         protected WalletService $wallets,
-    ) {
-    }
+    ) {}
 
     public function initiateTopUp(User $user, Wallet $wallet, array $payload, Request $request): PaymentTopUp
     {
-        Log::channel('single')->error('PayFilmoteca top-up initiation entered service', [
+        Log::channel('payments')->info('PayFilmoteca top-up initiation entered service', [
             'user_id' => $user->id,
             'wallet_id' => $wallet->id,
             'wallet_currency' => $wallet->currency,
             'payload_amount' => $payload['amount'] ?? null,
             'payload_currency' => $payload['currency'] ?? null,
+            'payload_locale' => $payload['locale'] ?? null,
+            'has_phone' => ! empty($payload['phone'] ?? null),
         ]);
 
         $this->ensureConfigured();
@@ -50,6 +51,18 @@ class PayFilmotecaPaymentService
             'status' => PaymentTopUp::STATUS_PENDING,
             'description' => $description,
         ]);
+
+        Log::channel('payments')->info('PayFilmoteca top-up record created', [
+            'top_up_uuid' => $topUp->uuid,
+            'top_up_id' => $topUp->id,
+            'user_id' => $user->id,
+            'wallet_id' => $wallet->id,
+            'subscriber_id' => $subscriberId,
+            'amount' => $amount,
+            'currency' => $currency,
+            'status' => $topUp->status,
+        ]);
+
         $successUrl = $this->appendQuery((string) config('services.pay_filmoteca.success_url'), ['topup_id' => $topUp->uuid]);
         $failedUrl = $this->appendQuery((string) config('services.pay_filmoteca.failed_url'), ['topup_id' => $topUp->uuid]);
         $callbackUrl = $this->appendQuery((string) config('services.pay_filmoteca.callback_url'), ['topup_id' => $topUp->uuid]);
@@ -77,7 +90,7 @@ class PayFilmotecaPaymentService
             'raw_request' => $providerPayload,
         ]);
 
-        Log::channel('single')->error('PayFilmoteca payment request starting', [
+        Log::channel('payments')->info('PayFilmoteca payment request starting', [
             'top_up_uuid' => $topUp->uuid,
             'user_id' => $user->id,
             'wallet_id' => $wallet->id,
@@ -85,6 +98,7 @@ class PayFilmotecaPaymentService
             'amount' => $amount,
             'currency' => $currency,
             'provider_url' => rtrim((string) config('services.pay_filmoteca.base_url'), '/').'/payment-request',
+            'provider_payload' => $this->sanitizeProviderPayloadForLog($providerPayload),
             'callback_url' => $callbackUrl,
             'success_url' => $successUrl,
             'failed_url' => $failedUrl,
@@ -97,7 +111,7 @@ class PayFilmotecaPaymentService
             $rawResponse = $this->responsePayload($response);
 
             if ($response->failed()) {
-                Log::channel('single')->error('PayFilmoteca payment request rejected by provider', [
+                Log::channel('payments')->error('PayFilmoteca payment request rejected by provider', [
                     'top_up_uuid' => $topUp->uuid,
                     'http_status' => $response->status(),
                     'provider_response' => $rawResponse,
@@ -120,8 +134,16 @@ class PayFilmotecaPaymentService
                 ? (string) $orderIdValue
                 : null;
 
+            Log::channel('payments')->info('PayFilmoteca payment response parsed', [
+                'top_up_uuid' => $topUp->uuid,
+                'http_status' => $response->status(),
+                'provider_order_id' => $orderId,
+                'has_payment_url' => $paymentUrl !== null,
+                'payment_url_host' => is_string($paymentUrl) ? parse_url($paymentUrl, PHP_URL_HOST) : null,
+            ]);
+
             if ($paymentUrl === null) {
-                Log::channel('single')->error('PayFilmoteca payment request missing redirect URL', [
+                Log::channel('payments')->error('PayFilmoteca payment request missing redirect URL', [
                     'top_up_uuid' => $topUp->uuid,
                     'http_status' => $response->status(),
                     'provider_order_id' => $orderId,
@@ -149,18 +171,25 @@ class PayFilmotecaPaymentService
                 'raw_response' => $rawResponse,
             ]);
 
-            Log::channel('single')->error('PayFilmoteca payment redirect created', [
+            Log::channel('payments')->info('PayFilmoteca payment redirect created', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $orderId,
                 'http_status' => $response->status(),
                 'payment_url' => $paymentUrl,
+                'old_status' => PaymentTopUp::STATUS_PENDING,
+                'new_status' => PaymentTopUp::STATUS_PROCESSING,
             ]);
 
             return $topUp->fresh();
         } catch (ValidationException $exception) {
+            Log::channel('payments')->warning('PayFilmoteca payment request stopped by validation exception', [
+                'top_up_uuid' => $topUp->uuid,
+                'errors' => $exception->errors(),
+            ]);
+
             throw $exception;
         } catch (\Throwable $exception) {
-            Log::channel('single')->error('PayFilmoteca payment request failed with exception', [
+            Log::channel('payments')->error('PayFilmoteca payment request failed with exception', [
                 'top_up_uuid' => $topUp->uuid,
                 'exception_class' => $exception::class,
                 'exception_message' => $exception->getMessage(),
@@ -186,10 +215,24 @@ class PayFilmotecaPaymentService
     public function refreshStatus(PaymentTopUp $topUp): PaymentTopUp
     {
         if ($topUp->isTerminal() || empty($topUp->provider_order_id)) {
+            Log::channel('payments')->info('PayFilmoteca status refresh skipped', [
+                'top_up_uuid' => $topUp->uuid,
+                'provider_order_id' => $topUp->provider_order_id,
+                'status' => $topUp->status,
+                'is_terminal' => $topUp->isTerminal(),
+                'has_provider_order_id' => ! empty($topUp->provider_order_id),
+            ]);
+
             return $topUp->fresh();
         }
 
         $this->ensureConfigured();
+
+        Log::channel('payments')->info('PayFilmoteca status refresh starting', [
+            'top_up_uuid' => $topUp->uuid,
+            'provider_order_id' => $topUp->provider_order_id,
+            'current_status' => $topUp->status,
+        ]);
 
         try {
             $response = $this->providerPost('payment-details', [
@@ -197,6 +240,16 @@ class PayFilmotecaPaymentService
             ]);
             $rawDetails = $this->responsePayload($response);
         } catch (\Throwable $exception) {
+            Log::channel('payments')->error('PayFilmoteca status refresh failed with exception', [
+                'top_up_uuid' => $topUp->uuid,
+                'provider_order_id' => $topUp->provider_order_id,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+                'exception_file' => $exception->getFile(),
+                'exception_line' => $exception->getLine(),
+                'exception' => $exception,
+            ]);
+
             $topUp->update([
                 'raw_details' => [
                     'message' => $exception->getMessage(),
@@ -210,6 +263,14 @@ class PayFilmotecaPaymentService
         $providerStatus = $this->extractStatus($detailsPayload);
 
         if ($providerStatus !== null && ! $this->detailsMatchTopUp($topUp, $detailsPayload)) {
+            Log::channel('payments')->error('PayFilmoteca status refresh details mismatch', [
+                'top_up_uuid' => $topUp->uuid,
+                'provider_order_id' => $topUp->provider_order_id,
+                'current_status' => $topUp->status,
+                'provider_status' => $providerStatus,
+                'provider_details' => $rawDetails,
+            ]);
+
             $topUp->forceFill([
                 'raw_details' => $rawDetails,
                 'provider_status' => 'details_mismatch',
@@ -219,13 +280,32 @@ class PayFilmotecaPaymentService
             return $topUp->fresh();
         }
 
+        $oldStatus = $topUp->status;
+        $newStatus = $this->mapProviderStatus($providerStatus, $topUp->status);
+
         $topUp->forceFill([
             'raw_details' => $rawDetails,
             'provider_status' => $providerStatus,
-            'status' => $this->mapProviderStatus($providerStatus, $topUp->status),
+            'status' => $newStatus,
         ])->save();
 
+        Log::channel('payments')->info('PayFilmoteca status refresh completed', [
+            'top_up_uuid' => $topUp->uuid,
+            'provider_order_id' => $topUp->provider_order_id,
+            'http_status' => $rawDetails['status'] ?? null,
+            'provider_status' => $providerStatus,
+            'old_status' => $oldStatus,
+            'new_status' => $topUp->status,
+            'provider_details' => $rawDetails,
+        ]);
+
         if ($this->isSuccessfulStatus($providerStatus)) {
+            Log::channel('payments')->info('PayFilmoteca status is successful; crediting wallet', [
+                'top_up_uuid' => $topUp->uuid,
+                'provider_order_id' => $topUp->provider_order_id,
+                'provider_status' => $providerStatus,
+            ]);
+
             $this->creditWallet($topUp->fresh(), $rawDetails, $providerStatus);
         }
 
@@ -271,17 +351,42 @@ class PayFilmotecaPaymentService
         $orderId = is_string($orderId) ? trim($orderId) : '';
 
         if ($orderId === '' || $topUp->isTerminal()) {
+            Log::channel('payments')->info('PayFilmoteca provider order id remember skipped', [
+                'top_up_uuid' => $topUp->uuid,
+                'incoming_provider_order_id' => $orderId,
+                'current_provider_order_id' => $topUp->provider_order_id,
+                'status' => $topUp->status,
+                'is_terminal' => $topUp->isTerminal(),
+            ]);
+
             return $topUp->fresh();
         }
 
         if ((string) $topUp->provider_order_id === $orderId) {
+            Log::channel('payments')->info('PayFilmoteca provider order id already known', [
+                'top_up_uuid' => $topUp->uuid,
+                'provider_order_id' => $orderId,
+                'status' => $topUp->status,
+            ]);
+
             return $topUp->fresh();
         }
+
+        $oldProviderOrderId = $topUp->provider_order_id;
+        $oldStatus = $topUp->status;
 
         $topUp->forceFill([
             'provider_order_id' => $orderId,
             'status' => PaymentTopUp::STATUS_PROCESSING,
         ])->save();
+
+        Log::channel('payments')->info('PayFilmoteca provider order id remembered from return URL', [
+            'top_up_uuid' => $topUp->uuid,
+            'incoming_provider_order_id' => $orderId,
+            'old_provider_order_id' => $oldProviderOrderId,
+            'old_status' => $oldStatus,
+            'new_status' => $topUp->status,
+        ]);
 
         return $topUp->fresh();
     }
@@ -299,7 +404,19 @@ class PayFilmotecaPaymentService
         $uuid = $this->firstValue($flat, ['topup_id', 'top_up_id', 'uuid', 'payment_topup_uuid']);
         $orderId = $this->firstValue($flat, ['order_id', 'OrderID', 'orderId', 'payment_id', 'paymentId', 'id']);
 
+        Log::channel('payments')->info('PayFilmoteca callback received', [
+            'top_up_uuid' => $uuid,
+            'provider_order_id' => $orderId,
+            'method' => $request->method(),
+            'client_ip' => $request->ip(),
+            'payload' => $payload,
+        ]);
+
         if ($uuid === null && $orderId === null) {
+            Log::channel('payments')->warning('PayFilmoteca callback ignored because no top-up or order id was provided', [
+                'payload' => $payload,
+            ]);
+
             return null;
         }
 
@@ -309,15 +426,33 @@ class PayFilmotecaPaymentService
             ->first();
 
         if ($topUp === null) {
+            Log::channel('payments')->warning('PayFilmoteca callback did not match a top-up', [
+                'top_up_uuid' => $uuid,
+                'provider_order_id' => $orderId,
+                'payload' => $payload,
+            ]);
+
             return null;
         }
 
         $callbackStatus = $this->extractStatus($flat);
+        $oldStatus = $topUp->status;
+        $oldProviderStatus = $topUp->provider_status;
         $topUp->forceFill([
             'raw_callback' => $payload,
             'provider_status' => $callbackStatus ?? $topUp->provider_status,
             'status' => $this->mapProviderStatus($callbackStatus, $topUp->status),
         ])->save();
+
+        Log::channel('payments')->info('PayFilmoteca callback matched top-up', [
+            'top_up_uuid' => $topUp->uuid,
+            'provider_order_id' => $topUp->provider_order_id,
+            'callback_status' => $callbackStatus,
+            'old_provider_status' => $oldProviderStatus,
+            'new_provider_status' => $topUp->provider_status,
+            'old_status' => $oldStatus,
+            'new_status' => $topUp->status,
+        ]);
 
         return $this->refreshStatus($topUp->fresh());
     }
@@ -347,6 +482,13 @@ class PayFilmotecaPaymentService
                 ->firstOrFail();
 
             if ($lockedTopUp->credited_at !== null) {
+                Log::channel('payments')->info('PayFilmoteca wallet credit skipped because top-up was already credited', [
+                    'top_up_uuid' => $lockedTopUp->uuid,
+                    'wallet_id' => $lockedTopUp->wallet_id,
+                    'credited_at' => $lockedTopUp->credited_at?->toIso8601String(),
+                    'status' => $lockedTopUp->status,
+                ]);
+
                 return;
             }
 
@@ -354,6 +496,16 @@ class PayFilmotecaPaymentService
                 ->whereKey($lockedTopUp->wallet_id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            Log::channel('payments')->info('PayFilmoteca wallet credit starting', [
+                'top_up_uuid' => $lockedTopUp->uuid,
+                'wallet_id' => $wallet->id,
+                'user_id' => $lockedTopUp->user_id,
+                'amount' => $lockedTopUp->amount,
+                'currency' => $lockedTopUp->currency,
+                'provider_order_id' => $lockedTopUp->provider_order_id,
+                'provider_status' => $providerStatus,
+            ]);
 
             $this->wallets->credit(
                 $wallet,
@@ -376,12 +528,24 @@ class PayFilmotecaPaymentService
                 'raw_details' => $details,
                 'credited_at' => now(),
             ])->save();
+
+            Log::channel('payments')->info('PayFilmoteca wallet credit completed', [
+                'top_up_uuid' => $lockedTopUp->uuid,
+                'wallet_id' => $wallet->id,
+                'user_id' => $lockedTopUp->user_id,
+                'amount' => $lockedTopUp->amount,
+                'currency' => $lockedTopUp->currency,
+                'provider_order_id' => $lockedTopUp->provider_order_id,
+                'provider_status' => $providerStatus,
+                'new_status' => $lockedTopUp->status,
+                'credited_at' => $lockedTopUp->credited_at?->toIso8601String(),
+            ]);
         });
     }
 
     protected function ensureSubscriber(string $subscriberId): void
     {
-        Log::channel('single')->error('PayFilmoteca subscriber registration starting', [
+        Log::channel('payments')->info('PayFilmoteca subscriber registration starting', [
             'subscriber_id' => $subscriberId,
             'provider_url' => rtrim((string) config('services.pay_filmoteca.base_url'), '/').'/new-subscriber',
         ]);
@@ -391,7 +555,7 @@ class PayFilmotecaPaymentService
                 'subscriber_id' => $subscriberId,
             ]);
         } catch (\Throwable $exception) {
-            Log::channel('single')->error('PayFilmoteca subscriber registration failed with exception', [
+            Log::channel('payments')->error('PayFilmoteca subscriber registration failed with exception', [
                 'subscriber_id' => $subscriberId,
                 'exception_class' => $exception::class,
                 'exception_message' => $exception->getMessage(),
@@ -403,7 +567,7 @@ class PayFilmotecaPaymentService
             throw $exception;
         }
 
-        Log::channel('single')->error('PayFilmoteca subscriber registration response received', [
+        Log::channel('payments')->info('PayFilmoteca subscriber registration response received', [
             'subscriber_id' => $subscriberId,
             'http_status' => $response->status(),
             'provider_response' => $this->responsePayload($response),
@@ -412,6 +576,12 @@ class PayFilmotecaPaymentService
         if ($response->successful() || in_array($response->status(), [409, 422], true)) {
             return;
         }
+
+        Log::channel('payments')->error('PayFilmoteca subscriber registration rejected by provider', [
+            'subscriber_id' => $subscriberId,
+            'http_status' => $response->status(),
+            'provider_response' => $this->responsePayload($response),
+        ]);
 
         throw new RuntimeException('Subscriber could not be registered.');
     }
@@ -422,6 +592,12 @@ class PayFilmotecaPaymentService
         $existing = is_array($meta) ? ($meta['pay_filmoteca_subscriber_id'] ?? null) : null;
 
         if (is_string($existing) && $existing !== '') {
+            Log::channel('payments')->info('PayFilmoteca existing subscriber id resolved', [
+                'user_id' => $user->id,
+                'wallet_id' => $wallet->id,
+                'subscriber_id' => $existing,
+            ]);
+
             return $existing;
         }
 
@@ -432,20 +608,48 @@ class PayFilmotecaPaymentService
             ]),
         ])->save();
 
+        Log::channel('payments')->info('PayFilmoteca subscriber id created for wallet', [
+            'user_id' => $user->id,
+            'wallet_id' => $wallet->id,
+            'subscriber_id' => $subscriberId,
+        ]);
+
         return $subscriberId;
     }
 
     protected function providerPost(string $path, array $payload): Response
     {
         $config = $this->config();
+        $url = rtrim($config['base_url'], '/').'/'.ltrim($path, '/');
 
-        return Http::asForm()
+        Log::channel('payments')->info('PayFilmoteca provider POST starting', [
+            'provider_path' => $path,
+            'provider_url' => $url,
+            'timeout' => $config['timeout'],
+            'has_username' => ! empty($config['username']),
+            'has_password' => ! empty($config['password']),
+            'has_api_key' => ! empty($config['api_key']),
+            'payload' => $this->sanitizeProviderPayloadForLog($payload),
+        ]);
+
+        $response = Http::asForm()
             ->timeout($config['timeout'])
             ->withBasicAuth($config['username'], $config['password'])
             ->withHeaders([
                 'Auth-API-Key' => $config['api_key'],
             ])
-            ->post(rtrim($config['base_url'], '/').'/'.ltrim($path, '/'), $payload);
+            ->post($url, $payload);
+
+        Log::channel('payments')->info('PayFilmoteca provider POST completed', [
+            'provider_path' => $path,
+            'provider_url' => $url,
+            'http_status' => $response->status(),
+            'successful' => $response->successful(),
+            'failed' => $response->failed(),
+            'response' => $this->responsePayload($response),
+        ]);
+
+        return $response;
     }
 
     protected function resolveClientIp(Request $request): string
@@ -688,8 +892,13 @@ class PayFilmotecaPaymentService
         }
 
         if ($missingKeys !== []) {
-            Log::channel('single')->error('PayFilmoteca payment integration is missing configuration', [
+            Log::channel('payments')->error('PayFilmoteca payment integration is missing configuration', [
                 'missing_keys' => $missingKeys,
+                'base_url' => $config['base_url'] ?? null,
+                'timeout' => $config['timeout'] ?? null,
+                'has_username' => ! empty($config['username'] ?? null),
+                'has_password' => ! empty($config['password'] ?? null),
+                'has_api_key' => ! empty($config['api_key'] ?? null),
                 'has_callback_url' => ! empty($config['callback_url'] ?? null),
                 'has_success_url' => ! empty($config['success_url'] ?? null),
                 'has_failed_url' => ! empty($config['failed_url'] ?? null),
@@ -699,10 +908,55 @@ class PayFilmotecaPaymentService
                 'payment' => ['Integrarea pay.filmoteca.md nu este configurată complet.'],
             ]);
         }
+
+        Log::channel('payments')->info('PayFilmoteca payment integration configuration checked', [
+            'base_url' => $config['base_url'] ?? null,
+            'timeout' => $config['timeout'] ?? null,
+            'has_username' => ! empty($config['username'] ?? null),
+            'has_password' => ! empty($config['password'] ?? null),
+            'has_api_key' => ! empty($config['api_key'] ?? null),
+            'has_callback_url' => ! empty($config['callback_url'] ?? null),
+            'has_success_url' => ! empty($config['success_url'] ?? null),
+            'has_failed_url' => ! empty($config['failed_url'] ?? null),
+            'callback_url' => $config['callback_url'] ?? null,
+            'success_url' => $config['success_url'] ?? null,
+            'failed_url' => $config['failed_url'] ?? null,
+        ]);
     }
 
     protected function config(): array
     {
         return config('services.pay_filmoteca');
+    }
+
+    protected function sanitizeProviderPayloadForLog(array $payload): array
+    {
+        $sanitized = $payload;
+
+        if (isset($sanitized['email'])) {
+            $sanitized['email'] = $this->maskEmail((string) $sanitized['email']);
+        }
+
+        if (isset($sanitized['phone'])) {
+            $sanitized['phone'] = $sanitized['phone'] === '' ? '' : '[provided]';
+        }
+
+        if (isset($sanitized['user_agent'])) {
+            $sanitized['user_agent'] = substr((string) $sanitized['user_agent'], 0, 160);
+        }
+
+        return $sanitized;
+    }
+
+    protected function maskEmail(string $email): string
+    {
+        if (! str_contains($email, '@')) {
+            return '[provided]';
+        }
+
+        [$local, $domain] = explode('@', $email, 2);
+        $visible = substr($local, 0, 2);
+
+        return $visible.'***@'.$domain;
     }
 }
