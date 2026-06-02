@@ -621,24 +621,29 @@ class PayFilmotecaPaymentService
     {
         $config = $this->config();
         $url = rtrim($config['base_url'], '/').'/'.ltrim($path, '/');
+        $formBody = http_build_query($payload, '', '&', PHP_QUERY_RFC1738);
 
         Log::channel('payments')->info('PayFilmoteca provider POST starting', [
             'provider_path' => $path,
             'provider_url' => $url,
             'timeout' => $config['timeout'],
+            'transport' => 'raw_form_body_curl_like',
+            'http_user_agent' => 'curl/8.7.1',
             'has_username' => ! empty($config['username']),
             'has_password' => ! empty($config['password']),
             'has_api_key' => ! empty($config['api_key']),
             'payload' => $this->sanitizeProviderPayloadForLog($payload),
         ]);
 
-        $response = Http::asForm()
+        $response = Http::withBody($formBody, 'application/x-www-form-urlencoded')
             ->timeout($config['timeout'])
             ->withBasicAuth($config['username'], $config['password'])
+            ->withUserAgent('curl/8.7.1')
             ->withHeaders([
                 'Auth-API-Key' => $config['api_key'],
+                'Content-Type' => 'application/x-www-form-urlencoded',
             ])
-            ->post($url, $payload);
+            ->post($url);
 
         Log::channel('payments')->info('PayFilmoteca provider POST completed', [
             'provider_path' => $path,
