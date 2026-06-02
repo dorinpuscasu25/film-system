@@ -238,6 +238,18 @@ class ApiController extends Controller
         $premiereEvents = $content->premiereEvents;
         $castMembers = collect($content->cast_members ?? [])->sortBy('sort_order')->values();
         $crewMembers = collect($content->crew_members ?? [])->sortBy('sort_order')->values();
+        $crewRoleIds = $crewMembers
+            ->flatMap(fn (array $member) => data_get($member, 'role_ids', []))
+            ->map(fn (mixed $roleId): int => (int) $roleId)
+            ->unique()
+            ->values();
+        $crewRoleTaxonomies = $crewRoleIds->isEmpty()
+            ? collect()
+            : Taxonomy::query()
+                ->where('type', Taxonomy::TYPE_CREW_ROLE)
+                ->whereIn('id', $crewRoleIds)
+                ->get()
+                ->keyBy('id');
         $videos = collect($content->videos ?? [])->sortBy('sort_order')->values();
         $primaryVideo = $videos->firstWhere('is_primary', true)
             ?? $videos->firstWhere('type', 'trailer')
@@ -383,10 +395,24 @@ class ApiController extends Controller
                 })
                 ->values(),
             'crew' => $crewMembers
-                ->map(function (array $member) use ($defaultLocale, $resolvedLocale) {
+                ->map(function (array $member) use ($defaultLocale, $resolvedLocale, $crewRoleTaxonomies) {
                     $creditType = (string) (data_get($member, 'credit_type') ?: 'director');
+                    $roleIds = collect(data_get($member, 'role_ids', []))
+                        ->map(fn (mixed $roleId): int => (int) $roleId)
+                        ->filter(fn (int $roleId): bool => $crewRoleTaxonomies->has($roleId))
+                        ->unique()
+                        ->values();
+                    $roleLabels = $roleIds
+                        ->map(fn (int $roleId): string => $crewRoleTaxonomies->get($roleId)?->getTranslation('name', $resolvedLocale, false)
+                            ?? $crewRoleTaxonomies->get($roleId)?->getTranslation('name', $defaultLocale, false)
+                            ?? $crewRoleTaxonomies->get($roleId)?->getTranslation('name', 'ro', false)
+                            ?? $crewRoleTaxonomies->get($roleId)?->slug
+                            ?? '')
+                        ->filter()
+                        ->values();
                     $jobTitle = data_get($member, 'job_title', data_get($member, 'job'));
-                    $localizedJobTitle = $this->localizedValue($jobTitle, $resolvedLocale, $defaultLocale)
+                    $localizedJobTitle = ($roleLabels->isNotEmpty() ? $roleLabels->implode(', ') : null)
+                        ?: $this->localizedValue($jobTitle, $resolvedLocale, $defaultLocale)
                         ?: Content::localizedOptionLabel(
                             Content::crewCreditTypeTranslations(),
                             $creditType,
@@ -404,6 +430,10 @@ class ApiController extends Controller
                             $resolvedLocale,
                             $defaultLocale,
                         ),
+                        'role_ids' => $roleIds->all(),
+                        'roles' => $roleIds
+                            ->map(fn (int $roleId): array => $this->taxonomyData($crewRoleTaxonomies->get($roleId), $resolvedLocale))
+                            ->values(),
                         'job_title' => $this->translatableValue($jobTitle),
                         'localized_job_title' => $localizedJobTitle,
                         'job' => $localizedJobTitle,

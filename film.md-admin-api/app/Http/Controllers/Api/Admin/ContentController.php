@@ -159,6 +159,9 @@ class ContentController extends ApiController
                         'type' => $taxonomy->type,
                         'slug' => $taxonomy->slug,
                         'name' => $taxonomy->getTranslations('name'),
+                        'localized_name' => $taxonomy->getTranslation('name', $locale, false)
+                            ?? $taxonomy->getTranslation('name', 'ro', false)
+                            ?? $taxonomy->slug,
                         'color' => $taxonomy->color,
                     ],
                 )->values(),
@@ -202,6 +205,7 @@ class ContentController extends ApiController
                 Taxonomy::TYPE_COLLECTION => $taxonomies->get(Taxonomy::TYPE_COLLECTION, collect())->values(),
                 Taxonomy::TYPE_TAG => $taxonomies->get(Taxonomy::TYPE_TAG, collect())->values(),
                 Taxonomy::TYPE_BADGE => $taxonomies->get(Taxonomy::TYPE_BADGE, collect())->values(),
+                Taxonomy::TYPE_CREW_ROLE => $taxonomies->get(Taxonomy::TYPE_CREW_ROLE, collect())->values(),
             ],
             'format_types' => [
                 ['value' => 'main', 'label' => 'Main'],

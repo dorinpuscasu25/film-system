@@ -482,7 +482,7 @@ export interface AdCampaignPayload {
 
 export type TaxonomyLocale = "ro" | "ru" | "en";
 
-export type TaxonomyType = "genre" | "collection" | "tag" | "badge";
+export type TaxonomyType = "genre" | "collection" | "tag" | "badge" | "crew_role";
 
 export interface LocalizedText {
   ro: string;
@@ -686,6 +686,8 @@ export interface AdminContentCrewMember {
   name: string;
   credit_type: string;
   credit_type_label?: string | null;
+  role_ids?: number[];
+  roles?: AdminContentTaxonomyOption[];
   job_title: LocalizedText;
   localized_job_title?: string | null;
   job?: string | null;
@@ -1015,6 +1017,7 @@ export interface ContentPayload {
     id?: string;
     name: string;
     credit_type: string;
+    role_ids?: number[];
     job_title: LocalizedText;
     avatar_url?: string | null;
     sort_order?: number;

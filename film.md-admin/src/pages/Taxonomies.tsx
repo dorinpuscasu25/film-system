@@ -41,6 +41,7 @@ const FALLBACK_TYPES: TaxonomyTypeOption[] = [
   { value: "collection", label: "Colecții" },
   { value: "tag", label: "Tag-uri" },
   { value: "badge", label: "Badge-uri" },
+  { value: "crew_role", label: "Roluri echipă" },
 ];
 
 const FALLBACK_LOCALES: TaxonomyLocaleOption[] = [
@@ -54,6 +55,7 @@ const TYPE_DESCRIPTIONS: Record<TaxonomyType, string> = {
   collection: "Colecțiile grupează titlurile în seturi curatoriate pentru homepage, landing pages sau campanii.",
   tag: "Tag-urile sunt etichete editoriale flexibile pentru search, landing-uri tematice și campanii de merchandising.",
   badge: "Badges sunt marcaje vizuale pentru storefront. Culoarea și label-ul merg direct în UI-ul public.",
+  crew_role: "Rolurile de echipă sunt folosite în editorul de conținut pentru membrii echipei și pot fi selectate multiplu.",
 };
 
 const TYPE_SINGULAR: Record<TaxonomyType, string> = {
@@ -61,6 +63,7 @@ const TYPE_SINGULAR: Record<TaxonomyType, string> = {
   collection: "colecție",
   tag: "tag",
   badge: "badge",
+  crew_role: "rol de echipă",
 };
 
 function createEmptyLocalizedText(): LocalizedText {
@@ -100,6 +103,7 @@ function createEmptyTaxonomyMap(): Record<TaxonomyType, AdminTaxonomy[]> {
     collection: [],
     tag: [],
     badge: [],
+    crew_role: [],
   };
 }
 

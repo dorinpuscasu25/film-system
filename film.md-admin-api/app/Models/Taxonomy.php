@@ -23,12 +23,19 @@ class Taxonomy extends Model
     use HasTranslations;
 
     public const TYPE_GENRE = 'genre';
+
     public const TYPE_COLLECTION = 'collection';
+
     public const TYPE_TAG = 'tag';
+
     public const TYPE_BADGE = 'badge';
 
+    public const TYPE_CREW_ROLE = 'crew_role';
+
     public const LOCALE_RO = 'ro';
+
     public const LOCALE_RU = 'ru';
+
     public const LOCALE_EN = 'en';
 
     public array $translatable = ['name', 'description'];
@@ -50,6 +57,7 @@ class Taxonomy extends Model
             self::TYPE_COLLECTION,
             self::TYPE_TAG,
             self::TYPE_BADGE,
+            self::TYPE_CREW_ROLE,
         ];
     }
 
@@ -60,6 +68,7 @@ class Taxonomy extends Model
             self::TYPE_COLLECTION => 'Collections',
             self::TYPE_TAG => 'Tags',
             self::TYPE_BADGE => 'Badges',
+            self::TYPE_CREW_ROLE => 'Crew roles',
         ];
     }
 

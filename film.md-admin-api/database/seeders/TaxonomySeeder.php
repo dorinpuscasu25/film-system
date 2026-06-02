@@ -68,6 +68,48 @@ class TaxonomySeeder extends Seeder
                 'content_count' => 18,
                 'sort_order' => 20,
             ],
+            [
+                'type' => Taxonomy::TYPE_CREW_ROLE,
+                'slug' => 'director',
+                'name' => ['ro' => 'Regizor', 'ru' => 'Режиссёр', 'en' => 'Director'],
+                'description' => ['ro' => 'Rol de regie în echipa producției.', 'ru' => 'Режиссёрская роль в команде проекта.', 'en' => 'Directing role in the production crew.'],
+                'sort_order' => 10,
+            ],
+            [
+                'type' => Taxonomy::TYPE_CREW_ROLE,
+                'slug' => 'screenwriter',
+                'name' => ['ro' => 'Scenarist', 'ru' => 'Сценарист', 'en' => 'Screenwriter'],
+                'description' => ['ro' => 'Rol de scenariu în echipa producției.', 'ru' => 'Сценарная роль в команде проекта.', 'en' => 'Screenwriting role in the production crew.'],
+                'sort_order' => 20,
+            ],
+            [
+                'type' => Taxonomy::TYPE_CREW_ROLE,
+                'slug' => 'producer',
+                'name' => ['ro' => 'Producător', 'ru' => 'Продюсер', 'en' => 'Producer'],
+                'description' => ['ro' => 'Rol de producție în echipa proiectului.', 'ru' => 'Продюсерская роль в команде проекта.', 'en' => 'Producing role in the project crew.'],
+                'sort_order' => 30,
+            ],
+            [
+                'type' => Taxonomy::TYPE_CREW_ROLE,
+                'slug' => 'cinematographer',
+                'name' => ['ro' => 'Imagine', 'ru' => 'Оператор', 'en' => 'Cinematographer'],
+                'description' => ['ro' => 'Responsabil de imagine și cameră.', 'ru' => 'Отвечает за изображение и камеру.', 'en' => 'Responsible for cinematography and camera.'],
+                'sort_order' => 40,
+            ],
+            [
+                'type' => Taxonomy::TYPE_CREW_ROLE,
+                'slug' => 'composer',
+                'name' => ['ro' => 'Compozitor', 'ru' => 'Композитор', 'en' => 'Composer'],
+                'description' => ['ro' => 'Responsabil de muzica producției.', 'ru' => 'Отвечает за музыку проекта.', 'en' => 'Responsible for the production music.'],
+                'sort_order' => 50,
+            ],
+            [
+                'type' => Taxonomy::TYPE_CREW_ROLE,
+                'slug' => 'editor',
+                'name' => ['ro' => 'Montaj', 'ru' => 'Монтаж', 'en' => 'Editor'],
+                'description' => ['ro' => 'Responsabil de montaj.', 'ru' => 'Отвечает за монтаж.', 'en' => 'Responsible for editing.'],
+                'sort_order' => 60,
+            ],
         ];
 
         foreach ($items as $item) {

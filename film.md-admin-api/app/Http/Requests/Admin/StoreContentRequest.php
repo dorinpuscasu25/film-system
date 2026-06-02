@@ -6,6 +6,7 @@ use App\Models\Content;
 use App\Models\Taxonomy;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -49,7 +50,9 @@ class StoreContentRequest extends FormRequest
             'crew_members' => ['nullable', 'array'],
             'crew_members.*.id' => ['nullable', 'string', 'max:64'],
             'crew_members.*.name' => ['required', 'string', 'max:255'],
-            'crew_members.*.credit_type' => ['required', Rule::in(array_keys(Content::crewCreditTypeTranslations()))],
+            'crew_members.*.credit_type' => ['required', 'string', 'max:255'],
+            'crew_members.*.role_ids' => ['nullable', 'array'],
+            'crew_members.*.role_ids.*' => ['integer', Rule::exists('taxonomies', 'id')],
             'crew_members.*.avatar_url' => $this->imageAssetRules(false),
             'crew_members.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'videos' => ['nullable', 'array'],
@@ -209,6 +212,23 @@ class StoreContentRequest extends FormRequest
 
                 if ($resolvedIds->count() !== $taxonomyIds->count()) {
                     $validator->errors()->add('taxonomy_ids', 'One or more taxonomy selections are invalid.');
+                }
+            }
+
+            $crewRoleIds = collect($this->input('crew_members', []))
+                ->flatMap(fn (mixed $member) => data_get($member, 'role_ids', []))
+                ->map(fn (mixed $value): int => (int) $value)
+                ->unique()
+                ->values();
+
+            if ($crewRoleIds->isNotEmpty()) {
+                $resolvedCrewRoleIds = Taxonomy::query()
+                    ->where('type', Taxonomy::TYPE_CREW_ROLE)
+                    ->whereIn('id', $crewRoleIds)
+                    ->pluck('id');
+
+                if ($resolvedCrewRoleIds->count() !== $crewRoleIds->count()) {
+                    $validator->errors()->add('crew_members.*.role_ids', 'Selectează doar roluri de echipă valide.');
                 }
             }
         });
@@ -384,7 +404,7 @@ class StoreContentRequest extends FormRequest
             ->all();
     }
 
-    protected function normalizedCountryCodes(): \Illuminate\Support\Collection
+    protected function normalizedCountryCodes(): Collection
     {
         $countryCodes = collect($this->input('country_codes', []))
             ->map(fn (mixed $value): string => strtoupper(trim((string) $value)))
@@ -518,12 +538,24 @@ class StoreContentRequest extends FormRequest
 
     protected function normalizeCrewMembers(): array
     {
+        $crewRoles = $this->crewRoleTaxonomies();
+
         return collect($this->input('crew_members', []))
-            ->map(function (mixed $member, int $index): array {
+            ->map(function (mixed $member, int $index) use ($crewRoles): array {
                 $creditType = (string) (data_get($member, 'credit_type') ?: 'director');
+                $roleIds = collect(data_get($member, 'role_ids', []))
+                    ->map(fn (mixed $value): int => (int) $value)
+                    ->filter(fn (int $value): bool => $crewRoles->has($value))
+                    ->unique()
+                    ->values();
                 $jobTitle = $this->normalizeTranslatableValue(
                     data_get($member, 'job_title', data_get($member, 'job')),
                 );
+
+                if ($roleIds->isNotEmpty()) {
+                    $jobTitle = $this->localizedCrewRoleLabels($roleIds->all(), $crewRoles);
+                    $creditType = (string) ($crewRoles->get($roleIds->first())?->slug ?? $creditType);
+                }
 
                 if (! $this->hasTranslatedValue($jobTitle)) {
                     $jobTitle = $this->localizedOptionValue(Content::crewCreditTypeTranslations(), $creditType);
@@ -533,6 +565,7 @@ class StoreContentRequest extends FormRequest
                     'id' => data_get($member, 'id') ?: Str::uuid()->toString(),
                     'name' => trim((string) data_get($member, 'name')),
                     'credit_type' => $creditType,
+                    'role_ids' => $roleIds->all(),
                     'job_title' => $jobTitle,
                     'avatar_url' => $this->filledArrayValue($member, 'avatar_url'),
                     'sort_order' => (int) data_get($member, 'sort_order', $index),
@@ -541,6 +574,42 @@ class StoreContentRequest extends FormRequest
             ->filter(fn (array $member): bool => $member['name'] !== '')
             ->sortBy('sort_order')
             ->values()
+            ->all();
+    }
+
+    protected function crewRoleTaxonomies(): Collection
+    {
+        $roleIds = collect($this->input('crew_members', []))
+            ->flatMap(fn (mixed $member) => data_get($member, 'role_ids', []))
+            ->map(fn (mixed $value): int => (int) $value)
+            ->unique()
+            ->values();
+
+        if ($roleIds->isEmpty()) {
+            return collect();
+        }
+
+        return Taxonomy::query()
+            ->where('type', Taxonomy::TYPE_CREW_ROLE)
+            ->where('active', true)
+            ->whereIn('id', $roleIds)
+            ->get()
+            ->keyBy('id');
+    }
+
+    protected function localizedCrewRoleLabels(array $roleIds, Collection $crewRoles): array
+    {
+        return collect(Content::supportedLocales())
+            ->mapWithKeys(function (string $locale) use ($roleIds, $crewRoles): array {
+                $labels = collect($roleIds)
+                    ->map(fn (int $roleId): ?string => $crewRoles->get($roleId)?->getTranslation('name', $locale, false)
+                        ?? $crewRoles->get($roleId)?->getTranslation('name', 'ro', false)
+                        ?? $crewRoles->get($roleId)?->slug)
+                    ->filter()
+                    ->values();
+
+                return [$locale => $labels->implode(', ')];
+            })
             ->all();
     }
 

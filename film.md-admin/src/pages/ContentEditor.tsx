@@ -210,6 +210,7 @@ const FALLBACK_OPTIONS: AdminContentOptions = {
     collection: [],
     tag: [],
     badge: [],
+    crew_role: [],
   },
 };
 
@@ -396,6 +397,7 @@ function createEmptyCrewMember(): AdminContentCrewMember {
     id: crypto.randomUUID(),
     name: "",
     credit_type: "director",
+    role_ids: [],
     job_title: createEmptyLocalizedText(),
     avatar_url: null,
     sort_order: 0,
@@ -689,6 +691,7 @@ function mapContentToForm(content: AdminContent): ContentFormState {
     })),
     crew_members: (content.crew ?? []).map((member) => ({
       ...member,
+      role_ids: member.role_ids ?? [],
       job_title: ensureLocalizedText(member.job_title),
     })),
     videos: (content.videos ?? []).map((video) => ({
@@ -846,6 +849,15 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           .map((item) => item.quality),
       ),
     [contentFormatDrafts],
+  );
+
+  const crewRoleOptions = useMemo(
+    () =>
+      (options.taxonomies.crew_role ?? []).map((role) => ({
+        label: role.localized_name || role.name[localeTab] || role.name.ro || role.slug,
+        value: role.id,
+      })),
+    [localeTab, options.taxonomies.crew_role],
   );
 
   useEffect(() => {
@@ -1045,7 +1057,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     );
   }
 
-  function updateCrewMember(index: number, field: keyof Omit<AdminContentCrewMember, "job_title">, value: string | number | null) {
+  function updateCrewMember(index: number, field: keyof Omit<AdminContentCrewMember, "job_title">, value: string | number | number[] | null) {
     setFormState((current) => ({
       ...current,
       crew_members: current.crew_members.map((member, memberIndex) =>
@@ -1425,6 +1437,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           id: member.id,
           name: safeTrim(member.name),
           credit_type: member.credit_type,
+          role_ids: member.role_ids ?? [],
           job_title: trimLocalizedText(member.job_title),
           avatar_url: safeTrim(member.avatar_url) || null,
           sort_order: Number(member.sort_order ?? index),
@@ -2755,14 +2768,23 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                         onChange={(event) => updateCrewMember(index, "name", event.target.value)}
                       />
                       <FormField
-                        label="Rol în echipă"
+                        label="Roluri în echipă"
                         type="select"
-                        value={member.credit_type}
-                        options={(options.crew_credit_types ?? FALLBACK_OPTIONS.crew_credit_types ?? []).map((item) => ({
-                          label: item.label,
-                          value: item.value,
-                        }))}
-                        onChange={(event) => updateCrewMember(index, "credit_type", event.target.value)}
+                        multiple
+                        value={(member.role_ids ?? []).map(String)}
+                        options={crewRoleOptions}
+                        helperText={
+                          crewRoleOptions.length === 0
+                            ? "Adaugă roluri în Taxonomii > Roluri echipă."
+                            : "Poți selecta mai multe roluri pentru aceeași persoană."
+                        }
+                        onChange={(event) =>
+                          updateCrewMember(
+                            index,
+                            "role_ids",
+                            Array.from(event.target.selectedOptions).map((option) => Number(option.value)),
+                          )
+                        }
                       />
                       <FormField
                         label="Ordine"
@@ -2773,6 +2795,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                       <FormField
                         label={`Etichetă rol (${localeTab.toUpperCase()})`}
                         value={member.job_title[localeTab]}
+                        helperText={(member.role_ids ?? []).length > 0 ? "Se completează automat din rolurile selectate la salvare." : undefined}
                         onChange={(event) => updateCrewMemberLocalized(index, localeTab, event.target.value)}
                       />
                       <ImageUploadField
