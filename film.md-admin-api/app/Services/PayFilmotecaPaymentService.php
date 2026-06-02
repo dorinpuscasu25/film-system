@@ -66,6 +66,7 @@ class PayFilmotecaPaymentService
         $successUrl = $this->appendQuery((string) config('services.pay_filmoteca.success_url'), ['topup_id' => $topUp->uuid]);
         $failedUrl = $this->appendQuery((string) config('services.pay_filmoteca.failed_url'), ['topup_id' => $topUp->uuid]);
         $callbackUrl = $this->appendQuery((string) config('services.pay_filmoteca.callback_url'), ['topup_id' => $topUp->uuid]);
+        $phone = $this->normalizePhoneForProvider((string) ($payload['phone'] ?? ''));
         $providerPayload = [
             'subscriber_id' => $subscriberId,
             'amount' => 1,
@@ -74,7 +75,7 @@ class PayFilmotecaPaymentService
             'description' => $description,
             'name' => $user->name ?: $user->email,
             'email' => $user->email,
-            'phone' => (string) ($payload['phone'] ?? ''),
+            'phone' => $phone,
             'client_ip_addr' => $this->resolveClientIp($request),
             'user_agent' => substr((string) $request->userAgent(), 0, 500),
             'lang' => $this->normalizeLocale((string) ($payload['locale'] ?? $user->preferred_locale ?? 'ro')),
@@ -99,6 +100,7 @@ class PayFilmotecaPaymentService
             'failed_url' => $failedUrl,
             'client_ip_addr' => $providerPayload['client_ip_addr'],
             'lang' => $providerPayload['lang'],
+            'phone_diagnostics' => $this->phoneDiagnostics($phone),
         ]);
 
         try {
@@ -933,7 +935,8 @@ class PayFilmotecaPaymentService
         }
 
         if (isset($sanitized['phone'])) {
-            $sanitized['phone'] = $sanitized['phone'] === '' ? '' : '[provided]';
+            $sanitized['phone'] = $this->maskPhone((string) $sanitized['phone']);
+            $sanitized['phone_diagnostics'] = $this->phoneDiagnostics((string) $payload['phone']);
         }
 
         if (isset($sanitized['user_agent'])) {
@@ -941,6 +944,67 @@ class PayFilmotecaPaymentService
         }
 
         return $sanitized;
+    }
+
+    protected function normalizePhoneForProvider(string $phone): string
+    {
+        $phone = trim($phone);
+
+        if ($phone === '') {
+            return '';
+        }
+
+        $phone = preg_replace('/[\s().-]+/', '', $phone) ?? $phone;
+
+        if (str_starts_with($phone, '00')) {
+            $phone = '+'.substr($phone, 2);
+        }
+
+        if (str_starts_with($phone, '+')) {
+            return '+'.preg_replace('/\D+/', '', substr($phone, 1));
+        }
+
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        if (str_starts_with($digits, '373')) {
+            return '+'.$digits;
+        }
+
+        if (str_starts_with($digits, '0') && strlen($digits) === 9) {
+            return '+373'.substr($digits, 1);
+        }
+
+        if (strlen($digits) === 8 && preg_match('/^[67]\d{7}$/', $digits) === 1) {
+            return '+373'.$digits;
+        }
+
+        return $digits !== '' ? '+'.$digits : '';
+    }
+
+    protected function phoneDiagnostics(string $phone): array
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        return [
+            'provided' => $phone !== '',
+            'is_e164_like' => preg_match('/^\+\d{8,15}$/', $phone) === 1,
+            'length' => strlen($phone),
+            'digits_length' => strlen($digits),
+            'last4' => $digits !== '' ? substr($digits, -4) : null,
+        ];
+    }
+
+    protected function maskPhone(string $phone): string
+    {
+        if ($phone === '') {
+            return '';
+        }
+
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        return $digits !== ''
+            ? '[provided:last4='.substr($digits, -4).']'
+            : '[provided]';
     }
 
     protected function maskEmail(string $email): string
