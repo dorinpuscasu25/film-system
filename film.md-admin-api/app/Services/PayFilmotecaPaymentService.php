@@ -742,6 +742,10 @@ class PayFilmotecaPaymentService
         $command = [
             'curl',
             '-sS',
+            '-v',
+            '--noproxy',
+            '*',
+            '--ipv4',
             '--connect-timeout',
             '10',
             '--max-time',
@@ -751,7 +755,7 @@ class PayFilmotecaPaymentService
             '-H',
             'Auth-API-Key: '.$config['api_key'],
             '-w',
-            "\n__PAYFILMOTECA_HTTP_CODE__:%{http_code}\n__PAYFILMOTECA_SERVER__:%header{server}",
+            "\n__PAYFILMOTECA_HTTP_CODE__:%{http_code}\n__PAYFILMOTECA_SERVER__:%header{server}\n__PAYFILMOTECA_REMOTE_IP__:%{remote_ip}\n__PAYFILMOTECA_TIME__:%{time_total}",
         ];
 
         foreach ($payload as $key => $value) {
@@ -771,7 +775,16 @@ class PayFilmotecaPaymentService
             'payload' => $this->sanitizeProviderPayloadForLog($payload),
         ]);
 
-        $process = new Process($command);
+        $env = [];
+        foreach ($_SERVER as $key => $value) {
+            if (is_string($key) && is_string($value) && stripos($key, 'proxy') === false) {
+                $env[$key] = $value;
+            }
+        }
+        $env['NO_PROXY'] = '*';
+        $env['no_proxy'] = '*';
+
+        $process = new Process($command, null, $env);
         $process->setTimeout($timeout + 15);
 
         try {
@@ -789,10 +802,13 @@ class PayFilmotecaPaymentService
             return new Response(new PsrResponse(599, [], 'curl process crashed: '.$exception->getMessage()));
         }
 
-        $response = $this->responseFromCurlFallbackOutput($process->getOutput());
+        $output = $process->getOutput();
+        $response = $this->responseFromCurlFallbackOutput($output);
         $exitCode = $process->getExitCode();
-        $stderr = trim($process->getErrorOutput());
-        $upstreamServer = $this->extractUpstreamServer($process->getOutput());
+        $stderr = $process->getErrorOutput();
+        $upstreamServer = $this->extractUpstreamServer($output);
+        $remoteIp = $this->extractMarker($output, 'REMOTE_IP');
+        $curlTime = $this->extractMarker($output, 'TIME');
 
         Log::channel('payments')->info('PayFilmoteca provider POST via curl completed', [
             'provider_path' => $path,
@@ -802,11 +818,13 @@ class PayFilmotecaPaymentService
             'attempts' => $attempts,
             'exit_code' => $exitCode,
             'successful_process' => $process->isSuccessful(),
-            'stderr' => $stderr,
             'http_status' => $response->status(),
             'successful' => $response->successful(),
             'failed' => $response->failed(),
             'upstream_server' => $upstreamServer,
+            'remote_ip' => $remoteIp,
+            'curl_time' => $curlTime,
+            'verbose_trace' => substr($this->sanitizeCurlVerbose($stderr), 0, 4000),
             'response' => $this->responsePayload($response),
         ]);
 
@@ -819,7 +837,12 @@ class PayFilmotecaPaymentService
 
     protected function extractUpstreamServer(string $output): ?string
     {
-        if (preg_match('~\n__PAYFILMOTECA_SERVER__:(.*)$~', $output, $matches) === 1) {
+        return $this->extractMarker($output, 'SERVER');
+    }
+
+    protected function extractMarker(string $output, string $name): ?string
+    {
+        if (preg_match('~^__PAYFILMOTECA_'.preg_quote($name, '~').'__:(.*)$~m', $output, $matches) === 1) {
             $value = trim($matches[1]);
 
             return $value !== '' ? $value : null;
@@ -828,20 +851,38 @@ class PayFilmotecaPaymentService
         return null;
     }
 
+    protected function sanitizeCurlVerbose(string $stderr): string
+    {
+        $lines = preg_split('~\r?\n~', $stderr) ?: [];
+        $kept = [];
+
+        foreach ($lines as $line) {
+            if (preg_match('~^>\s*Authorization:~i', $line) === 1) {
+                $kept[] = '> Authorization: [redacted]';
+                continue;
+            }
+            if (preg_match('~^>\s*Auth-API-Key:~i', $line) === 1) {
+                $kept[] = '> Auth-API-Key: [redacted]';
+                continue;
+            }
+            $kept[] = $line;
+        }
+
+        return implode("\n", $kept);
+    }
+
     protected function responseFromCurlFallbackOutput(string $output): Response
     {
-        $statusMarker = "\n__PAYFILMOTECA_HTTP_CODE__:";
-        $serverMarker = "\n__PAYFILMOTECA_SERVER__:";
         $status = 599;
         $body = $output;
 
-        if (str_contains($output, $serverMarker)) {
-            [$body, ] = explode($serverMarker, $output, 2);
+        if (preg_match('~^__PAYFILMOTECA_HTTP_CODE__:(\d+)$~m', $output, $matches) === 1) {
+            $status = (int) $matches[1];
         }
 
-        if (str_contains($body, $statusMarker)) {
-            [$body, $statusText] = explode($statusMarker, $body, 2);
-            $status = (int) trim($statusText);
+        $firstMarkerPos = strpos($body, "\n__PAYFILMOTECA_");
+        if ($firstMarkerPos !== false) {
+            $body = substr($body, 0, $firstMarkerPos);
         }
 
         if ($status < 100) {
