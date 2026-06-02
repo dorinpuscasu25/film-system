@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCardIcon, HistoryIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { fetchPublicPlatformSettings } from '../lib/session';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
 
@@ -14,16 +15,39 @@ interface WalletModalProps {
 
 export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { balance, currency, addFunds } = useWallet();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const [amount, setAmount] = useState(20);
   const [phone, setPhone] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsUrl, setTermsUrl] = useState('/page/termeni-si-conditii');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const quickAmounts = [20, 50, 100, 250];
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setAcceptedTerms(false);
+
+    fetchPublicPlatformSettings(currentLanguage.code)
+      .then((settings) => {
+        setTermsUrl(settings.terms_page_url || settings.terms_page?.url || '/page/termeni-si-conditii');
+      })
+      .catch(() => {
+        setTermsUrl('/page/termeni-si-conditii');
+      });
+  }, [currentLanguage.code, isOpen]);
+
   const handleSubmit = async () => {
+    if (!acceptedTerms) {
+      setErrorMessage(t('wallet.terms_required'));
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -147,6 +171,31 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 />
               </label>
 
+              <label className="mb-5 flex items-start gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(event) => {
+                    setAcceptedTerms(event.target.checked);
+                    if (event.target.checked) {
+                      setErrorMessage(null);
+                    }
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-surface text-accent focus:ring-accent"
+                />
+                <span>
+                  {t('wallet.accept_terms')}{' '}
+                  <a
+                    href={termsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-white underline decoration-white/40 underline-offset-4 transition hover:text-accent"
+                  >
+                    {t('wallet.terms_link')}
+                  </a>
+                </span>
+              </label>
+
               {errorMessage ? (
                 <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                   {errorMessage}
@@ -156,7 +205,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={isSubmitting || amount < 20}
+                disabled={isSubmitting || amount < 20 || !acceptedTerms}
                 className="flex w-full items-center justify-center rounded-xl bg-accent px-5 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? <Loader2Icon className="mr-2 h-5 w-5 animate-spin" /> : null}

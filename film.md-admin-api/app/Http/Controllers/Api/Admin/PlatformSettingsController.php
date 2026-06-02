@@ -26,6 +26,7 @@ class PlatformSettingsController extends ApiController
         'mpay_merchant_id',
         'social_links',
         'seo',
+        'terms_page_id',
         RegistrationCreditService::SETTINGS_KEY,
     ];
 
@@ -59,6 +60,9 @@ class PlatformSettingsController extends ApiController
             }
             if ($key === RegistrationCreditService::SETTINGS_KEY) {
                 $value = $this->registrationCredit->normalizeSettings(is_array($value) ? $value : []);
+            }
+            if ($key === 'terms_page_id') {
+                $value = filled($value) ? (int) $value : null;
             }
             PlatformSetting::setValue($key, $value);
         }

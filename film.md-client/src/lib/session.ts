@@ -112,6 +112,16 @@ export interface StorefrontTopUpResponsePayload {
   top_up: StorefrontTopUpPayload;
 }
 
+export interface PublicPlatformSettingsPayload {
+  terms_page_url?: string | null;
+  terms_page?: {
+    id: number;
+    title?: string | null;
+    slug: string;
+    url: string;
+  } | null;
+}
+
 export interface StorefrontPremiereLockPayload {
   id: number;
   title: string;
@@ -347,6 +357,10 @@ export async function loginWithPassword(email: string, password: string) {
       app: "client",
     }),
   });
+}
+
+export async function fetchPublicPlatformSettings(locale?: string) {
+  return requestJson<PublicPlatformSettingsPayload>("/public/settings", {}, { locale });
 }
 
 export async function registerWithPassword(payload: {
