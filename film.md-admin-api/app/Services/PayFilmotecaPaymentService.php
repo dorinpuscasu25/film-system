@@ -700,8 +700,45 @@ class PayFilmotecaPaymentService
 
     protected function providerPostWithCurlFallback(string $path, string $url, array $payload, array $config, string $reason): Response
     {
-        $timeout = (int) $config['timeout'];
+        $attempts = $path === 'payment-request' ? 4 : 1;
+        $perAttemptTimeout = $path === 'payment-request' ? 20 : (int) $config['timeout'];
+        $retryableStatuses = [502, 503, 504, 599];
+        $response = null;
 
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $response = $this->runCurlAttempt(
+                path: $path,
+                url: $url,
+                payload: $payload,
+                config: $config,
+                reason: $reason,
+                attempt: $attempt,
+                attempts: $attempts,
+                timeout: $perAttemptTimeout,
+            );
+
+            if (! in_array($response->status(), $retryableStatuses, true)) {
+                return $response;
+            }
+
+            if ($attempt < $attempts) {
+                $sleepMs = min(2000, 250 * (2 ** ($attempt - 1)));
+                Log::channel('payments')->warning('PayFilmoteca provider POST curl retry scheduled', [
+                    'provider_path' => $path,
+                    'attempt' => $attempt,
+                    'next_attempt' => $attempt + 1,
+                    'http_status' => $response->status(),
+                    'sleep_ms' => $sleepMs,
+                ]);
+                usleep($sleepMs * 1000);
+            }
+        }
+
+        return $response;
+    }
+
+    protected function runCurlAttempt(string $path, string $url, array $payload, array $config, string $reason, int $attempt, int $attempts, int $timeout): Response
+    {
         $command = [
             'curl',
             '-sS',
@@ -722,7 +759,7 @@ class PayFilmotecaPaymentService
             '-H',
             'Expect:',
             '-w',
-            "\n__PAYFILMOTECA_HTTP_CODE__:%{http_code}",
+            "\n__PAYFILMOTECA_HTTP_CODE__:%{http_code}\n__PAYFILMOTECA_SERVER__:%header{server}",
         ];
 
         foreach ($payload as $key => $value) {
@@ -736,6 +773,8 @@ class PayFilmotecaPaymentService
             'provider_path' => $path,
             'provider_url' => $url,
             'reason' => $reason,
+            'attempt' => $attempt,
+            'attempts' => $attempts,
             'timeout' => $timeout,
             'payload' => $this->sanitizeProviderPayloadForLog($payload),
         ]);
@@ -750,6 +789,7 @@ class PayFilmotecaPaymentService
                 'provider_path' => $path,
                 'provider_url' => $url,
                 'reason' => $reason,
+                'attempt' => $attempt,
                 'exception_class' => $exception::class,
                 'exception_message' => $exception->getMessage(),
             ]);
@@ -760,17 +800,21 @@ class PayFilmotecaPaymentService
         $response = $this->responseFromCurlFallbackOutput($process->getOutput());
         $exitCode = $process->getExitCode();
         $stderr = trim($process->getErrorOutput());
+        $upstreamServer = $this->extractUpstreamServer($process->getOutput());
 
         Log::channel('payments')->info('PayFilmoteca provider POST via curl completed', [
             'provider_path' => $path,
             'provider_url' => $url,
             'reason' => $reason,
+            'attempt' => $attempt,
+            'attempts' => $attempts,
             'exit_code' => $exitCode,
             'successful_process' => $process->isSuccessful(),
             'stderr' => $stderr,
             'http_status' => $response->status(),
             'successful' => $response->successful(),
             'failed' => $response->failed(),
+            'upstream_server' => $upstreamServer,
             'response' => $this->responsePayload($response),
         ]);
 
@@ -781,14 +825,30 @@ class PayFilmotecaPaymentService
         return $response;
     }
 
+    protected function extractUpstreamServer(string $output): ?string
+    {
+        if (preg_match('~\n__PAYFILMOTECA_SERVER__:(.*)$~', $output, $matches) === 1) {
+            $value = trim($matches[1]);
+
+            return $value !== '' ? $value : null;
+        }
+
+        return null;
+    }
+
     protected function responseFromCurlFallbackOutput(string $output): Response
     {
-        $marker = "\n__PAYFILMOTECA_HTTP_CODE__:";
+        $statusMarker = "\n__PAYFILMOTECA_HTTP_CODE__:";
+        $serverMarker = "\n__PAYFILMOTECA_SERVER__:";
         $status = 599;
         $body = $output;
 
-        if (str_contains($output, $marker)) {
-            [$body, $statusText] = explode($marker, $output, 2);
+        if (str_contains($output, $serverMarker)) {
+            [$body, ] = explode($serverMarker, $output, 2);
+        }
+
+        if (str_contains($body, $statusMarker)) {
+            [$body, $statusText] = explode($statusMarker, $body, 2);
             $status = (int) trim($statusText);
         }
 
