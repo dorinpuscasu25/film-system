@@ -25,6 +25,14 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (fallbackStatus === 'failed') {
+      localStorage.removeItem(PENDING_TOP_UP_STORAGE_KEY);
+      setTopUp(null);
+      setErrorMessage(null);
+      setIsLoading(false);
+      return;
+    }
+
     let active = true;
     let attempts = 0;
     const params = new URLSearchParams(searchParamKey);
@@ -74,44 +82,58 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
     return () => {
       active = false;
     };
-  }, [searchParamKey]);
+  }, [fallbackStatus, refreshWallet, searchParamKey, t]);
 
-  const isPaid = topUp?.status === 'paid' || (!topUp && fallbackStatus === 'success');
-  const isFailed = topUp?.status === 'failed' || topUp?.status === 'canceled' || topUp?.status === 'refunded' || (!topUp && fallbackStatus === 'failed');
+  const isPaid = fallbackStatus === 'success' && (topUp?.status === 'paid' || !topUp);
+  const isFailed = fallbackStatus === 'failed' || topUp?.status === 'failed' || topUp?.status === 'canceled' || topUp?.status === 'refunded';
   const isPending = topUp && ['pending', 'redirect_created', 'processing'].includes(topUp.status);
   const isChecking = Boolean(isLoading || isPending);
+  const isSuccessView = !isChecking && isPaid && !isFailed;
+  const Icon = isChecking ? Loader2Icon : isSuccessView ? CheckCircle2Icon : XCircleIcon;
 
   return (
-    <div className="min-h-[70vh] bg-background px-4 pt-32 pb-20">
-      <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-surface p-8 text-center shadow-2xl">
+    <div className="min-h-[70vh] bg-background px-4 pb-20 pt-32">
+      <div
+        className={`mx-auto max-w-xl overflow-hidden rounded-3xl border p-8 text-center shadow-2xl ${
+          isChecking
+            ? 'border-white/10 bg-surface'
+            : isSuccessView
+              ? 'border-emerald-400/25 bg-[linear-gradient(180deg,rgba(16,185,129,0.14),rgba(24,24,36,0.92)_42%)]'
+              : 'border-red-400/25 bg-[linear-gradient(180deg,rgba(239,68,68,0.16),rgba(24,24,36,0.92)_42%)]'
+        }`}
+      >
         <div className="mb-6 flex justify-center">
-          {isChecking ? (
-            <div className="rounded-full bg-white/10 p-4">
-              <Loader2Icon className="h-10 w-10 animate-spin text-white" />
-            </div>
-          ) : isPaid ? (
-            <div className="rounded-full bg-emerald-500/10 p-4">
-              <CheckCircle2Icon className="h-10 w-10 text-emerald-400" />
-            </div>
-          ) : (
-            <div className="rounded-full bg-red-500/10 p-4">
-              <XCircleIcon className="h-10 w-10 text-red-400" />
-            </div>
-          )}
+          <div
+            className={`rounded-full p-5 ${
+              isChecking ? 'bg-white/10' : isSuccessView ? 'bg-emerald-400/15' : 'bg-red-400/15'
+            }`}
+          >
+            <Icon
+              className={`h-12 w-12 ${
+                isChecking ? 'animate-spin text-white' : isSuccessView ? 'text-emerald-300' : 'text-red-300'
+              }`}
+            />
+          </div>
         </div>
 
-        <h1 className="mb-3 text-3xl font-bold text-white">
-          {isChecking ? t('payment.checking_title') : isPaid ? t('payment.paid_title') : t('payment.failed_title')}
+        <p
+          className={`mb-3 text-xs font-bold uppercase tracking-[0.28em] ${
+            isChecking ? 'text-white/50' : isSuccessView ? 'text-emerald-200/80' : 'text-red-200/80'
+          }`}
+        >
+          {isChecking ? t('payment.checking_badge') : isSuccessView ? t('payment.success_badge') : t('payment.failed_badge')}
+        </p>
+
+        <h1 className="mx-auto mb-4 max-w-md text-3xl font-bold leading-tight text-white md:text-4xl">
+          {isChecking ? t('payment.checking_title') : isSuccessView ? t('payment.paid_title') : t('payment.failed_title')}
         </h1>
-        <p className="mb-6 text-gray-400">
+        <p className="mx-auto mb-8 max-w-md text-base leading-7 text-gray-300">
           {isChecking
             ? t('payment.checking_message')
-            : isPaid
+            : isSuccessView
               ? topUp
                 ? t('payment.paid_message', { currency: topUp.currency, amount: topUp.amount.toFixed(2) })
                 : t('payment.paid_message_generic')
-              : isFailed
-              ? t('payment.failed_message')
               : t('payment.failed_message')}
         </p>
 
@@ -121,25 +143,12 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
           </p>
         ) : null}
 
-        {topUp ? (
-          <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4 text-left text-sm text-gray-300">
-            <div className="flex justify-between gap-4">
-              <span>{t('common.status')}</span>
-              <span className="font-semibold text-white">{topUp.status}</span>
-            </div>
-            <div className="mt-2 flex justify-between gap-4">
-              <span>{t('common.order')}</span>
-              <span className="font-mono text-xs text-white">{topUp.provider_order_id ?? topUp.id}</span>
-            </div>
-          </div>
-        ) : null}
-
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Link to="/search" className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200">
+          <Link to="/search" className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200">
             <ClapperboardIcon className="h-5 w-5" />
-            {isPaid ? t('payment.start_watching') : t('payment.go_to_films')}
+            {isSuccessView ? t('payment.start_watching') : t('payment.go_to_films')}
           </Link>
-          <Link to="/dashboard?tab=wallet" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/10">
+          <Link to="/dashboard?tab=wallet" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/10">
             <RotateCcwIcon className="h-5 w-5" />
             {t('payment.view_wallet')}
           </Link>
