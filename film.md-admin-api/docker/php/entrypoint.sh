@@ -10,6 +10,7 @@ done
 php artisan config:clear
 php artisan route:clear
 php artisan cache:clear
+php artisan view:clear
 
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
     php artisan migrate --force

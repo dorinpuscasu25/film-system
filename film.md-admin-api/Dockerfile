@@ -1,4 +1,4 @@
-FROM php:8.3-cli-bookworm
+FROM dunglas/frankenphp:1-php8.3-bookworm
 
 WORKDIR /var/www/html
 
@@ -16,7 +16,9 @@ COPY . .
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint
 
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader \
+    && composer require laravel/octane --no-interaction \
+    && composer dump-autoload --optimize
 
 RUN chmod +x /usr/local/bin/entrypoint \
     && chown -R www-data:www-data storage bootstrap/cache
@@ -24,4 +26,4 @@ RUN chmod +x /usr/local/bin/entrypoint \
 EXPOSE 8000
 
 ENTRYPOINT ["entrypoint"]
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8000", "--workers=4", "--max-requests=500"]
