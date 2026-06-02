@@ -25,6 +25,7 @@ export type AdminPage =
   | 'seo'
   | 'discovery'
   | 'cms'
+  | 'cms-settings'
   | 'menus'
   | 'playback'
   | 'users'
@@ -57,6 +58,7 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
     seo: '/seo',
     discovery: '/discovery',
     cms: '/cms',
+    'cms-settings': '/cms/settings',
     menus: '/menus',
     playback: '/playback',
     users: '/users',
@@ -90,6 +92,7 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     seo: 'SEO',
     discovery: 'Căutare',
     cms: 'Pagini',
+    'cms-settings': 'Setări',
     menus: 'Meniuri',
     playback: 'Playback',
     users: 'Utilizatori',
@@ -119,6 +122,10 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
 
   if (page === 'seo') {
     return permissions.has('settings.view') || permissions.has('settings.edit_home_curation');
+  }
+
+  if (page === 'cms-settings') {
+    return permissions.has('cms.view') && permissions.has('settings.edit_home_curation');
   }
 
   const mapping: Partial<Record<AdminPage, string>> = {

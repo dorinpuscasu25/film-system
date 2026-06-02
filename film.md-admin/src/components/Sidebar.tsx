@@ -17,6 +17,7 @@ import {
   MessageSquareTextIcon,
   PlayCircleIcon,
   SearchIcon,
+  SettingsIcon,
   TagsIcon,
   TicketIcon,
   UserCircleIcon,
@@ -175,6 +176,7 @@ export function Sidebar() {
           show: can("settings.edit_search_config"),
         },
         { id: "cms", label: "Pagini", icon: FileTextIcon, show: can("cms.view") },
+        { id: "cms-settings", label: "Setări", icon: SettingsIcon, show: can("cms.view") && can("settings.edit_home_curation") },
         { id: "menus", label: "Meniuri", icon: MenuIcon, show: can("cms.view") },
         // {
         //   id: "playback",

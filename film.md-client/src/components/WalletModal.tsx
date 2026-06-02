@@ -17,7 +17,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { balance, currency, addFunds } = useWallet();
   const { t, currentLanguage } = useLanguage();
   const navigate = useNavigate();
-  const [amount, setAmount] = useState(20);
+  const [amount, setAmount] = useState('20');
   const [phone, setPhone] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [termsUrl, setTermsUrl] = useState('/page/termeni-si-conditii');
@@ -25,6 +25,27 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const quickAmounts = [20, 50, 100, 250];
+  const amountValue = Number(amount);
+  const canSubmit = !isSubmitting && amountValue >= 20 && amountValue <= 20000 && acceptedTerms;
+
+  function updateAmount(value: string) {
+    const normalized = value
+      .replace(',', '.')
+      .replace(/[^\d.]/g, '')
+      .replace(/(\..*)\./g, '$1');
+
+    if (normalized === '') {
+      setAmount('');
+      return;
+    }
+
+    if (normalized.startsWith('0') && !normalized.startsWith('0.') && normalized.length > 1) {
+      setAmount(normalized.replace(/^0+(?=\d)/, ''));
+      return;
+    }
+
+    setAmount(normalized);
+  }
 
   useEffect(() => {
     if (!isOpen) {
@@ -52,7 +73,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     setErrorMessage(null);
 
     try {
-      const topUp = await addFunds(amount, { phone: phone.trim() || undefined });
+      const topUp = await addFunds(amountValue, { phone: phone.trim() || undefined });
 
       if (!topUp.payment_url) {
         throw new Error(t('wallet.provider_missing_url'));
@@ -136,9 +157,9 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setAmount(value)}
+                    onClick={() => setAmount(String(value))}
                     className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                      amount === value
+                      amount === String(value)
                         ? 'border-white bg-white text-background'
                         : 'border-white/10 bg-black/20 text-white hover:bg-white/10'
                     }`}
@@ -151,11 +172,10 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
               <label className="mb-4 block">
                 <span className="mb-2 block text-sm text-gray-400">{t('wallet.amount', { currency })}</span>
                 <input
-                  type="number"
-                  min={20}
-                  max={20000}
+                  type="text"
+                  inputMode="decimal"
                   value={amount}
-                  onChange={(event) => setAmount(Number(event.target.value || 0))}
+                  onChange={(event) => updateAmount(event.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-white outline-none transition focus:border-accent"
                 />
               </label>
@@ -205,7 +225,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={isSubmitting || amount < 20 || !acceptedTerms}
+                disabled={!canSubmit}
                 className="flex w-full items-center justify-center rounded-xl bg-accent px-5 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? <Loader2Icon className="mr-2 h-5 w-5 animate-spin" /> : null}

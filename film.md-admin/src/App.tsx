@@ -18,6 +18,7 @@ import { Users } from './pages/Users';
 import { Billing } from './pages/Billing';
 import { CMSPages } from './pages/CMSPages';
 import { CMSPageEditor } from './pages/CMSPageEditor';
+import { CMSSettings } from './pages/CMSSettings';
 import { Menus } from './pages/Menus';
 import { MenuEditor } from './pages/MenuEditor';
 import { MenuDetails } from './pages/MenuDetails';
@@ -154,6 +155,7 @@ function AdminRouter() {
       <Route path="/seo" element={<RoutePage page="seo" breadcrumbs={['SEO']}><SeoSettings /></RoutePage>} />
       <Route path="/discovery" element={<RoutePage page="discovery" breadcrumbs={['Căutare']}><SearchDiscovery /></RoutePage>} />
       <Route path="/cms" element={<RoutePage page="cms" breadcrumbs={['Pagini']}><CMSPages /></RoutePage>} />
+      <Route path="/cms/settings" element={<RoutePage page="cms-settings" breadcrumbs={['Pagini', 'Setări']}><CMSSettings /></RoutePage>} />
       <Route path="/cms/new" element={<RoutePage page="cms" breadcrumbs={['Pagini', 'Creează pagină']}><CMSPageEditor pageId="new" /></RoutePage>} />
       <Route path="/cms/:pageId" element={<CmsEditorRoute />} />
       <Route path="/menus" element={<RoutePage page="menus" breadcrumbs={['Pagini', 'Meniuri']}><Menus /></RoutePage>} />

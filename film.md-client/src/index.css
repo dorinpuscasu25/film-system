@@ -24,6 +24,28 @@
   .glass-panel-hover {
     @apply hover:bg-white/10 transition-colors duration-300;
   }
+
+  .cms-content {
+    @apply text-gray-100;
+  }
+
+  .cms-content :where(p, div, span, li, td, th, blockquote, strong, b, em, i) {
+    color: rgb(243 244 246) !important;
+  }
+
+  .cms-content :where(h1, h2, h3, h4, h5, h6) {
+    color: rgb(255 255 255) !important;
+  }
+
+  .cms-content :where(a) {
+    color: rgb(255 255 255) !important;
+    text-decoration-color: rgb(255 255 255 / 0.45);
+    text-underline-offset: 0.2em;
+  }
+
+  .cms-content :where(a:hover) {
+    color: rgb(239 68 68) !important;
+  }
 }
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

@@ -2,7 +2,6 @@ import { useEffect, useState, type ElementType } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DollarSignIcon,
-  FileTextIcon,
   GiftIcon,
   HardDriveIcon,
   KeyRoundIcon,
@@ -17,7 +16,6 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { adminApi } from "../lib/api";
-import type { CmsPage } from "../lib/api";
 import { useAdmin } from "../hooks/useAdmin";
 import { FormField } from "../components/shared/FormField";
 
@@ -78,18 +76,13 @@ export function PriceSettings() {
   const [registrationCredit, setRegistrationCredit] = useState<RegistrationCreditForm>(EMPTY_REGISTRATION_CREDIT_FORM);
   const [savingRegistrationCredit, setSavingRegistrationCredit] = useState(false);
   const [registrationCreditMessage, setRegistrationCreditMessage] = useState<string | null>(null);
-  const [termsPages, setTermsPages] = useState<CmsPage[]>([]);
-  const [termsPageId, setTermsPageId] = useState("");
-  const [savingTermsPage, setSavingTermsPage] = useState(false);
-  const [termsPageMessage, setTermsPageMessage] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const [res, platformSettings, pagesResponse] = await Promise.all([
+      const [res, platformSettings] = await Promise.all([
         adminApi.getCostSettings(),
         adminApi.getPlatformSettings(),
-        adminApi.getPages().catch(() => ({ items: [] as CmsPage[] })),
       ]);
       if (res.current) {
         setForm({
@@ -101,8 +94,6 @@ export function PriceSettings() {
         setSavedAt(res.current.effective_from ?? null);
       }
       setRegistrationCredit(mapRegistrationCreditSettings(platformSettings.settings.registration_credit));
-      setTermsPageId(platformSettings.settings.terms_page_id ? String(platformSettings.settings.terms_page_id) : "");
-      setTermsPages(pagesResponse.items);
     } catch {
       setError("Nu s-au putut încărca prețurile.");
     } finally {
@@ -159,24 +150,6 @@ export function PriceSettings() {
       setError("Nu am putut salva creditul de înregistrare.");
     } finally {
       setSavingRegistrationCredit(false);
-    }
-  }
-
-  async function saveTermsPage() {
-    setSavingTermsPage(true);
-    setTermsPageMessage(null);
-    setError(null);
-
-    try {
-      await adminApi.savePlatformSettings({
-        terms_page_id: termsPageId ? Number(termsPageId) : null,
-      });
-      setTermsPageMessage("Pagina de termeni și condiții a fost salvată.");
-      await load();
-    } catch {
-      setError("Nu am putut salva pagina de termeni și condiții.");
-    } finally {
-      setSavingTermsPage(false);
     }
   }
 
@@ -311,56 +284,6 @@ export function PriceSettings() {
           Doar utilizatorii cu permisiunea <code>commerce.manage_costs</code> pot edita prețurile.
         </p>
       ) : null}
-
-      <Card className="w-full">
-        <CardHeader className="gap-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle>Termeni și condiții la plată</CardTitle>
-              <CardDescription>
-                Alege pagina CMS publicată către care duce linkul din checkout-ul de suplinire portofel.
-              </CardDescription>
-            </div>
-            <div className="rounded-md border bg-muted p-2">
-              <FileTextIcon className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <FormField
-            label="Pagina de termeni"
-            type="select"
-            value={termsPageId}
-            disabled={!canEdit}
-            onChange={(event) => setTermsPageId(event.target.value)}
-            helperText="Sunt afișate doar paginile publicate, ca linkul să fie accesibil pe site."
-            options={[
-              { label: "Selectează pagina...", value: "" },
-              ...termsPages
-                .filter((page) => page.status === "published")
-                .map((page) => ({
-                  label: page.title || page.slug,
-                  value: page.id,
-                })),
-            ]}
-          />
-
-          {termsPageMessage ? (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              {termsPageMessage}
-            </div>
-          ) : null}
-
-          {canEdit ? (
-            <div className="flex justify-end border-t pt-4">
-              <Button onClick={() => void saveTermsPage()} disabled={savingTermsPage}>
-                <SaveIcon className="h-4 w-4" />
-                {savingTermsPage ? "Se salvează..." : "Salvează pagina"}
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
 
       <Card className="w-full">
         <CardHeader className="gap-2">
