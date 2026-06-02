@@ -623,6 +623,11 @@ class PayFilmotecaPaymentService
     {
         $config = $this->config();
         $url = rtrim($config['base_url'], '/').'/'.ltrim($path, '/');
+
+        if ($path === 'payment-request') {
+            return $this->providerPostWithCurlFallback($path, $url, $payload, $config, 'payment_request_curl_primary');
+        }
+
         $formBody = http_build_query($payload, '', '&', PHP_QUERY_RFC3986);
 
         Log::channel('payments')->info('PayFilmoteca provider POST starting', [
@@ -695,17 +700,27 @@ class PayFilmotecaPaymentService
 
     protected function providerPostWithCurlFallback(string $path, string $url, array $payload, array $config, string $reason): Response
     {
+        $timeout = (int) $config['timeout'];
+
         $command = [
             'curl',
             '-sS',
+            '--connect-timeout',
+            '10',
             '--max-time',
-            (string) $config['timeout'],
+            (string) $timeout,
+            '--user-agent',
+            'curl/8.7.1',
             '-u',
             $config['username'].':'.$config['password'],
             '-H',
             'Auth-API-Key: '.$config['api_key'],
             '-H',
             'Content-Type: application/x-www-form-urlencoded',
+            '-H',
+            'Accept: */*',
+            '-H',
+            'Expect:',
             '-w',
             "\n__PAYFILMOTECA_HTTP_CODE__:%{http_code}",
         ];
@@ -717,31 +732,51 @@ class PayFilmotecaPaymentService
 
         $command[] = $url;
 
-        Log::channel('payments')->warning('PayFilmoteca provider POST retrying with curl fallback', [
+        Log::channel('payments')->info('PayFilmoteca provider POST via curl', [
             'provider_path' => $path,
             'provider_url' => $url,
             'reason' => $reason,
-            'timeout' => $config['timeout'],
+            'timeout' => $timeout,
             'payload' => $this->sanitizeProviderPayloadForLog($payload),
         ]);
 
         $process = new Process($command);
-        $process->setTimeout(((int) $config['timeout']) + 10);
-        $process->run();
+        $process->setTimeout($timeout + 15);
+
+        try {
+            $process->run();
+        } catch (\Throwable $exception) {
+            Log::channel('payments')->error('PayFilmoteca provider POST curl process crashed', [
+                'provider_path' => $path,
+                'provider_url' => $url,
+                'reason' => $reason,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+            ]);
+
+            return new Response(new PsrResponse(599, [], 'curl process crashed: '.$exception->getMessage()));
+        }
 
         $response = $this->responseFromCurlFallbackOutput($process->getOutput());
+        $exitCode = $process->getExitCode();
+        $stderr = trim($process->getErrorOutput());
 
-        Log::channel('payments')->info('PayFilmoteca provider POST curl fallback completed', [
+        Log::channel('payments')->info('PayFilmoteca provider POST via curl completed', [
             'provider_path' => $path,
             'provider_url' => $url,
-            'exit_code' => $process->getExitCode(),
+            'reason' => $reason,
+            'exit_code' => $exitCode,
             'successful_process' => $process->isSuccessful(),
-            'stderr' => trim($process->getErrorOutput()),
+            'stderr' => $stderr,
             'http_status' => $response->status(),
             'successful' => $response->successful(),
             'failed' => $response->failed(),
             'response' => $this->responsePayload($response),
         ]);
+
+        if (! $process->isSuccessful() && $response->status() === 599) {
+            return new Response(new PsrResponse(599, [], 'curl exit '.$exitCode.': '.$stderr));
+        }
 
         return $response;
     }
