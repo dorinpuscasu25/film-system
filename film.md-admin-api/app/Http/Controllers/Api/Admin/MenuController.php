@@ -135,7 +135,7 @@ class MenuController extends ApiController
 
     private function ensureSingleActiveMenu(Menu $menu): void
     {
-        if (! $menu->active) {
+        if (! $menu->active || $menu->location !== Menu::LOCATION_HEADER) {
             return;
         }
 

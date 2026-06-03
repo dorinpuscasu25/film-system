@@ -42,17 +42,39 @@ class PublicCmsController extends ApiController
     public function menu(Request $request, string $location): JsonResponse
     {
         $locale = $this->resolveLocale($request);
-        $menu = Menu::query()
+        $menus = Menu::query()
             ->with(['items.page', 'items.content'])
             ->where('location', $location)
             ->where('active', true)
-            ->first();
-
-        if (! $menu) {
-            return response()->json(['menu' => null, 'items' => []]);
+            ->orderBy('id')
+            ->get();
+        if ($location !== Menu::LOCATION_FOOTER) {
+            $menus = $menus->take(1);
         }
 
-        $items = $menu->items
+        if ($menus->isEmpty()) {
+            return response()->json(['menu' => null, 'menus' => [], 'items' => []]);
+        }
+
+        $items = $menus
+            ->flatMap(fn (Menu $menu) => $this->publicItems($menu, $locale))
+            ->values();
+        $menuData = $menus
+            ->map(fn (Menu $menu) => $this->menuData($menu, $locale))
+            ->values();
+
+        $menu = $menus->first();
+
+        return response()->json([
+            'menu' => $menu ? $this->menuData($menu, $locale) : null,
+            'menus' => $menuData,
+            'items' => $items,
+        ]);
+    }
+
+    private function publicItems(Menu $menu, string $locale)
+    {
+        return $menu->items
             ->filter(fn (MenuItem $item) => MenuItemController::isPubliclyVisible($item))
             ->filter(function (MenuItem $item) use ($menu): bool {
                 $parentId = $item->parent_id;
@@ -67,19 +89,18 @@ class PublicCmsController extends ApiController
 
                 return true;
             })
-            ->map(fn (MenuItem $item) => MenuItemController::itemData($item, $locale))
-            ->values();
+            ->map(fn (MenuItem $item) => MenuItemController::itemData($item, $locale));
+    }
 
-        return response()->json([
-            'menu' => [
-                'id' => $menu->id,
-                'name' => $menu->getTranslation('name', $locale, false)
-                    ?: $menu->getTranslation('name', Taxonomy::LOCALE_RO, false),
-                'slug' => $menu->slug,
-                'location' => $menu->location,
-            ],
-            'items' => $items,
-        ]);
+    private function menuData(Menu $menu, string $locale): array
+    {
+        return [
+            'id' => $menu->id,
+            'name' => $menu->getTranslation('name', $locale, false)
+                ?: $menu->getTranslation('name', Taxonomy::LOCALE_RO, false),
+            'slug' => $menu->slug,
+            'location' => $menu->location,
+        ];
     }
 
     private function translated(CmsPage $page, string $field, string $locale): string

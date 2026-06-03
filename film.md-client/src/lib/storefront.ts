@@ -233,13 +233,16 @@ export interface PublicMenuItem {
   depth: number;
 }
 
+export interface PublicMenuSummary {
+  id: number;
+  name: string;
+  slug: string;
+  location: string;
+}
+
 export interface PublicMenuResponse {
-  menu: {
-    id: number;
-    name: string;
-    slug: string;
-    location: string;
-  } | null;
+  menu: PublicMenuSummary | null;
+  menus?: PublicMenuSummary[];
   items: PublicMenuItem[];
 }
 

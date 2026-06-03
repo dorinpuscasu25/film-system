@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getPublicMenu, PublicMenuItem } from '../lib/storefront';
+import { getPublicMenu, PublicMenuItem, PublicMenuSummary } from '../lib/storefront';
 import amexLogo from '../assets/payment/amex.png';
 import maibLogo from '../assets/payment/maib.png';
 import mastercardLogo from '../assets/payment/mastercard.png';
 import visaLogo from '../assets/payment/visa.png';
 
-const footerButtonClass = 'hover:text-white transition-colors';
 const paymentLogos = [
   { src: maibLogo, alt: 'maib', className: 'h-6 w-auto md:h-7' },
   { src: visaLogo, alt: 'Visa', className: 'h-4 w-auto md:h-5' },
@@ -15,6 +14,7 @@ const paymentLogos = [
   { src: amexLogo, alt: 'American Express', className: 'h-8 w-auto md:h-9' },
 ];
 type FooterMenuNode = PublicMenuItem & { children: FooterMenuNode[] };
+type FooterMenuGroup = PublicMenuSummary & { items: FooterMenuNode[] };
 
 function buildFooterTree(items: PublicMenuItem[]): FooterMenuNode[] {
   const nodes = new Map<number, FooterMenuNode>();
@@ -73,14 +73,22 @@ function FooterMenuItem({ item }: { item: FooterMenuNode }) {
 export function Footer() {
   const location = useLocation();
   const { t, currentLanguage } = useLanguage();
-  const [footerItems, setFooterItems] = useState<FooterMenuNode[]>([]);
+  const [footerMenus, setFooterMenus] = useState<FooterMenuGroup[]>([]);
   useEffect(() => {
     const loadMenu = async () => {
       try {
         const response = await getPublicMenu(currentLanguage.code, 'footer');
-        setFooterItems(buildFooterTree(response.items));
+        const menus = response.menus ?? (response.menu ? [response.menu] : []);
+        const menuGroups = menus
+          .map((menu) => ({
+            ...menu,
+            items: buildFooterTree(response.items.filter((item) => item.menu_id === menu.id)),
+          }))
+          .filter((menu) => menu.items.length > 0);
+
+        setFooterMenus(menuGroups);
       } catch {
-        setFooterItems([]);
+        setFooterMenus([]);
       }
     };
 
@@ -97,7 +105,7 @@ export function Footer() {
   return (
     <footer className="bg-background border-t border-white/5 py-12 mt-20">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 gap-8 mb-8 sm:grid-cols-[minmax(220px,1.2fr)_repeat(auto-fit,minmax(160px,1fr))]">
           <div>
             <h3 className="text-2xl font-bold tracking-tighter text-white mb-4">
               filmoteca<span className="text-accent">.</span>md
@@ -107,79 +115,14 @@ export function Footer() {
             </p>
           </div>
 
-          <div>
-            <h4 className="text-white font-medium mb-4">{t('footer.navigation')}</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              {footerItems.length > 0 ? (
-                footerItems.map((item) => <FooterMenuItem key={item.id} item={item} />)
-              ) : (
-                <>
-                  <li>
-                    <Link to="/" className="hover:text-white transition-colors">
-                      {t('nav.home')}
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/search?type=movie" className="hover:text-white transition-colors">
-                      {t('nav.movies')}
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/search?type=series" className="hover:text-white transition-colors">
-                      {t('nav.series')}
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/search" className="hover:text-white transition-colors">
-                      {t('nav.trending')}
-                    </Link>
-                  </li>
-                </>
-              )}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-medium mb-4">{t('footer.support')}</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li>
-                <button type="button" className={footerButtonClass}>
-                  FAQ
-                </button>
-              </li>
-              <li>
-                <button type="button" className={footerButtonClass}>
-                  {t('footer.contact')}
-                </button>
-              </li>
-              <li>
-                <button type="button" className={footerButtonClass}>
-                  {t('footer.wallet_help')}
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-medium mb-4">{t('footer.legal')}</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li>
-                <button type="button" className={footerButtonClass}>
-                  {t('footer.terms')}
-                </button>
-              </li>
-              <li>
-                <button type="button" className={footerButtonClass}>
-                  {t('footer.privacy')}
-                </button>
-              </li>
-              <li>
-                <button type="button" className={footerButtonClass}>
-                  {t('footer.cookies')}
-                </button>
-              </li>
-            </ul>
-          </div>
+          {footerMenus.map((menu) => (
+            <div key={menu.id}>
+              <h4 className="text-white font-medium mb-4">{menu.name}</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                {menu.items.map((item) => <FooterMenuItem key={item.id} item={item} />)}
+              </ul>
+            </div>
+          ))}
         </div>
 
         <div className="pt-8 border-t border-white/5 flex flex-col items-center gap-5 text-xs text-gray-600 md:flex-row md:justify-between">
