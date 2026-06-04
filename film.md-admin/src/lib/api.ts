@@ -27,6 +27,9 @@ import {
   HomeCurationSection,
   OfferIndexResponse,
   OfferPayload,
+  PaymentRefundPayload,
+  PaymentRefundResponse,
+  PaymentTopUpsResponse,
   PlaybackOpsResponse,
   TaxonomyIndexResponse,
   TaxonomyPayload,
@@ -242,6 +245,17 @@ export const adminApi = {
 
   createExportJob(payload: ExportJobPayload) {
     return request<{ job: unknown }>("POST", "/admin/exports", {
+      data: payload,
+    });
+  },
+
+  getPaymentTopUps(search?: string) {
+    const query = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+    return request<PaymentTopUpsResponse>("GET", `/admin/payments/top-ups${query}`);
+  },
+
+  refundPaymentTopUp(topUpId: string, payload: PaymentRefundPayload) {
+    return request<PaymentRefundResponse>("POST", `/admin/payments/top-ups/${topUpId}/refunds`, {
       data: payload,
     });
   },

@@ -111,7 +111,9 @@ class StorefrontWalletTopUpController extends ApiController
             'request_user_id' => $request->user()?->id,
             'status' => $topUp->status,
             'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $topUp->provider_checkout_id,
             'query_order_id' => $this->providerOrderIdFromRequest($request),
+            'query_checkout_id' => $this->providerCheckoutIdFromRequest($request),
         ]);
 
         if ((int) $topUp->user_id !== (int) $request->user()->id) {
@@ -124,7 +126,12 @@ class StorefrontWalletTopUpController extends ApiController
             return response()->json(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
         }
 
-        $topUp = $this->payments->rememberProviderOrderId($topUp, $this->providerOrderIdFromRequest($request));
+        $topUp = $this->payments->rememberProviderIdentifiers(
+            $topUp,
+            $this->providerCheckoutIdFromRequest($request),
+            $this->providerOrderIdFromRequest($request),
+            $this->providerRrnFromRequest($request),
+        );
 
         if (! $topUp->isTerminal()) {
             $topUp = $this->payments->refreshStatus($topUp);
@@ -135,6 +142,8 @@ class StorefrontWalletTopUpController extends ApiController
             'status' => $topUp->status,
             'provider_status' => $topUp->provider_status,
             'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $topUp->provider_checkout_id,
+            'provider_rrn' => $topUp->provider_rrn,
             'credited_at' => $topUp->credited_at?->toIso8601String(),
         ]);
 
@@ -148,6 +157,7 @@ class StorefrontWalletTopUpController extends ApiController
         Log::channel('payments')->info('PayFilmoteca latest wallet top-up endpoint reached', [
             'request_user_id' => $request->user()?->id,
             'query_order_id' => $this->providerOrderIdFromRequest($request),
+            'query_checkout_id' => $this->providerCheckoutIdFromRequest($request),
         ]);
 
         $topUp = PaymentTopUp::query()
@@ -159,12 +169,18 @@ class StorefrontWalletTopUpController extends ApiController
             Log::channel('payments')->warning('PayFilmoteca latest wallet top-up not found', [
                 'request_user_id' => $request->user()?->id,
                 'query_order_id' => $this->providerOrderIdFromRequest($request),
+                'query_checkout_id' => $this->providerCheckoutIdFromRequest($request),
             ]);
 
             return response()->json(['message' => 'No top-up found.'], Response::HTTP_NOT_FOUND);
         }
 
-        $topUp = $this->payments->rememberProviderOrderId($topUp, $this->providerOrderIdFromRequest($request));
+        $topUp = $this->payments->rememberProviderIdentifiers(
+            $topUp,
+            $this->providerCheckoutIdFromRequest($request),
+            $this->providerOrderIdFromRequest($request),
+            $this->providerRrnFromRequest($request),
+        );
 
         if (! $topUp->isTerminal()) {
             $topUp = $this->payments->refreshStatus($topUp);
@@ -175,6 +191,8 @@ class StorefrontWalletTopUpController extends ApiController
             'status' => $topUp->status,
             'provider_status' => $topUp->provider_status,
             'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $topUp->provider_checkout_id,
+            'provider_rrn' => $topUp->provider_rrn,
             'credited_at' => $topUp->credited_at?->toIso8601String(),
         ]);
 
@@ -186,6 +204,30 @@ class StorefrontWalletTopUpController extends ApiController
     protected function providerOrderIdFromRequest(Request $request): ?string
     {
         foreach (['order_id', 'orderId', 'OrderID'] as $key) {
+            $value = $request->query($key);
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return null;
+    }
+
+    protected function providerCheckoutIdFromRequest(Request $request): ?string
+    {
+        foreach (['checkout_id', 'checkoutId', 'CheckoutID', 'checkoutID'] as $key) {
+            $value = $request->query($key);
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return null;
+    }
+
+    protected function providerRrnFromRequest(Request $request): ?string
+    {
+        foreach (['rrn', 'RRN'] as $key) {
             $value = $request->query($key);
             if (is_scalar($value) && trim((string) $value) !== '') {
                 return trim((string) $value);

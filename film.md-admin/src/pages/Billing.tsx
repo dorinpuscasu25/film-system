@@ -3,10 +3,12 @@ import {
   CreditCardIcon,
   DollarSignIcon,
   DownloadIcon,
+  RotateCcwIcon,
   SearchIcon,
   ShoppingCartIcon,
   WalletIcon,
 } from "lucide-react";
+import { Modal } from "../components/shared/Modal";
 import { SalesTimeline } from "../components/shared/SalesTimeline";
 import { StatsCard } from "../components/shared/StatsCard";
 import { Tabs } from "../components/shared/Tabs";
@@ -14,8 +16,9 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Textarea } from "../components/ui/textarea";
 import { adminApi } from "../lib/api";
-import { CostSettingsResponse, DashboardResponse, ExportJobsResponse } from "../types";
+import { CostSettingsResponse, DashboardResponse, ExportJobsResponse, PaymentTopUpItem, PaymentTopUpsResponse } from "../types";
 import { useAdmin } from "../hooks/useAdmin";
 
 type RangeValue = "7days" | "30days" | "3months";
@@ -88,6 +91,10 @@ const EMPTY_EXPORTS: ExportJobsResponse = {
   items: [],
 };
 
+const EMPTY_PAYMENT_TOPUPS: PaymentTopUpsResponse = {
+  items: [],
+};
+
 function safeNumber(value: number | null | undefined) {
   return Number.isFinite(value) ? Number(value) : 0;
 }
@@ -141,16 +148,24 @@ export function Billing() {
   const { can } = useAdmin();
   const canManageExports = can("exports.manage");
   const canManageCosts = can("commerce.manage_costs");
+  const canProcessRefunds = can("commerce.process_refunds");
   const [range, setRange] = React.useState<RangeValue>("30days");
   const [dashboard, setDashboard] = React.useState<DashboardResponse>(EMPTY_DASHBOARD);
   const [costs, setCosts] = React.useState<CostSettingsResponse>(EMPTY_COSTS);
   const [exportsData, setExportsData] = React.useState<ExportJobsResponse>(EMPTY_EXPORTS);
+  const [paymentTopUps, setPaymentTopUps] = React.useState<PaymentTopUpsResponse>(EMPTY_PAYMENT_TOPUPS);
   const [searchTerm, setSearchTerm] = React.useState("");
+  const [paymentSearchTerm, setPaymentSearchTerm] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [isCostLoading, setIsCostLoading] = React.useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = React.useState(false);
   const [isSavingCosts, setIsSavingCosts] = React.useState(false);
   const [exportingScope, setExportingScope] = React.useState<string | null>(null);
   const [downloadingExportId, setDownloadingExportId] = React.useState<number | null>(null);
+  const [selectedTopUp, setSelectedTopUp] = React.useState<PaymentTopUpItem | null>(null);
+  const [refundForm, setRefundForm] = React.useState({ amount: "", reason: "" });
+  const [refundError, setRefundError] = React.useState<string | null>(null);
+  const [isRefunding, setIsRefunding] = React.useState(false);
   const [costForm, setCostForm] = React.useState({
     storage_cost_per_gb_day: "",
     delivery_cost_per_gb: "",
@@ -179,20 +194,25 @@ export function Billing() {
 
   const loadOperationalBilling = React.useCallback(async () => {
     setIsCostLoading(true);
+    setIsPaymentLoading(true);
 
     try {
-      const [costResponse, exportResponse] = await Promise.all([
+      const [costResponse, exportResponse, paymentResponse] = await Promise.all([
         adminApi.getCostSettings(),
         adminApi.getExports(),
+        adminApi.getPaymentTopUps(),
       ]);
 
       setCosts(costResponse);
       setExportsData(exportResponse);
+      setPaymentTopUps(paymentResponse);
     } catch {
       setCosts(EMPTY_COSTS);
       setExportsData(EMPTY_EXPORTS);
+      setPaymentTopUps(EMPTY_PAYMENT_TOPUPS);
     } finally {
       setIsCostLoading(false);
+      setIsPaymentLoading(false);
     }
   }, []);
 
@@ -240,6 +260,74 @@ export function Billing() {
         .some((value) => String(value).toLowerCase().includes(normalizedTerm)),
     );
   }, [dashboard.recent_transactions, searchTerm]);
+
+  const filteredPaymentTopUps = React.useMemo(() => {
+    const normalizedTerm = paymentSearchTerm.trim().toLowerCase();
+
+    if (!normalizedTerm) {
+      return paymentTopUps.items;
+    }
+
+    return paymentTopUps.items.filter((topUp) =>
+      [
+        topUp.id,
+        topUp.status,
+        topUp.provider_order_id,
+        topUp.provider_checkout_id,
+        topUp.provider_rrn,
+        topUp.user.name,
+        topUp.user.email,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedTerm)),
+    );
+  }, [paymentSearchTerm, paymentTopUps.items]);
+
+  const openRefundModal = (topUp: PaymentTopUpItem) => {
+    setSelectedTopUp(topUp);
+    setRefundForm({
+      amount: topUp.refundable_amount > 0 ? topUp.refundable_amount.toFixed(2) : "",
+      reason: "",
+    });
+    setRefundError(null);
+  };
+
+  const closeRefundModal = () => {
+    if (isRefunding) {
+      return;
+    }
+
+    setSelectedTopUp(null);
+    setRefundForm({ amount: "", reason: "" });
+    setRefundError(null);
+  };
+
+  const handleRefund = async () => {
+    if (!selectedTopUp) {
+      return;
+    }
+
+    setIsRefunding(true);
+    setRefundError(null);
+
+    try {
+      const response = await adminApi.refundPaymentTopUp(selectedTopUp.id, {
+        amount: Number(refundForm.amount || 0),
+        reason: refundForm.reason.trim(),
+      });
+
+      setPaymentTopUps((current) => ({
+        items: current.items.map((item) => (item.id === response.top_up.id ? response.top_up : item)),
+      }));
+      setSelectedTopUp(null);
+      setRefundForm({ amount: "", reason: "" });
+      await loadBillingDashboard(range);
+    } catch (error) {
+      setRefundError(error instanceof Error ? error.message : "Refundul nu a putut fi procesat.");
+    } finally {
+      setIsRefunding(false);
+    }
+  };
 
   const handleCostSave = async () => {
     setIsSavingCosts(true);
@@ -429,6 +517,143 @@ export function Billing() {
               <Button variant="outline" onClick={() => void loadOperationalBilling()} disabled={isCostLoading}>
                 Reîmprospătează
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Card>
+          <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Plăți Pay.Filmoteca</CardTitle>
+              <CardDescription>
+                Refundurile se procesează per checkout bancar, folosind checkoutId și RRN.
+              </CardDescription>
+            </div>
+            <div className="relative w-full max-w-sm">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                value={paymentSearchTerm}
+                onChange={(event) => setPaymentSearchTerm(event.target.value)}
+                placeholder="Caută checkout, RRN, utilizator..."
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Utilizator</TableHead>
+                  <TableHead>Checkout</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Sumă</TableHead>
+                  <TableHead>Refundat</TableHead>
+                  <TableHead>Disponibil</TableHead>
+                  <TableHead>Când</TableHead>
+                  <TableHead>Acțiuni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPaymentTopUps.length > 0 ? (
+                  filteredPaymentTopUps.map((topUp) => {
+                    const canRefundTopUp =
+                      canProcessRefunds &&
+                      topUp.status === "paid" &&
+                      Boolean(topUp.provider_checkout_id) &&
+                      topUp.refundable_amount >= 20;
+
+                    return (
+                      <TableRow key={topUp.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{topUp.user.name ?? "Utilizator necunoscut"}</p>
+                            <p className="text-xs text-muted-foreground">{topUp.user.email ?? "Fără email"}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-[220px] space-y-1 text-xs">
+                            <p className="truncate font-medium" title={topUp.provider_checkout_id ?? ""}>
+                              {topUp.provider_checkout_id ?? "Fără checkoutId"}
+                            </p>
+                            <p className="truncate text-muted-foreground" title={topUp.provider_order_id ?? ""}>
+                              orderId: {topUp.provider_order_id ?? "N/A"}
+                            </p>
+                            <p className="truncate text-muted-foreground" title={topUp.provider_rrn ?? ""}>
+                              RRN: {topUp.provider_rrn ?? "N/A"}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{topUp.status}</p>
+                            <p className="text-xs text-muted-foreground">{topUp.provider_status ?? "Fără status provider"}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatCurrency(topUp.amount, topUp.currency)}</TableCell>
+                        <TableCell>{formatCurrency(topUp.refunded_amount, topUp.currency)}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{formatCurrency(topUp.refundable_amount, topUp.currency)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Sold propriu {formatCurrency(topUp.own_credit_balance, topUp.currency)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatDate(topUp.credited_at ?? topUp.created_at)}</TableCell>
+                        <TableCell>
+                          {canProcessRefunds ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openRefundModal(topUp)}
+                              disabled={!canRefundTopUp}
+                              title={
+                                canRefundTopUp
+                                  ? "Procesează refund"
+                                  : "Refund disponibil doar pentru plăți achitate cu checkoutId și minim 20.00 disponibil."
+                              }
+                            >
+                              <RotateCcwIcon className="h-4 w-4" />
+                              Refund
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Fără permisiune</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                      {isPaymentLoading ? "Se încarcă plățile Pay.Filmoteca..." : "Nu există plăți pentru filtrele curente."}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Reguli refund</CardTitle>
+            <CardDescription>Control operațional pentru rambursările bancare.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <div className="rounded-lg border bg-background p-4">
+              <p className="font-medium text-foreground">Identificator provider</p>
+              <p className="mt-1">Refundul se trimite la Pay.Filmoteca cu checkoutId în câmpul order_id.</p>
+            </div>
+            <div className="rounded-lg border bg-background p-4">
+              <p className="font-medium text-foreground">Limită locală</p>
+              <p className="mt-1">Suma nu poate depăși soldul propriu disponibil al utilizatorului.</p>
+            </div>
+            <div className="rounded-lg border bg-background p-4">
+              <p className="font-medium text-foreground">Minim bancar</p>
+              <p className="mt-1">Pay.Filmoteca acceptă refunduri de minimum 20.00.</p>
             </div>
           </CardContent>
         </Card>
@@ -773,6 +998,78 @@ export function Billing() {
           </CardContent>
         </Card>
       </div>
+
+      <Modal
+        isOpen={selectedTopUp !== null}
+        onClose={closeRefundModal}
+        title="Refund Pay.Filmoteca"
+        footer={
+          <>
+            <Button variant="outline" onClick={closeRefundModal} disabled={isRefunding}>
+              Anulează
+            </Button>
+            <Button onClick={() => void handleRefund()} disabled={isRefunding || !refundForm.amount || !refundForm.reason.trim()}>
+              <RotateCcwIcon className="h-4 w-4" />
+              {isRefunding ? "Se procesează..." : "Trimite refund"}
+            </Button>
+          </>
+        }
+      >
+        {selectedTopUp ? (
+          <div className="space-y-5">
+            <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-sm sm:grid-cols-2">
+              <div>
+                <p className="text-muted-foreground">Utilizator</p>
+                <p className="mt-1 font-medium">{selectedTopUp.user.email ?? selectedTopUp.user.name ?? "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Disponibil refund</p>
+                <p className="mt-1 font-medium">{formatCurrency(selectedTopUp.refundable_amount, selectedTopUp.currency)}</p>
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-muted-foreground">checkoutId</p>
+                <p className="mt-1 break-all font-mono text-xs">{selectedTopUp.provider_checkout_id ?? "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">orderId</p>
+                <p className="mt-1 break-all font-mono text-xs">{selectedTopUp.provider_order_id ?? "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">RRN</p>
+                <p className="mt-1 break-all font-mono text-xs">{selectedTopUp.provider_rrn ?? "N/A"}</p>
+              </div>
+            </div>
+
+            <label className="space-y-2 text-sm">
+              <span className="text-muted-foreground">Suma refund</span>
+              <Input
+                type="number"
+                min="20"
+                step="0.01"
+                value={refundForm.amount}
+                onChange={(event) => setRefundForm((current) => ({ ...current, amount: event.target.value }))}
+              />
+            </label>
+
+            <label className="space-y-2 text-sm">
+              <span className="text-muted-foreground">Motiv refund</span>
+              <Textarea
+                value={refundForm.reason}
+                maxLength={500}
+                onChange={(event) => setRefundForm((current) => ({ ...current, reason: event.target.value }))}
+                placeholder="Ex: plată dublă, eroare tehnică confirmată..."
+              />
+              <span className="block text-xs text-muted-foreground">{refundForm.reason.length}/500 caractere</span>
+            </label>
+
+            {refundError ? (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                {refundError}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }

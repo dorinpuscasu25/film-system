@@ -172,6 +172,52 @@ class WalletService
         );
     }
 
+    public function debitOwnCredit(
+        Wallet $wallet,
+        float $amount,
+        string $type,
+        ?string $description = null,
+        array $meta = [],
+        ?Model $reference = null,
+    ): WalletTransaction {
+        $normalizedAmount = round(abs($amount), 2);
+        $currentBalance = round((float) $wallet->balance_amount, 2);
+        $balances = $this->fundingBalances($wallet);
+
+        if ($normalizedAmount > $balances['own_credit_balance']) {
+            throw ValidationException::withMessages([
+                'wallet' => ['Insufficient customer-paid wallet balance for this refund.'],
+            ]);
+        }
+
+        $newBalance = round($currentBalance - $normalizedAmount, 2);
+        $wallet->forceFill([
+            'balance_amount' => $newBalance,
+            'meta' => [
+                ...($wallet->meta ?? []),
+                'platform_credit_balance' => $balances['platform_credit_balance'],
+                'own_credit_balance' => round($balances['own_credit_balance'] - $normalizedAmount, 2),
+            ],
+        ])->save();
+
+        return $this->recordTransaction(
+            $wallet,
+            $type,
+            -$normalizedAmount,
+            $description,
+            [
+                ...$meta,
+                'funding_source' => 'own',
+                'platform_amount' => 0,
+                'own_amount' => $normalizedAmount,
+                'platform_percent' => 0,
+                'own_percent' => 100,
+            ],
+            $reference,
+            $newBalance,
+        );
+    }
+
     public function recordTransaction(
         Wallet $wallet,
         string $type,

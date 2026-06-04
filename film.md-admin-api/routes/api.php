@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\Admin\HomeCurationController;
 use App\Http\Controllers\Api\Admin\MenuController;
 use App\Http\Controllers\Api\Admin\MenuItemController;
 use App\Http\Controllers\Api\Admin\OfferController;
+use App\Http\Controllers\Api\Admin\PaymentTopUpController;
 use App\Http\Controllers\Api\Admin\PlatformSettingsController;
 use App\Http\Controllers\Api\Admin\PlaybackOpsController;
 use App\Http\Controllers\Api\Admin\RoleController;
@@ -139,6 +140,8 @@ use Illuminate\Support\Facades\Route;
         Route::prefix('admin')->middleware('admin.panel')->group(function (): void {
             Route::get('dashboard', [DashboardController::class, 'index']);
             Route::get('financial-summary', [FinancialSummaryController::class, 'show'])->middleware('permission:commerce.view_billing');
+            Route::get('payments/top-ups', [PaymentTopUpController::class, 'index'])->middleware('permission:commerce.view_billing');
+            Route::post('payments/top-ups/{topUp}/refunds', [PaymentTopUpController::class, 'refund'])->middleware('permission:commerce.process_refunds');
             Route::get('cost-settings', [CostSettingsController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::post('cost-settings', [CostSettingsController::class, 'store'])->middleware('permission:commerce.manage_costs');
             Route::get('exports', [ExportController::class, 'index'])->middleware('permission:commerce.view_billing');

@@ -102,6 +102,8 @@ export interface StorefrontTopUpPayload {
   status: "pending" | "redirect_created" | "processing" | "paid" | "failed" | "canceled" | "refunded";
   provider_status?: string | null;
   provider_order_id?: string | null;
+  provider_checkout_id?: string | null;
+  provider_rrn?: string | null;
   payment_url?: string | null;
   credited_at?: string | null;
   created_at?: string | null;
@@ -465,20 +467,34 @@ export async function createStorefrontWalletTopUp(payload: {
   }, undefined, true);
 }
 
-export async function fetchStorefrontWalletTopUp(topUpId: string, options?: { orderId?: string | null }) {
+interface TopUpLookupOptions {
+  orderId?: string | null;
+  checkoutId?: string | null;
+  rrn?: string | null;
+}
+
+function topUpLookupQuery(options?: TopUpLookupOptions) {
+  return {
+    order_id: options?.orderId ?? undefined,
+    checkout_id: options?.checkoutId ?? undefined,
+    rrn: options?.rrn ?? undefined,
+  };
+}
+
+export async function fetchStorefrontWalletTopUp(topUpId: string, options?: TopUpLookupOptions) {
   return requestJson<StorefrontTopUpResponsePayload>(
     `/storefront/wallet/top-ups/${topUpId}`,
     {},
-    options?.orderId ? { order_id: options.orderId } : undefined,
+    topUpLookupQuery(options),
     true,
   );
 }
 
-export async function fetchLatestStorefrontWalletTopUp(options?: { orderId?: string | null }) {
+export async function fetchLatestStorefrontWalletTopUp(options?: TopUpLookupOptions) {
   return requestJson<StorefrontTopUpResponsePayload>(
     "/storefront/wallet/top-ups/latest",
     {},
-    options?.orderId ? { order_id: options.orderId } : undefined,
+    topUpLookupQuery(options),
     true,
   );
 }

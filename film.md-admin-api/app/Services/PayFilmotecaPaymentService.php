@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PaymentTopUp;
+use App\Models\PaymentRefund;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -131,15 +132,15 @@ class PayFilmotecaPaymentService
             }
 
             $paymentUrl = $this->extractUrl($rawResponse);
-            $orderIdValue = $this->extractValue($rawResponse, ['order_id', 'orderId', 'OrderID', 'payment_id', 'paymentId', 'id']);
-            $orderId = is_scalar($orderIdValue) && (string) $orderIdValue !== ''
-                ? (string) $orderIdValue
-                : null;
+            $identifiers = $this->extractProviderIdentifiers($rawResponse);
+            $orderId = $identifiers['order_id'];
+            $checkoutId = $identifiers['checkout_id'];
 
             Log::channel('payments')->info('PayFilmoteca payment response parsed', [
                 'top_up_uuid' => $topUp->uuid,
                 'http_status' => $response->status(),
                 'provider_order_id' => $orderId,
+                'provider_checkout_id' => $checkoutId,
                 'has_payment_url' => $paymentUrl !== null,
                 'payment_url_host' => is_string($paymentUrl) ? parse_url($paymentUrl, PHP_URL_HOST) : null,
             ]);
@@ -156,6 +157,7 @@ class PayFilmotecaPaymentService
                     'status' => PaymentTopUp::STATUS_FAILED,
                     'raw_response' => $rawResponse,
                     'provider_order_id' => $orderId,
+                    'provider_checkout_id' => $checkoutId,
                     'provider_status' => 'missing_redirect_url',
                 ]);
 
@@ -164,11 +166,13 @@ class PayFilmotecaPaymentService
                 ]);
             }
 
-            $orderId ??= $this->extractUuidFromText($paymentUrl);
+            $checkoutId ??= $this->extractUuidFromText($paymentUrl);
 
             $topUp->update([
                 'status' => PaymentTopUp::STATUS_PROCESSING,
                 'provider_order_id' => $orderId,
+                'provider_checkout_id' => $checkoutId,
+                'provider_rrn' => $identifiers['rrn'],
                 'provider_payment_url' => $paymentUrl,
                 'raw_response' => $rawResponse,
             ]);
@@ -176,6 +180,7 @@ class PayFilmotecaPaymentService
             Log::channel('payments')->info('PayFilmoteca payment redirect created', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $orderId,
+                'provider_checkout_id' => $checkoutId,
                 'http_status' => $response->status(),
                 'payment_url' => $paymentUrl,
                 'old_status' => PaymentTopUp::STATUS_PENDING,
@@ -214,15 +219,19 @@ class PayFilmotecaPaymentService
         }
     }
 
-    public function refreshStatus(PaymentTopUp $topUp): PaymentTopUp
+    public function refreshStatus(PaymentTopUp $topUp, bool $force = false): PaymentTopUp
     {
-        if ($topUp->isTerminal() || empty($topUp->provider_order_id)) {
+        $detailsOrderId = $topUp->provider_checkout_id ?: $topUp->provider_order_id;
+
+        if ((! $force && $topUp->isTerminal()) || empty($detailsOrderId)) {
             Log::channel('payments')->info('PayFilmoteca status refresh skipped', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $topUp->provider_order_id,
+                'provider_checkout_id' => $topUp->provider_checkout_id,
                 'status' => $topUp->status,
                 'is_terminal' => $topUp->isTerminal(),
-                'has_provider_order_id' => ! empty($topUp->provider_order_id),
+                'force' => $force,
+                'has_provider_order_id' => ! empty($detailsOrderId),
             ]);
 
             return $topUp->fresh();
@@ -233,18 +242,21 @@ class PayFilmotecaPaymentService
         Log::channel('payments')->info('PayFilmoteca status refresh starting', [
             'top_up_uuid' => $topUp->uuid,
             'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $topUp->provider_checkout_id,
             'current_status' => $topUp->status,
+            'force' => $force,
         ]);
 
         try {
             $response = $this->providerPost('payment-details', [
-                'order_id' => $topUp->provider_order_id,
+                'order_id' => $detailsOrderId,
             ]);
             $rawDetails = $this->responsePayload($response);
         } catch (\Throwable $exception) {
             Log::channel('payments')->error('PayFilmoteca status refresh failed with exception', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $topUp->provider_order_id,
+                'provider_checkout_id' => $topUp->provider_checkout_id,
                 'exception_class' => $exception::class,
                 'exception_message' => $exception->getMessage(),
                 'exception_file' => $exception->getFile(),
@@ -263,6 +275,7 @@ class PayFilmotecaPaymentService
 
         $detailsPayload = is_array($rawDetails['json'] ?? null) ? $rawDetails['json'] : $rawDetails;
         $providerStatus = $this->extractStatus($detailsPayload);
+        $identifiers = $this->extractProviderIdentifiers($detailsPayload);
 
         if ($providerStatus !== null && ! $this->detailsMatchTopUp($topUp, $detailsPayload)) {
             Log::channel('payments')->error('PayFilmoteca status refresh details mismatch', [
@@ -284,16 +297,38 @@ class PayFilmotecaPaymentService
 
         $oldStatus = $topUp->status;
         $newStatus = $this->mapProviderStatus($providerStatus, $topUp->status);
+        if ($this->isSuccessfulStatus($providerStatus) && $topUp->credited_at !== null) {
+            $newStatus = PaymentTopUp::STATUS_PAID;
+        }
+        $resolvedOrderId = $topUp->provider_order_id;
+        $resolvedCheckoutId = $topUp->provider_checkout_id;
+
+        if ($identifiers['order_id'] !== null) {
+            if ($resolvedOrderId === null || $resolvedOrderId === '') {
+                $resolvedOrderId = $identifiers['order_id'];
+            } elseif ($identifiers['order_id'] !== $resolvedOrderId && ($resolvedCheckoutId === null || $resolvedCheckoutId === '')) {
+                $resolvedCheckoutId = $identifiers['order_id'];
+            }
+        }
+
+        if ($identifiers['checkout_id'] !== null) {
+            $resolvedCheckoutId = $identifiers['checkout_id'];
+        }
 
         $topUp->forceFill([
             'raw_details' => $rawDetails,
             'provider_status' => $providerStatus,
+            'provider_order_id' => $resolvedOrderId,
+            'provider_checkout_id' => $resolvedCheckoutId,
+            'provider_rrn' => $identifiers['rrn'] ?? $topUp->provider_rrn,
             'status' => $newStatus,
         ])->save();
 
         Log::channel('payments')->info('PayFilmoteca status refresh completed', [
             'top_up_uuid' => $topUp->uuid,
             'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $topUp->provider_checkout_id,
+            'provider_rrn' => $topUp->provider_rrn,
             'http_status' => $rawDetails['status'] ?? null,
             'provider_status' => $providerStatus,
             'old_status' => $oldStatus,
@@ -331,7 +366,10 @@ class PayFilmotecaPaymentService
                 PaymentTopUp::STATUS_REDIRECT_CREATED,
                 PaymentTopUp::STATUS_PROCESSING,
             ])
-            ->whereNotNull('provider_order_id')
+            ->where(function ($query): void {
+                $query->whereNotNull('provider_checkout_id')
+                    ->orWhereNotNull('provider_order_id');
+            })
             ->where('created_at', '>=', now()->subDays(2))
             ->oldest('id')
             ->limit(max(1, $limit))
@@ -350,24 +388,40 @@ class PayFilmotecaPaymentService
 
     public function rememberProviderOrderId(PaymentTopUp $topUp, ?string $orderId): PaymentTopUp
     {
-        $orderId = is_string($orderId) ? trim($orderId) : '';
+        return $this->rememberProviderIdentifiers($topUp, null, $orderId, null);
+    }
 
-        if ($orderId === '' || $topUp->isTerminal()) {
+    public function rememberProviderIdentifiers(PaymentTopUp $topUp, ?string $checkoutId, ?string $orderId, ?string $rrn = null): PaymentTopUp
+    {
+        $orderId = is_string($orderId) ? trim($orderId) : '';
+        $checkoutId = is_string($checkoutId) ? trim($checkoutId) : '';
+        $rrn = is_string($rrn) ? trim($rrn) : '';
+
+        if ($orderId === '' && $checkoutId === '' && $rrn === '') {
             Log::channel('payments')->info('PayFilmoteca provider order id remember skipped', [
                 'top_up_uuid' => $topUp->uuid,
                 'incoming_provider_order_id' => $orderId,
+                'incoming_provider_checkout_id' => $checkoutId,
+                'incoming_provider_rrn' => $rrn,
                 'current_provider_order_id' => $topUp->provider_order_id,
+                'current_provider_checkout_id' => $topUp->provider_checkout_id,
+                'current_provider_rrn' => $topUp->provider_rrn,
                 'status' => $topUp->status,
-                'is_terminal' => $topUp->isTerminal(),
             ]);
 
             return $topUp->fresh();
         }
 
-        if ((string) $topUp->provider_order_id === $orderId) {
+        if (
+            ($orderId === '' || (string) $topUp->provider_order_id === $orderId)
+            && ($checkoutId === '' || (string) $topUp->provider_checkout_id === $checkoutId)
+            && ($rrn === '' || (string) $topUp->provider_rrn === $rrn)
+        ) {
             Log::channel('payments')->info('PayFilmoteca provider order id already known', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $orderId,
+                'provider_checkout_id' => $checkoutId,
+                'provider_rrn' => $rrn,
                 'status' => $topUp->status,
             ]);
 
@@ -375,17 +429,38 @@ class PayFilmotecaPaymentService
         }
 
         $oldProviderOrderId = $topUp->provider_order_id;
+        $oldProviderCheckoutId = $topUp->provider_checkout_id;
+        $oldProviderRrn = $topUp->provider_rrn;
         $oldStatus = $topUp->status;
 
-        $topUp->forceFill([
-            'provider_order_id' => $orderId,
-            'status' => PaymentTopUp::STATUS_PROCESSING,
-        ])->save();
+        $updates = [];
+
+        if ($orderId !== '') {
+            $updates['provider_order_id'] = $orderId;
+        }
+
+        if ($checkoutId !== '') {
+            $updates['provider_checkout_id'] = $checkoutId;
+        }
+
+        if ($rrn !== '') {
+            $updates['provider_rrn'] = $rrn;
+        }
+
+        if (! $topUp->isTerminal()) {
+            $updates['status'] = PaymentTopUp::STATUS_PROCESSING;
+        }
+
+        $topUp->forceFill($updates)->save();
 
         Log::channel('payments')->info('PayFilmoteca provider order id remembered from return URL', [
             'top_up_uuid' => $topUp->uuid,
             'incoming_provider_order_id' => $orderId,
+            'incoming_provider_checkout_id' => $checkoutId,
+            'incoming_provider_rrn' => $rrn,
             'old_provider_order_id' => $oldProviderOrderId,
+            'old_provider_checkout_id' => $oldProviderCheckoutId,
+            'old_provider_rrn' => $oldProviderRrn,
             'old_status' => $oldStatus,
             'new_status' => $topUp->status,
         ]);
@@ -405,16 +480,20 @@ class PayFilmotecaPaymentService
         $flat = array_merge($request->query(), $request->all());
         $uuid = $this->firstValue($flat, ['topup_id', 'top_up_id', 'uuid', 'payment_topup_uuid']);
         $orderId = $this->firstValue($flat, ['order_id', 'OrderID', 'orderId', 'payment_id', 'paymentId', 'id']);
+        $checkoutId = $this->firstValue($flat, ['checkout_id', 'checkoutId', 'CheckoutID', 'checkoutID']);
+        $rrn = $this->firstValue($flat, ['rrn', 'RRN']);
 
         Log::channel('payments')->info('PayFilmoteca callback received', [
             'top_up_uuid' => $uuid,
             'provider_order_id' => $orderId,
+            'provider_checkout_id' => $checkoutId,
+            'provider_rrn' => $rrn,
             'method' => $request->method(),
             'client_ip' => $request->ip(),
             'payload' => $payload,
         ]);
 
-        if ($uuid === null && $orderId === null) {
+        if ($uuid === null && $orderId === null && $checkoutId === null) {
             Log::channel('payments')->warning('PayFilmoteca callback ignored because no top-up or order id was provided', [
                 'payload' => $payload,
             ]);
@@ -425,12 +504,14 @@ class PayFilmotecaPaymentService
         $topUp = PaymentTopUp::query()
             ->when($uuid !== null, fn ($query) => $query->orWhere('uuid', $uuid))
             ->when($orderId !== null, fn ($query) => $query->orWhere('provider_order_id', $orderId))
+            ->when($checkoutId !== null, fn ($query) => $query->orWhere('provider_checkout_id', $checkoutId))
             ->first();
 
         if ($topUp === null) {
             Log::channel('payments')->warning('PayFilmoteca callback did not match a top-up', [
                 'top_up_uuid' => $uuid,
                 'provider_order_id' => $orderId,
+                'provider_checkout_id' => $checkoutId,
                 'payload' => $payload,
             ]);
 
@@ -443,12 +524,17 @@ class PayFilmotecaPaymentService
         $topUp->forceFill([
             'raw_callback' => $payload,
             'provider_status' => $callbackStatus ?? $topUp->provider_status,
+            'provider_order_id' => $orderId ?? $topUp->provider_order_id,
+            'provider_checkout_id' => $checkoutId ?? $topUp->provider_checkout_id,
+            'provider_rrn' => $rrn ?? $topUp->provider_rrn,
             'status' => $this->mapProviderStatus($callbackStatus, $topUp->status),
         ])->save();
 
         Log::channel('payments')->info('PayFilmoteca callback matched top-up', [
             'top_up_uuid' => $topUp->uuid,
             'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $topUp->provider_checkout_id,
+            'provider_rrn' => $topUp->provider_rrn,
             'callback_status' => $callbackStatus,
             'old_provider_status' => $oldProviderStatus,
             'new_provider_status' => $topUp->provider_status,
@@ -468,11 +554,256 @@ class PayFilmotecaPaymentService
             'status' => $topUp->status,
             'provider_status' => $topUp->provider_status,
             'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $topUp->provider_checkout_id,
+            'provider_rrn' => $topUp->provider_rrn,
             'payment_url' => $topUp->provider_payment_url,
             'credited_at' => $topUp->credited_at?->toIso8601String(),
             'created_at' => $topUp->created_at?->toIso8601String(),
             'updated_at' => $topUp->updated_at?->toIso8601String(),
         ];
+    }
+
+    public function refundTopUp(PaymentTopUp $topUp, float $amount, string $reason, ?User $admin = null): PaymentRefund
+    {
+        $this->ensureConfigured();
+
+        $amount = round(abs($amount), 2);
+        $reason = trim($reason);
+        if (empty($topUp->provider_rrn) && (! empty($topUp->provider_checkout_id) || ! empty($topUp->provider_order_id))) {
+            $topUp = $this->refreshStatus($topUp, true);
+        }
+
+        $topUp->loadMissing('wallet');
+        $checkoutId = trim((string) $topUp->provider_checkout_id);
+        $rrn = trim((string) $topUp->provider_rrn);
+
+        if ($topUp->status !== PaymentTopUp::STATUS_PAID) {
+            throw ValidationException::withMessages([
+                'top_up' => ['Doar plățile achitate pot fi rambursate.'],
+            ]);
+        }
+
+        if ($checkoutId === '') {
+            throw ValidationException::withMessages([
+                'checkout_id' => ['Lipsește checkoutId-ul Pay.Filmoteca pentru această tranzacție.'],
+            ]);
+        }
+
+        if ($rrn === '') {
+            throw ValidationException::withMessages([
+                'rrn' => ['Lipsește RRN-ul tranzacției bancare. Reîmprospătează detaliile plății înainte de refund.'],
+            ]);
+        }
+
+        if ($amount < 20) {
+            throw ValidationException::withMessages([
+                'amount' => ['Suma minimă de refund acceptată de Pay.Filmoteca este 20.00.'],
+            ]);
+        }
+
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'reason' => ['Motivul refundului este obligatoriu.'],
+            ]);
+        }
+
+        if (mb_strlen($reason) > 500) {
+            throw ValidationException::withMessages([
+                'reason' => ['Motivul refundului poate avea cel mult 500 de caractere.'],
+            ]);
+        }
+
+        $maxRefundable = $this->refundableAmount($topUp);
+        if ($amount > $maxRefundable) {
+            throw ValidationException::withMessages([
+                'amount' => [sprintf('Suma maximă disponibilă pentru refund este %.2f %s.', $maxRefundable, $topUp->currency)],
+            ]);
+        }
+
+        $providerPayload = [
+            'order_id' => $checkoutId,
+            'refund_total' => number_format($amount, 2, '.', ''),
+            'currency' => $topUp->currency ?: Wallet::DEFAULT_CURRENCY,
+            'refund_reason' => $reason,
+            'rrn' => $rrn,
+        ];
+
+        $refund = PaymentRefund::query()->create([
+            'uuid' => (string) Str::uuid(),
+            'payment_top_up_id' => $topUp->id,
+            'user_id' => $topUp->user_id,
+            'wallet_id' => $topUp->wallet_id,
+            'requested_by_admin_id' => $admin?->id,
+            'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $checkoutId,
+            'provider_rrn' => $rrn,
+            'amount' => $amount,
+            'currency' => $topUp->currency ?: Wallet::DEFAULT_CURRENCY,
+            'reason' => $reason,
+            'status' => PaymentRefund::STATUS_REQUESTED,
+            'raw_request' => $providerPayload,
+        ]);
+
+        Log::channel('payments')->info('PayFilmoteca refund request starting', [
+            'payment_refund_uuid' => $refund->uuid,
+            'top_up_uuid' => $topUp->uuid,
+            'provider_order_id' => $topUp->provider_order_id,
+            'provider_checkout_id' => $checkoutId,
+            'provider_rrn' => $rrn,
+            'amount' => $amount,
+            'currency' => $topUp->currency,
+            'admin_id' => $admin?->id,
+        ]);
+
+        try {
+            $response = $this->providerPost('refund-request', $providerPayload);
+            $rawResponse = $this->responsePayload($response);
+
+            if ($response->failed()) {
+                $refund->forceFill([
+                    'status' => PaymentRefund::STATUS_FAILED,
+                    'provider_status' => 'request_failed',
+                    'raw_response' => $rawResponse,
+                    'processed_at' => now(),
+                ])->save();
+
+                Log::channel('payments')->error('PayFilmoteca refund request rejected by provider', [
+                    'payment_refund_uuid' => $refund->uuid,
+                    'top_up_uuid' => $topUp->uuid,
+                    'http_status' => $response->status(),
+                    'provider_response' => $rawResponse,
+                ]);
+
+                throw ValidationException::withMessages([
+                    'refund' => [$this->providerErrorMessage($rawResponse, 'Providerul de plată a refuzat refundul.')],
+                ]);
+            }
+
+            return DB::transaction(function () use ($refund, $rawResponse): PaymentRefund {
+                $lockedRefund = PaymentRefund::query()
+                    ->whereKey($refund->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $lockedTopUp = PaymentTopUp::query()
+                    ->whereKey($lockedRefund->payment_top_up_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $wallet = Wallet::query()
+                    ->whereKey($lockedRefund->wallet_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $maxRefundable = $this->refundableAmount($lockedTopUp);
+                if ((float) $lockedRefund->amount > $maxRefundable) {
+                    $lockedRefund->forceFill([
+                        'status' => PaymentRefund::STATUS_FAILED,
+                        'provider_status' => 'local_refund_limit_exceeded',
+                        'raw_response' => $rawResponse,
+                        'processed_at' => now(),
+                    ])->save();
+
+                    throw ValidationException::withMessages([
+                        'amount' => [sprintf('Suma maximă disponibilă pentru refund este %.2f %s.', $maxRefundable, $lockedRefund->currency)],
+                    ]);
+                }
+
+                $transaction = $this->wallets->debitOwnCredit(
+                    $wallet,
+                    (float) $lockedRefund->amount,
+                    WalletTransaction::TYPE_REFUND,
+                    'Pay.Filmoteca card refund',
+                    [
+                        'payment_refund_id' => $lockedRefund->uuid,
+                        'payment_top_up_id' => $lockedTopUp->uuid,
+                        'provider' => 'pay.filmoteca.md',
+                        'provider_order_id' => $lockedRefund->provider_order_id,
+                        'provider_checkout_id' => $lockedRefund->provider_checkout_id,
+                        'provider_rrn' => $lockedRefund->provider_rrn,
+                        'refund_reason' => $lockedRefund->reason,
+                    ],
+                    $lockedRefund,
+                );
+
+                $lockedRefund->forceFill([
+                    'wallet_transaction_id' => $transaction->id,
+                    'status' => PaymentRefund::STATUS_SUCCEEDED,
+                    'provider_status' => $this->extractStatus(is_array($rawResponse['json'] ?? null) ? $rawResponse['json'] : $rawResponse),
+                    'raw_response' => $rawResponse,
+                    'processed_at' => now(),
+                ])->save();
+
+                $refundedAmount = $this->refundedAmount($lockedTopUp->fresh());
+                if ($refundedAmount >= round((float) $lockedTopUp->amount, 2)) {
+                    $lockedTopUp->forceFill([
+                        'status' => PaymentTopUp::STATUS_REFUNDED,
+                    ])->save();
+                }
+
+                Log::channel('payments')->info('PayFilmoteca refund request completed', [
+                    'payment_refund_uuid' => $lockedRefund->uuid,
+                    'top_up_uuid' => $lockedTopUp->uuid,
+                    'wallet_transaction_id' => $transaction->id,
+                    'amount' => $lockedRefund->amount,
+                    'currency' => $lockedRefund->currency,
+                    'provider_checkout_id' => $lockedRefund->provider_checkout_id,
+                ]);
+
+                return $lockedRefund->fresh();
+            });
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            $refund->forceFill([
+                'status' => PaymentRefund::STATUS_FAILED,
+                'provider_status' => 'request_error',
+                'raw_response' => [
+                    'message' => $exception->getMessage(),
+                ],
+                'processed_at' => now(),
+            ])->save();
+
+            Log::channel('payments')->error('PayFilmoteca refund request failed with exception', [
+                'payment_refund_uuid' => $refund->uuid,
+                'top_up_uuid' => $topUp->uuid,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+                'exception' => $exception,
+            ]);
+
+            throw ValidationException::withMessages([
+                'refund' => ['Nu am putut iniția refundul. Încearcă din nou.'],
+            ]);
+        }
+    }
+
+    public function refundedAmount(PaymentTopUp $topUp): float
+    {
+        return round((float) $topUp->refunds()
+            ->where('status', PaymentRefund::STATUS_SUCCEEDED)
+            ->sum('amount'), 2);
+    }
+
+    public function refundableAmount(PaymentTopUp $topUp): float
+    {
+        $topUp->loadMissing('wallet');
+        $alreadyRefunded = $this->refundedAmount($topUp);
+        $remainingTopUpAmount = max(0, round((float) $topUp->amount - $alreadyRefunded, 2));
+        $ownBalance = $this->ownCreditBalance($topUp->wallet);
+
+        return round(min($remainingTopUpAmount, $ownBalance), 2);
+    }
+
+    public function ownCreditBalance(?Wallet $wallet): float
+    {
+        if ($wallet === null) {
+            return 0.0;
+        }
+
+        $meta = $wallet->meta ?? [];
+
+        return round((float) ($meta['own_credit_balance'] ?? $wallet->balance_amount ?? 0), 2);
     }
 
     protected function creditWallet(PaymentTopUp $topUp, array $details, ?string $providerStatus): void
@@ -517,10 +848,12 @@ class PayFilmotecaPaymentService
                 [
                     'payment_top_up_id' => $lockedTopUp->uuid,
                     'provider' => 'pay.filmoteca.md',
-                    'provider_order_id' => $lockedTopUp->provider_order_id,
-                    'provider_status' => $providerStatus,
-                    'details' => $details,
-                ],
+                'provider_order_id' => $lockedTopUp->provider_order_id,
+                'provider_checkout_id' => $lockedTopUp->provider_checkout_id,
+                'provider_rrn' => $lockedTopUp->provider_rrn,
+                'provider_status' => $providerStatus,
+                'details' => $details,
+            ],
                 $lockedTopUp,
             );
 
@@ -538,6 +871,8 @@ class PayFilmotecaPaymentService
                 'amount' => $lockedTopUp->amount,
                 'currency' => $lockedTopUp->currency,
                 'provider_order_id' => $lockedTopUp->provider_order_id,
+                'provider_checkout_id' => $lockedTopUp->provider_checkout_id,
+                'provider_rrn' => $lockedTopUp->provider_rrn,
                 'provider_status' => $providerStatus,
                 'new_status' => $lockedTopUp->status,
                 'credited_at' => $lockedTopUp->credited_at?->toIso8601String(),
@@ -994,6 +1329,22 @@ class PayFilmotecaPaymentService
             : null;
     }
 
+    /**
+     * @return array{order_id: ?string, checkout_id: ?string, rrn: ?string}
+     */
+    protected function extractProviderIdentifiers(array $payload): array
+    {
+        $orderId = $this->extractValue($payload, ['order_id', 'orderId', 'OrderID', 'payment_id', 'paymentId']);
+        $checkoutId = $this->extractValue($payload, ['checkout_id', 'checkoutId', 'CheckoutID', 'checkoutID', 'checkout']);
+        $rrn = $this->extractValue($payload, ['rrn', 'RRN']);
+
+        return [
+            'order_id' => is_scalar($orderId) && trim((string) $orderId) !== '' ? trim((string) $orderId) : null,
+            'checkout_id' => is_scalar($checkoutId) && trim((string) $checkoutId) !== '' ? trim((string) $checkoutId) : null,
+            'rrn' => is_scalar($rrn) && trim((string) $rrn) !== '' ? trim((string) $rrn) : null,
+        ];
+    }
+
     protected function extractUuidFromText(string $value): ?string
     {
         preg_match('~[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}~i', $value, $matches);
@@ -1044,7 +1395,18 @@ class PayFilmotecaPaymentService
     protected function detailsMatchTopUp(PaymentTopUp $topUp, array $details): bool
     {
         $orderId = $this->extractValue($details, ['order_id', 'orderId', 'OrderID', 'payment_id', 'paymentId', 'id']);
-        if (is_scalar($orderId) && (string) $orderId !== '' && (string) $orderId !== (string) $topUp->provider_order_id) {
+        if (
+            is_scalar($orderId)
+            && (string) $orderId !== ''
+            && (string) $topUp->provider_order_id !== ''
+            && (string) $topUp->provider_checkout_id !== ''
+            && ! in_array((string) $orderId, [(string) $topUp->provider_order_id, (string) $topUp->provider_checkout_id], true)
+        ) {
+            return false;
+        }
+
+        $checkoutId = $this->extractValue($details, ['checkout_id', 'checkoutId', 'CheckoutID', 'checkoutID']);
+        if (is_scalar($checkoutId) && (string) $checkoutId !== '' && (string) $topUp->provider_checkout_id !== '' && (string) $checkoutId !== (string) $topUp->provider_checkout_id) {
             return false;
         }
 

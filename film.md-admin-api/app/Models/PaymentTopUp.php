@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'uuid',
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'currency',
     'status',
     'provider_order_id',
+    'provider_checkout_id',
+    'provider_rrn',
     'provider_payment_url',
     'provider_status',
     'description',
@@ -47,6 +50,11 @@ class PaymentTopUp extends Model
     public function wallet(): BelongsTo
     {
         return $this->belongsTo(Wallet::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(PaymentRefund::class);
     }
 
     public function isTerminal(): bool

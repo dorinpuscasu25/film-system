@@ -363,6 +363,57 @@ export interface ExportJobPayload {
   filters?: Record<string, unknown>;
 }
 
+export interface PaymentRefundItem {
+  id: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: "requested" | "succeeded" | "failed";
+  provider_status: string | null;
+  provider_order_id: string | null;
+  provider_checkout_id: string;
+  provider_rrn: string;
+  processed_at: string | null;
+  created_at: string | null;
+}
+
+export interface PaymentTopUpItem {
+  id: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "redirect_created" | "processing" | "paid" | "failed" | "canceled" | "refunded";
+  provider_status: string | null;
+  provider_order_id: string | null;
+  provider_checkout_id: string | null;
+  provider_rrn: string | null;
+  refunded_amount: number;
+  refundable_amount: number;
+  own_credit_balance: number;
+  credited_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  user: {
+    id: number | null;
+    name: string | null;
+    email: string | null;
+  };
+  refunds: PaymentRefundItem[];
+}
+
+export interface PaymentTopUpsResponse {
+  items: PaymentTopUpItem[];
+}
+
+export interface PaymentRefundPayload {
+  amount: number;
+  reason: string;
+}
+
+export interface PaymentRefundResponse {
+  refund: PaymentRefundItem;
+  top_up: PaymentTopUpItem;
+}
+
 export interface PlaybackOpsStats {
   active_streams: number;
   completed_today: number;
