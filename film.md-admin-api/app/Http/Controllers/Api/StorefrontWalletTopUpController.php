@@ -163,10 +163,31 @@ class StorefrontWalletTopUpController extends ApiController
             'query_checkout_status' => $this->providerCheckoutStatusFromRequest($request),
         ]);
 
+        $providerOrderId = $this->providerOrderIdFromRequest($request);
+        $providerCheckoutId = $this->providerCheckoutIdFromRequest($request);
+
         $topUp = PaymentTopUp::query()
             ->where('user_id', $request->user()->id)
+            ->when($providerOrderId !== null || $providerCheckoutId !== null, function ($query) use ($providerOrderId, $providerCheckoutId): void {
+                $query->where(function ($nested) use ($providerOrderId, $providerCheckoutId): void {
+                    if ($providerOrderId !== null) {
+                        $nested->orWhere('provider_order_id', $providerOrderId);
+                    }
+
+                    if ($providerCheckoutId !== null) {
+                        $nested->orWhere('provider_checkout_id', $providerCheckoutId);
+                    }
+                });
+            })
             ->latest('id')
             ->first();
+
+        if ($topUp === null && ($providerOrderId !== null || $providerCheckoutId !== null)) {
+            $topUp = PaymentTopUp::query()
+                ->where('user_id', $request->user()->id)
+                ->latest('id')
+                ->first();
+        }
 
         if ($topUp === null) {
             Log::channel('payments')->warning('PayFilmoteca latest wallet top-up not found', [

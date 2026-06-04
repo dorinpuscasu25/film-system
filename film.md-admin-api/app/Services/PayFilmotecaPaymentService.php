@@ -247,27 +247,64 @@ class PayFilmotecaPaymentService
             'force' => $force,
         ]);
 
-        try {
-            $response = $this->providerPost('payment-details', [
-                'order_id' => $detailsOrderId,
-            ]);
-            $rawDetails = $this->responsePayload($response);
-            $detailsRequestSucceeded = $response->successful();
-        } catch (\Throwable $exception) {
+        $rawDetails = null;
+        $detailsRequestSucceeded = false;
+        $detailsLookupId = null;
+        $lastException = null;
+        $detailsLookupIds = array_values(array_unique(array_filter([
+            $topUp->provider_checkout_id,
+            $topUp->provider_order_id,
+        ], fn ($value): bool => is_string($value) && trim($value) !== '')));
+
+        foreach ($detailsLookupIds as $lookupId) {
+            try {
+                $response = $this->providerPost('payment-details', [
+                    'order_id' => $lookupId,
+                ]);
+                $candidateDetails = $this->responsePayload($response);
+                $candidatePayload = is_array($candidateDetails['json'] ?? null) ? $candidateDetails['json'] : $candidateDetails;
+                $candidateStatus = $this->extractStatus($candidatePayload);
+
+                if ($rawDetails === null || ($response->successful() && ! $detailsRequestSucceeded)) {
+                    $rawDetails = $candidateDetails;
+                    $detailsRequestSucceeded = $response->successful();
+                    $detailsLookupId = $lookupId;
+                }
+
+                if ($response->successful() && $candidateStatus !== null) {
+                    $rawDetails = $candidateDetails;
+                    $detailsRequestSucceeded = true;
+                    $detailsLookupId = $lookupId;
+                    break;
+                }
+            } catch (\Throwable $exception) {
+                $lastException = $exception;
+                Log::channel('payments')->warning('PayFilmoteca status refresh lookup failed', [
+                    'top_up_uuid' => $topUp->uuid,
+                    'lookup_order_id' => $lookupId,
+                    'provider_order_id' => $topUp->provider_order_id,
+                    'provider_checkout_id' => $topUp->provider_checkout_id,
+                    'exception_class' => $exception::class,
+                    'exception_message' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        if ($rawDetails === null) {
             Log::channel('payments')->error('PayFilmoteca status refresh failed with exception', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $topUp->provider_order_id,
                 'provider_checkout_id' => $topUp->provider_checkout_id,
-                'exception_class' => $exception::class,
-                'exception_message' => $exception->getMessage(),
-                'exception_file' => $exception->getFile(),
-                'exception_line' => $exception->getLine(),
-                'exception' => $exception,
+                'exception_class' => $lastException ? $lastException::class : null,
+                'exception_message' => $lastException?->getMessage(),
+                'exception_file' => $lastException?->getFile(),
+                'exception_line' => $lastException?->getLine(),
+                'exception' => $lastException,
             ]);
 
             $topUp->update([
                 'raw_details' => [
-                    'message' => $exception->getMessage(),
+                    'message' => $lastException?->getMessage() ?? 'Payment details lookup failed.',
                 ],
             ]);
 
@@ -276,7 +313,9 @@ class PayFilmotecaPaymentService
 
         $detailsPayload = is_array($rawDetails['json'] ?? null) ? $rawDetails['json'] : $rawDetails;
         $providerStatus = $this->extractStatus($detailsPayload);
-        $providerStatus ??= $detailsRequestSucceeded && $this->isSuccessfulStatus($topUp->provider_status) ? $topUp->provider_status : null;
+        $providerStatus ??= $detailsRequestSucceeded && is_string($topUp->provider_status) && $topUp->provider_status !== ''
+            ? $topUp->provider_status
+            : null;
         $identifiers = $this->extractProviderIdentifiers($detailsPayload);
 
         if ($providerStatus !== null && ! $this->detailsMatchTopUp($topUp, $detailsPayload)) {
@@ -331,6 +370,7 @@ class PayFilmotecaPaymentService
             'provider_order_id' => $topUp->provider_order_id,
             'provider_checkout_id' => $topUp->provider_checkout_id,
             'provider_rrn' => $topUp->provider_rrn,
+            'details_lookup_id' => $detailsLookupId,
             'http_status' => $rawDetails['status'] ?? null,
             'provider_status' => $providerStatus,
             'old_status' => $oldStatus,

@@ -25,21 +25,17 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (fallbackStatus === 'failed') {
-      localStorage.removeItem(PENDING_TOP_UP_STORAGE_KEY);
-      setTopUp(null);
-      setErrorMessage(null);
-      setIsLoading(false);
-      return;
-    }
-
     let active = true;
     let attempts = 0;
     const params = new URLSearchParams(searchParamKey);
     const queryTopUpId = params.get('topup_id') ?? params.get('top_up_id') ?? params.get('uuid');
     const providerOrderId = params.get('order_id') ?? params.get('orderId') ?? params.get('OrderID');
     const providerCheckoutId = params.get('checkout_id') ?? params.get('checkoutId') ?? params.get('CheckoutID') ?? params.get('checkoutID');
-    const providerCheckoutStatus = params.get('checkout_status') ?? params.get('checkoutStatus') ?? params.get('CheckoutStatus');
+    const providerCheckoutStatus =
+      params.get('checkout_status') ??
+      params.get('checkoutStatus') ??
+      params.get('CheckoutStatus') ??
+      (fallbackStatus === 'failed' ? 'Failed' : null);
     const providerRrn = params.get('rrn') ?? params.get('RRN');
     const storedTopUpId = localStorage.getItem(PENDING_TOP_UP_STORAGE_KEY);
     const topUpId = queryTopUpId ?? storedTopUpId;
