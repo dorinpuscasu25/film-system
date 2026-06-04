@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Content;
 use App\Models\PersonalAccessToken;
+use App\Models\Role;
 use App\Models\Taxonomy;
 use App\Models\User;
 use Database\Seeders\AccessControlSeeder;
@@ -41,6 +42,21 @@ class ContentApiTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('items.0.slug', 'carbon')
             ->assertJsonPath('filters.types.0.value', Content::TYPE_MOVIE);
+    }
+
+    public function test_admin_role_can_list_all_content_even_with_scoped_role(): void
+    {
+        $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        $producerRole = Role::query()->where('name', 'Producer')->firstOrFail();
+
+        $this->admin->roles()->sync([$adminRole->id, $producerRole->id]);
+        $this->admin->syncAssignedContentIds([]);
+        [, $token] = PersonalAccessToken::issue($this->admin->fresh(), 'test-admin-scoped-role');
+
+        $this->getJson('/api/v1/admin/content', [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertOk()
+            ->assertJsonCount(Content::query()->count(), 'items');
     }
 
     public function test_admin_can_create_content_with_translations_media_and_taxonomies(): void

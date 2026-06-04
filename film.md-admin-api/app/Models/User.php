@@ -108,6 +108,12 @@ class User extends Authenticatable
 
     public function hasScopedContentAccess(): bool
     {
+        $this->loadMissing('roles');
+
+        if ($this->roles->contains('name', 'Admin')) {
+            return false;
+        }
+
         return $this->hasPermission('content.scope_assigned');
     }
 
