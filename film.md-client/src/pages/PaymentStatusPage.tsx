@@ -39,6 +39,7 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
     const queryTopUpId = params.get('topup_id') ?? params.get('top_up_id') ?? params.get('uuid');
     const providerOrderId = params.get('order_id') ?? params.get('orderId') ?? params.get('OrderID');
     const providerCheckoutId = params.get('checkout_id') ?? params.get('checkoutId') ?? params.get('CheckoutID') ?? params.get('checkoutID');
+    const providerCheckoutStatus = params.get('checkout_status') ?? params.get('checkoutStatus') ?? params.get('CheckoutStatus');
     const providerRrn = params.get('rrn') ?? params.get('RRN');
     const storedTopUpId = localStorage.getItem(PENDING_TOP_UP_STORAGE_KEY);
     const topUpId = queryTopUpId ?? storedTopUpId;
@@ -50,8 +51,8 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
 
       try {
         const response = topUpId
-          ? await fetchStorefrontWalletTopUp(topUpId, { orderId: providerOrderId, checkoutId: providerCheckoutId, rrn: providerRrn })
-          : await fetchLatestStorefrontWalletTopUp({ orderId: providerOrderId, checkoutId: providerCheckoutId, rrn: providerRrn });
+          ? await fetchStorefrontWalletTopUp(topUpId, { orderId: providerOrderId, checkoutId: providerCheckoutId, checkoutStatus: providerCheckoutStatus, rrn: providerRrn })
+          : await fetchLatestStorefrontWalletTopUp({ orderId: providerOrderId, checkoutId: providerCheckoutId, checkoutStatus: providerCheckoutStatus, rrn: providerRrn });
 
         if (!active) {
           return;

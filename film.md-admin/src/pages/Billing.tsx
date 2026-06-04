@@ -1,5 +1,7 @@
 import React from "react";
 import {
+  CheckIcon,
+  ClipboardIcon,
   CreditCardIcon,
   DollarSignIcon,
   DownloadIcon,
@@ -163,6 +165,7 @@ export function Billing() {
   const [exportingScope, setExportingScope] = React.useState<string | null>(null);
   const [downloadingExportId, setDownloadingExportId] = React.useState<number | null>(null);
   const [selectedTopUp, setSelectedTopUp] = React.useState<PaymentTopUpItem | null>(null);
+  const [copiedCheckoutId, setCopiedCheckoutId] = React.useState<string | null>(null);
   const [refundForm, setRefundForm] = React.useState({ amount: "", reason: "" });
   const [refundError, setRefundError] = React.useState<string | null>(null);
   const [isRefunding, setIsRefunding] = React.useState(false);
@@ -290,6 +293,14 @@ export function Billing() {
       reason: "",
     });
     setRefundError(null);
+  };
+
+  const copyCheckoutId = async (checkoutId: string) => {
+    await navigator.clipboard.writeText(checkoutId);
+    setCopiedCheckoutId(checkoutId);
+    window.setTimeout(() => {
+      setCopiedCheckoutId((current) => (current === checkoutId ? null : current));
+    }, 1600);
   };
 
   const closeRefundModal = () => {
@@ -574,9 +585,27 @@ export function Billing() {
                         </TableCell>
                         <TableCell>
                           <div className="max-w-[220px] space-y-1 text-xs">
-                            <p className="truncate font-medium" title={topUp.provider_checkout_id ?? ""}>
-                              {topUp.provider_checkout_id ?? "Fără checkoutId"}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="truncate font-medium" title={topUp.provider_checkout_id ?? ""}>
+                                {topUp.provider_checkout_id ?? "Fără checkoutId"}
+                              </p>
+                              {topUp.provider_checkout_id ? (
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 shrink-0"
+                                  onClick={() => void copyCheckoutId(topUp.provider_checkout_id as string)}
+                                  title="Copiază checkoutId"
+                                >
+                                  {copiedCheckoutId === topUp.provider_checkout_id ? (
+                                    <CheckIcon className="h-3.5 w-3.5 text-emerald-600" />
+                                  ) : (
+                                    <ClipboardIcon className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              ) : null}
+                            </div>
                             <p className="truncate text-muted-foreground" title={topUp.provider_order_id ?? ""}>
                               orderId: {topUp.provider_order_id ?? "N/A"}
                             </p>
@@ -1028,7 +1057,25 @@ export function Billing() {
               </div>
               <div className="sm:col-span-2">
                 <p className="text-muted-foreground">checkoutId</p>
-                <p className="mt-1 break-all font-mono text-xs">{selectedTopUp.provider_checkout_id ?? "N/A"}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="break-all font-mono text-xs">{selectedTopUp.provider_checkout_id ?? "N/A"}</p>
+                  {selectedTopUp.provider_checkout_id ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => void copyCheckoutId(selectedTopUp.provider_checkout_id as string)}
+                      title="Copiază checkoutId"
+                    >
+                      {copiedCheckoutId === selectedTopUp.provider_checkout_id ? (
+                        <CheckIcon className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <ClipboardIcon className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
               <div>
                 <p className="text-muted-foreground">orderId</p>

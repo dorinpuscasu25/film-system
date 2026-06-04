@@ -114,6 +114,7 @@ class StorefrontWalletTopUpController extends ApiController
             'provider_checkout_id' => $topUp->provider_checkout_id,
             'query_order_id' => $this->providerOrderIdFromRequest($request),
             'query_checkout_id' => $this->providerCheckoutIdFromRequest($request),
+            'query_checkout_status' => $this->providerCheckoutStatusFromRequest($request),
         ]);
 
         if ((int) $topUp->user_id !== (int) $request->user()->id) {
@@ -131,6 +132,7 @@ class StorefrontWalletTopUpController extends ApiController
             $this->providerCheckoutIdFromRequest($request),
             $this->providerOrderIdFromRequest($request),
             $this->providerRrnFromRequest($request),
+            $this->providerCheckoutStatusFromRequest($request),
         );
 
         if (! $topUp->isTerminal()) {
@@ -158,6 +160,7 @@ class StorefrontWalletTopUpController extends ApiController
             'request_user_id' => $request->user()?->id,
             'query_order_id' => $this->providerOrderIdFromRequest($request),
             'query_checkout_id' => $this->providerCheckoutIdFromRequest($request),
+            'query_checkout_status' => $this->providerCheckoutStatusFromRequest($request),
         ]);
 
         $topUp = PaymentTopUp::query()
@@ -180,6 +183,7 @@ class StorefrontWalletTopUpController extends ApiController
             $this->providerCheckoutIdFromRequest($request),
             $this->providerOrderIdFromRequest($request),
             $this->providerRrnFromRequest($request),
+            $this->providerCheckoutStatusFromRequest($request),
         );
 
         if (! $topUp->isTerminal()) {
@@ -228,6 +232,18 @@ class StorefrontWalletTopUpController extends ApiController
     protected function providerRrnFromRequest(Request $request): ?string
     {
         foreach (['rrn', 'RRN'] as $key) {
+            $value = $request->query($key);
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return null;
+    }
+
+    protected function providerCheckoutStatusFromRequest(Request $request): ?string
+    {
+        foreach (['checkout_status', 'checkoutStatus', 'CheckoutStatus'] as $key) {
             $value = $request->query($key);
             if (is_scalar($value) && trim((string) $value) !== '') {
                 return trim((string) $value);

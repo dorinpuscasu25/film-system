@@ -252,6 +252,7 @@ class PayFilmotecaPaymentService
                 'order_id' => $detailsOrderId,
             ]);
             $rawDetails = $this->responsePayload($response);
+            $detailsRequestSucceeded = $response->successful();
         } catch (\Throwable $exception) {
             Log::channel('payments')->error('PayFilmoteca status refresh failed with exception', [
                 'top_up_uuid' => $topUp->uuid,
@@ -275,6 +276,7 @@ class PayFilmotecaPaymentService
 
         $detailsPayload = is_array($rawDetails['json'] ?? null) ? $rawDetails['json'] : $rawDetails;
         $providerStatus = $this->extractStatus($detailsPayload);
+        $providerStatus ??= $detailsRequestSucceeded && $this->isSuccessfulStatus($topUp->provider_status) ? $topUp->provider_status : null;
         $identifiers = $this->extractProviderIdentifiers($detailsPayload);
 
         if ($providerStatus !== null && ! $this->detailsMatchTopUp($topUp, $detailsPayload)) {
@@ -391,18 +393,22 @@ class PayFilmotecaPaymentService
         return $this->rememberProviderIdentifiers($topUp, null, $orderId, null);
     }
 
-    public function rememberProviderIdentifiers(PaymentTopUp $topUp, ?string $checkoutId, ?string $orderId, ?string $rrn = null): PaymentTopUp
+    public function rememberProviderIdentifiers(PaymentTopUp $topUp, ?string $checkoutId, ?string $orderId, ?string $rrn = null, ?string $providerStatus = null): PaymentTopUp
     {
         $orderId = is_string($orderId) ? trim($orderId) : '';
         $checkoutId = is_string($checkoutId) ? trim($checkoutId) : '';
         $rrn = is_string($rrn) ? trim($rrn) : '';
+        $providerStatus = is_string($providerStatus) && trim($providerStatus) !== ''
+            ? $this->normalizeProviderStatus($providerStatus)
+            : null;
 
-        if ($orderId === '' && $checkoutId === '' && $rrn === '') {
+        if ($orderId === '' && $checkoutId === '' && $rrn === '' && $providerStatus === null) {
             Log::channel('payments')->info('PayFilmoteca provider order id remember skipped', [
                 'top_up_uuid' => $topUp->uuid,
                 'incoming_provider_order_id' => $orderId,
                 'incoming_provider_checkout_id' => $checkoutId,
                 'incoming_provider_rrn' => $rrn,
+                'incoming_provider_status' => $providerStatus,
                 'current_provider_order_id' => $topUp->provider_order_id,
                 'current_provider_checkout_id' => $topUp->provider_checkout_id,
                 'current_provider_rrn' => $topUp->provider_rrn,
@@ -416,12 +422,14 @@ class PayFilmotecaPaymentService
             ($orderId === '' || (string) $topUp->provider_order_id === $orderId)
             && ($checkoutId === '' || (string) $topUp->provider_checkout_id === $checkoutId)
             && ($rrn === '' || (string) $topUp->provider_rrn === $rrn)
+            && ($providerStatus === null || (string) $topUp->provider_status === $providerStatus)
         ) {
             Log::channel('payments')->info('PayFilmoteca provider order id already known', [
                 'top_up_uuid' => $topUp->uuid,
                 'provider_order_id' => $orderId,
                 'provider_checkout_id' => $checkoutId,
                 'provider_rrn' => $rrn,
+                'provider_status' => $providerStatus,
                 'status' => $topUp->status,
             ]);
 
@@ -431,6 +439,7 @@ class PayFilmotecaPaymentService
         $oldProviderOrderId = $topUp->provider_order_id;
         $oldProviderCheckoutId = $topUp->provider_checkout_id;
         $oldProviderRrn = $topUp->provider_rrn;
+        $oldProviderStatus = $topUp->provider_status;
         $oldStatus = $topUp->status;
 
         $updates = [];
@@ -447,6 +456,10 @@ class PayFilmotecaPaymentService
             $updates['provider_rrn'] = $rrn;
         }
 
+        if ($providerStatus !== null) {
+            $updates['provider_status'] = $providerStatus;
+        }
+
         if (! $topUp->isTerminal()) {
             $updates['status'] = PaymentTopUp::STATUS_PROCESSING;
         }
@@ -458,9 +471,11 @@ class PayFilmotecaPaymentService
             'incoming_provider_order_id' => $orderId,
             'incoming_provider_checkout_id' => $checkoutId,
             'incoming_provider_rrn' => $rrn,
+            'incoming_provider_status' => $providerStatus,
             'old_provider_order_id' => $oldProviderOrderId,
             'old_provider_checkout_id' => $oldProviderCheckoutId,
             'old_provider_rrn' => $oldProviderRrn,
+            'old_provider_status' => $oldProviderStatus,
             'old_status' => $oldStatus,
             'new_status' => $topUp->status,
         ]);
@@ -1316,6 +1331,9 @@ class PayFilmotecaPaymentService
         $status = $this->extractValue($payload, [
             'payment_status',
             'paymentStatus',
+            'checkout_status',
+            'checkoutStatus',
+            'CheckoutStatus',
             'status',
             'Status',
             'state',

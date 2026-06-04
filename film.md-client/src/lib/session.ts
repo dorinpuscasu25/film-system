@@ -470,6 +470,7 @@ export async function createStorefrontWalletTopUp(payload: {
 interface TopUpLookupOptions {
   orderId?: string | null;
   checkoutId?: string | null;
+  checkoutStatus?: string | null;
   rrn?: string | null;
 }
 
@@ -477,6 +478,7 @@ function topUpLookupQuery(options?: TopUpLookupOptions) {
   return {
     order_id: options?.orderId ?? undefined,
     checkout_id: options?.checkoutId ?? undefined,
+    checkout_status: options?.checkoutStatus ?? undefined,
     rrn: options?.rrn ?? undefined,
   };
 }
