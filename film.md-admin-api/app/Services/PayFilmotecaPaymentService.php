@@ -630,6 +630,7 @@ class PayFilmotecaPaymentService
 
         $topUp->loadMissing('wallet');
         $checkoutId = trim((string) $topUp->provider_checkout_id);
+        $orderId = trim((string) $topUp->provider_order_id);
         $rrn = trim((string) $topUp->provider_rrn);
 
         if ($topUp->status !== PaymentTopUp::STATUS_PAID) {
@@ -676,7 +677,7 @@ class PayFilmotecaPaymentService
         }
 
         $providerPayload = [
-            'order_id' => $checkoutId,
+            'order_id' => $orderId !== '' ? $orderId : $checkoutId,
             'refund_total' => number_format($amount, 2, '.', ''),
             'currency' => $topUp->currency ?: Wallet::DEFAULT_CURRENCY,
             'refund_reason' => $reason,
@@ -711,21 +712,64 @@ class PayFilmotecaPaymentService
         ]);
 
         try {
-            $response = $this->providerPost('refund-request', $providerPayload);
-            $rawResponse = $this->responsePayload($response);
+            $refundOrderIds = array_values(array_unique(array_filter([
+                $orderId,
+                $checkoutId,
+            ], fn (string $value): bool => trim($value) !== '')));
+            $rawResponse = null;
+            $successfulPayload = null;
+            $attempts = [];
 
-            if ($response->failed()) {
+            foreach ($refundOrderIds as $refundOrderId) {
+                $attemptPayload = [
+                    ...$providerPayload,
+                    'order_id' => $refundOrderId,
+                ];
+                $response = $this->providerPost('refund-request', $attemptPayload);
+                $attemptResponse = $this->responsePayload($response);
+                $attempts[] = [
+                    'order_id' => $refundOrderId,
+                    'http_status' => $response->status(),
+                    'response' => $attemptResponse,
+                ];
+
+                Log::channel('payments')->info('PayFilmoteca refund request attempt completed', [
+                    'payment_refund_uuid' => $refund->uuid,
+                    'top_up_uuid' => $topUp->uuid,
+                    'refund_order_id' => $refundOrderId,
+                    'http_status' => $response->status(),
+                    'successful' => $response->successful(),
+                    'accepted' => $this->providerResponseAccepted($response, $attemptResponse),
+                    'provider_response' => $attemptResponse,
+                ]);
+
+                $rawResponse = $attemptResponse;
+
+                if ($this->providerResponseAccepted($response, $attemptResponse)) {
+                    $successfulPayload = $attemptPayload;
+                    break;
+                }
+            }
+
+            if ($successfulPayload === null || $rawResponse === null) {
                 $refund->forceFill([
                     'status' => PaymentRefund::STATUS_FAILED,
                     'provider_status' => 'request_failed',
-                    'raw_response' => $rawResponse,
+                    'raw_request' => [
+                        'attempted_order_ids' => $refundOrderIds,
+                        'payload' => $providerPayload,
+                    ],
+                    'raw_response' => [
+                        'attempts' => $attempts,
+                        'last_response' => $rawResponse,
+                    ],
                     'processed_at' => now(),
                 ])->save();
 
                 Log::channel('payments')->error('PayFilmoteca refund request rejected by provider', [
                     'payment_refund_uuid' => $refund->uuid,
                     'top_up_uuid' => $topUp->uuid,
-                    'http_status' => $response->status(),
+                    'attempted_order_ids' => $refundOrderIds,
                     'provider_response' => $rawResponse,
                 ]);
 
@@ -733,6 +777,15 @@ class PayFilmotecaPaymentService
                     'refund' => [$this->providerErrorMessage($rawResponse, 'Providerul de plată a refuzat refundul.')],
                 ]);
             }
+
+            $refund->forceFill([
+                'raw_request' => $successfulPayload,
+                'raw_response' => [
+                    'attempts' => $attempts,
+                    'successful_order_id' => $successfulPayload['order_id'],
+                    'last_response' => $rawResponse,
+                ],
+            ])->save();
 
             return DB::transaction(function () use ($refund, $rawResponse): PaymentRefund {
                 $lockedRefund = PaymentRefund::query()
@@ -1336,6 +1389,28 @@ class PayFilmotecaPaymentService
         $message = $this->extractValue($payload, ['message', 'Message', 'error', 'Error']);
 
         return is_string($message) && trim($message) !== '' ? $message : $fallback;
+    }
+
+    protected function providerResponseAccepted(Response $response, array $payload): bool
+    {
+        if (! $response->successful()) {
+            return false;
+        }
+
+        $success = $this->extractValue($payload, ['success', 'Success', 'ok', 'OK']);
+        if (is_bool($success)) {
+            return $success;
+        }
+
+        if (is_string($success)) {
+            return in_array(strtolower(trim($success)), ['1', 'true', 'yes', 'ok', 'success'], true);
+        }
+
+        if (is_numeric($success)) {
+            return (int) $success === 1;
+        }
+
+        return true;
     }
 
     protected function extractUrl(array $payload): ?string

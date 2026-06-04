@@ -674,7 +674,7 @@ export function Billing() {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="rounded-lg border bg-background p-4">
               <p className="font-medium text-foreground">Identificator provider</p>
-              <p className="mt-1">Refundul se trimite la Pay.Filmoteca cu checkoutId în câmpul order_id.</p>
+              <p className="mt-1">Refundul se trimite la Pay.Filmoteca cu orderId în câmpul order_id.</p>
             </div>
             <div className="rounded-lg border bg-background p-4">
               <p className="font-medium text-foreground">Limită locală</p>
