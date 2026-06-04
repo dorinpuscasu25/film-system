@@ -221,7 +221,7 @@ class PayFilmotecaPaymentService
 
     public function refreshStatus(PaymentTopUp $topUp, bool $force = false): PaymentTopUp
     {
-        $detailsOrderId = $topUp->provider_checkout_id ?: $topUp->provider_order_id;
+        $detailsOrderId = $topUp->provider_order_id ?: $topUp->provider_checkout_id;
 
         if ((! $force && $topUp->isTerminal()) || empty($detailsOrderId)) {
             Log::channel('payments')->info('PayFilmoteca status refresh skipped', [
@@ -252,8 +252,8 @@ class PayFilmotecaPaymentService
         $detailsLookupId = null;
         $lastException = null;
         $detailsLookupIds = array_values(array_unique(array_filter([
-            $topUp->provider_checkout_id,
             $topUp->provider_order_id,
+            $topUp->provider_checkout_id,
         ], fn ($value): bool => is_string($value) && trim($value) !== '')));
 
         foreach ($detailsLookupIds as $lookupId) {
