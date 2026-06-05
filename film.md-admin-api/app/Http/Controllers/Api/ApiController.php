@@ -327,6 +327,8 @@ class ApiController extends Controller
                                 'runtime_minutes' => data_get($episode, 'runtime_minutes'),
                                 'thumbnail_url' => data_get($episode, 'thumbnail_url'),
                                 'backdrop_url' => data_get($episode, 'backdrop_url'),
+                                'bunny_library_id' => data_get($episode, 'bunny_library_id'),
+                                'bunny_video_id' => data_get($episode, 'bunny_video_id'),
                                 'video_url' => data_get($episode, 'video_url'),
                                 'trailer_url' => data_get($episode, 'trailer_url'),
                                 'sort_order' => (int) data_get($episode, 'sort_order', 0),

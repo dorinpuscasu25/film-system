@@ -55,12 +55,13 @@ class StoreOfferRequest extends FormRequest
                     ->exists();
                 $hasEnabledQuality = in_array($selectedQuality, $content->available_qualities ?? [], true);
                 $hasPlaybackOverride = $this->filled('playback_url');
+                $hasSeriesEpisodePlayback = $this->hasSeriesEpisodePlayback($content);
 
-                if (! $hasEnabledQuality && ! $hasMatchingFormat && ! $hasPlaybackOverride) {
+                if (! $hasEnabledQuality && ! $hasMatchingFormat && ! $hasPlaybackOverride && ! $hasSeriesEpisodePlayback) {
                     $validator->errors()->add('quality', 'The selected quality is not enabled for this title.');
                 }
 
-                if (! $hasMatchingFormat && ! $hasPlaybackOverride) {
+                if (! $hasMatchingFormat && ! $hasPlaybackOverride && ! $hasSeriesEpisodePlayback) {
                     $validator->errors()->add(
                         'playback_url',
                         'This offer needs either an active Bunny main format with the same quality or a playback URL override.'
@@ -122,5 +123,26 @@ class StoreOfferRequest extends FormRequest
         }
 
         return "{$rentalDays} days {$quality}";
+    }
+
+    protected function hasSeriesEpisodePlayback(Content $content): bool
+    {
+        if ($content->type !== Content::TYPE_SERIES) {
+            return false;
+        }
+
+        foreach ($content->seasons ?? [] as $season) {
+            foreach ((array) data_get($season, 'episodes', []) as $episode) {
+                $libraryId = trim((string) data_get($episode, 'bunny_library_id', ''));
+                $videoId = trim((string) data_get($episode, 'bunny_video_id', ''));
+                $videoUrl = trim((string) data_get($episode, 'video_url', ''));
+
+                if (($libraryId !== '' && $videoId !== '') || $videoUrl !== '') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

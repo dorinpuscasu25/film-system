@@ -144,11 +144,22 @@ class StorefrontController extends ApiController
         }
 
         $episodeId = $request->query('episode_id');
+        $resolvedEpisodeId = is_string($episodeId) ? $episodeId : null;
+
+        if ($resolvedEpisodeId === null && $content->type === Content::TYPE_SERIES && $user !== null) {
+            $resolvedEpisodeId = \App\Models\WatchProgress::query()
+                ->where('user_id', $user->id)
+                ->where('content_id', $content->id)
+                ->whereNotNull('episode_id')
+                ->latest('last_watched_at')
+                ->value('episode_id');
+        }
+
         $countryCode = $this->geoLocation->resolveCountryCode($request);
         $playback = $this->resolvePlaybackPayload(
             $content,
             $entitlement,
-            is_string($episodeId) ? $episodeId : null,
+            $resolvedEpisodeId,
             $locale,
             $countryCode,
         );
@@ -171,9 +182,27 @@ class StorefrontController extends ApiController
             'session_token' => \Illuminate\Support\Str::random(40),
             'meta' => [
                 'locale' => $locale,
-                'episode_id' => $episodeId,
+                'episode_id' => $resolvedEpisodeId,
             ],
         ]);
+
+        if ($user !== null && $resolvedEpisodeId !== null) {
+            $progress = \App\Models\WatchProgress::query()->firstOrNew([
+                'user_id' => $user->id,
+                'account_profile_id' => null,
+                'content_id' => $content->id,
+                'episode_id' => $resolvedEpisodeId,
+            ]);
+
+            $progress->forceFill([
+                'content_format_id' => $playback['content_format_id'],
+                'last_watched_at' => now(),
+                'meta' => [
+                    ...($progress->meta ?? []),
+                    'last_playback_session_token' => $playbackSession->session_token,
+                ],
+            ])->save();
+        }
 
         return response()->json([
             'content' => [
@@ -201,7 +230,7 @@ class StorefrontController extends ApiController
                 'session_token' => $playbackSession->session_token,
             ],
             'subtitles' => $playback['subtitles'],
-            'continue_watching' => $this->continueWatchingData($user?->id, $content->id, $episodeId),
+            'continue_watching' => $this->continueWatchingData($user?->id, $content->id, $resolvedEpisodeId),
         ]);
     }
 
@@ -304,7 +333,68 @@ class StorefrontController extends ApiController
             ];
         }
 
+        $seriesEpisode = null;
+        if ($content->type === Content::TYPE_SERIES) {
+            $seasonRecords = collect($content->seasons ?? [])->sortBy('sort_order')->values();
+            $seriesEpisode = $seasonRecords
+                ->flatMap(function (array $season): array {
+                    $seasonNumber = (int) data_get($season, 'season_number', 1);
+
+                    return collect(data_get($season, 'episodes', []))
+                        ->sortBy('sort_order')
+                        ->map(fn (array $episode): array => [
+                            ...$episode,
+                            'id' => (string) (data_get($episode, 'id') ?: "season-{$seasonNumber}-episode-".((int) data_get($episode, 'episode_number', 1))),
+                            '_season_number' => $seasonNumber,
+                        ])
+                        ->values()
+                        ->all();
+                })
+                ->first(function (array $episode) use ($episodeId): bool {
+                    if ($episodeId === null) {
+                        return true;
+                    }
+
+                    return (string) data_get($episode, 'id') === $episodeId;
+                });
+        }
+
         if ($resolvedFormat === null) {
+            if ($seriesEpisode !== null) {
+                $episodeTitle = data_get($seriesEpisode, 'title');
+                $episodeDescription = data_get($seriesEpisode, 'description');
+                $episodeEmbedUrl = $this->bunnyEmbedUrlFromIds(
+                    data_get($seriesEpisode, 'bunny_library_id'),
+                    data_get($seriesEpisode, 'bunny_video_id'),
+                );
+                $episodeUrl = $episodeEmbedUrl
+                    ?: data_get($seriesEpisode, 'video_url')
+                    ?: data_get($seriesEpisode, 'trailer_url');
+
+                if ($episodeUrl !== null) {
+                    return [
+                        'url' => $episodeUrl,
+                        'embed_url' => $episodeEmbedUrl,
+                        'quality' => $entitlement?->quality,
+                        'content_format_id' => null,
+                        'drm' => [],
+                        'subtitles' => [],
+                        'episode' => [
+                            'id' => (string) data_get($seriesEpisode, 'id'),
+                            'season_number' => (int) data_get($seriesEpisode, '_season_number', 1),
+                            'episode_number' => (int) data_get($seriesEpisode, 'episode_number', 1),
+                            'title' => $this->localizedValue($episodeTitle, $resolvedLocale, $defaultLocale),
+                            'description' => $this->localizedValue($episodeDescription, $resolvedLocale, $defaultLocale),
+                            'runtime_minutes' => data_get($seriesEpisode, 'runtime_minutes'),
+                            'thumbnail_url' => data_get($seriesEpisode, 'thumbnail_url'),
+                            'backdrop_url' => data_get($seriesEpisode, 'backdrop_url'),
+                            'bunny_library_id' => data_get($seriesEpisode, 'bunny_library_id'),
+                            'bunny_video_id' => data_get($seriesEpisode, 'bunny_video_id'),
+                        ],
+                    ];
+                }
+            }
+
             return [
                 'url' => null,
                 'quality' => null,
@@ -330,56 +420,39 @@ class StorefrontController extends ApiController
             ->values()
             ->all();
 
-        if ($content->type === Content::TYPE_SERIES) {
-            $seasonRecords = collect($content->seasons ?? [])->sortBy('sort_order')->values();
-            $episode = $seasonRecords
-                ->flatMap(function (array $season): array {
-                    $seasonNumber = (int) data_get($season, 'season_number', 1);
+        if ($seriesEpisode !== null) {
+            $episodeTitle = data_get($seriesEpisode, 'title');
+            $episodeDescription = data_get($seriesEpisode, 'description');
+            $episodeEmbedUrl = $this->bunnyEmbedUrlFromIds(
+                data_get($seriesEpisode, 'bunny_library_id'),
+                data_get($seriesEpisode, 'bunny_video_id'),
+            );
+            $episodeUrl = $episodeEmbedUrl
+                ?: data_get($seriesEpisode, 'video_url')
+                ?: data_get($seriesEpisode, 'trailer_url')
+                ?: $this->bunnyToken->signedStreamUrl($resolvedFormat)
+                ?: $primaryVideoUrl;
 
-                    return collect(data_get($season, 'episodes', []))
-                        ->sortBy('sort_order')
-                        ->map(fn (array $episode): array => [
-                            ...$episode,
-                            'id' => (string) (data_get($episode, 'id') ?: "season-{$seasonNumber}-episode-".((int) data_get($episode, 'episode_number', 1))),
-                            '_season_number' => $seasonNumber,
-                        ])
-                        ->values()
-                        ->all();
-                })
-                ->first(function (array $episode) use ($episodeId): bool {
-                    if ($episodeId === null) {
-                        return true;
-                    }
-
-                    return (string) data_get($episode, 'id') === $episodeId;
-                });
-
-            if ($episode !== null) {
-                $episodeTitle = data_get($episode, 'title');
-                $episodeDescription = data_get($episode, 'description');
-
-                return [
-                    'url' => data_get($episode, 'video_url')
-                        ?: data_get($episode, 'trailer_url')
-                        ?: $this->bunnyToken->signedStreamUrl($resolvedFormat)
-                        ?: $primaryVideoUrl,
-                    'embed_url' => $this->bunnyEmbedUrl($resolvedFormat),
-                    'quality' => $resolvedFormat->quality,
-                    'content_format_id' => $resolvedFormat->id,
-                    'drm' => $this->formatDrmData($resolvedFormat),
-                    'subtitles' => $subtitles,
-                    'episode' => [
-                        'id' => (string) data_get($episode, 'id'),
-                        'season_number' => (int) data_get($episode, '_season_number', 1),
-                        'episode_number' => (int) data_get($episode, 'episode_number', 1),
-                        'title' => $this->localizedValue($episodeTitle, $resolvedLocale, $defaultLocale),
-                        'description' => $this->localizedValue($episodeDescription, $resolvedLocale, $defaultLocale),
-                        'runtime_minutes' => data_get($episode, 'runtime_minutes'),
-                        'thumbnail_url' => data_get($episode, 'thumbnail_url'),
-                        'backdrop_url' => data_get($episode, 'backdrop_url'),
-                    ],
-                ];
-            }
+            return [
+                'url' => $episodeUrl,
+                'embed_url' => $episodeEmbedUrl ?: $this->bunnyEmbedUrl($resolvedFormat),
+                'quality' => $resolvedFormat->quality,
+                'content_format_id' => $resolvedFormat->id,
+                'drm' => $this->formatDrmData($resolvedFormat),
+                'subtitles' => $subtitles,
+                'episode' => [
+                    'id' => (string) data_get($seriesEpisode, 'id'),
+                    'season_number' => (int) data_get($seriesEpisode, '_season_number', 1),
+                    'episode_number' => (int) data_get($seriesEpisode, 'episode_number', 1),
+                    'title' => $this->localizedValue($episodeTitle, $resolvedLocale, $defaultLocale),
+                    'description' => $this->localizedValue($episodeDescription, $resolvedLocale, $defaultLocale),
+                    'runtime_minutes' => data_get($seriesEpisode, 'runtime_minutes'),
+                    'thumbnail_url' => data_get($seriesEpisode, 'thumbnail_url'),
+                    'backdrop_url' => data_get($seriesEpisode, 'backdrop_url'),
+                    'bunny_library_id' => data_get($seriesEpisode, 'bunny_library_id'),
+                    'bunny_video_id' => data_get($seriesEpisode, 'bunny_video_id'),
+                ],
+            ];
         }
 
         return [
@@ -399,18 +472,23 @@ class StorefrontController extends ApiController
             return $format->stream_url;
         }
 
-        if ($format->bunny_library_id === null || $format->bunny_video_id === null) {
+        return $this->bunnyEmbedUrlFromIds($format->bunny_library_id, $format->bunny_video_id);
+    }
+
+    protected function bunnyEmbedUrlFromIds(mixed $libraryId, mixed $videoId): ?string
+    {
+        if ($libraryId === null || $videoId === null) {
             return null;
         }
 
-        if (! ctype_digit((string) $format->bunny_library_id)) {
+        if (! ctype_digit((string) $libraryId)) {
             return null;
         }
 
         return sprintf(
             'https://iframe.mediadelivery.net/embed/%s/%s?autoplay=true&responsive=true',
-            rawurlencode((string) $format->bunny_library_id),
-            rawurlencode((string) $format->bunny_video_id),
+            rawurlencode((string) $libraryId),
+            rawurlencode((string) $videoId),
         );
     }
 

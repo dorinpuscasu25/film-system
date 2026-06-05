@@ -32,6 +32,7 @@ export function PlayerPage() {
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [contentFormatId, setContentFormatId] = useState<number | null>(null);
+  const [currentEpisodeId, setCurrentEpisodeId] = useState<string | null>(null);
   const [initialPositionSeconds, setInitialPositionSeconds] = useState(0);
   const [premiereLock, setPremiereLock] = useState<{
     title: string;
@@ -90,6 +91,7 @@ export function PlayerPage() {
         setEpisodeTitle(playback.episode?.title ?? null);
         setSessionToken(playback.playback.session_token ?? null);
         setContentFormatId(playback.playback.content_format_id ?? null);
+        setCurrentEpisodeId(playback.episode?.id ?? episodeId ?? null);
         setInitialPositionSeconds(playback.continue_watching?.position_seconds ?? 0);
         setSubtitles(playback.subtitles ?? []);
 
@@ -129,6 +131,7 @@ export function PlayerPage() {
 
         setPlaybackError(requestError.message || t("player.playback_start_failed"));
         setPlaybackContentId(null);
+        setCurrentEpisodeId(null);
       } finally {
         if (active) {
           setIsLoading(false);
@@ -225,6 +228,15 @@ export function PlayerPage() {
         sessionToken={sessionToken}
         initialPositionSeconds={initialPositionSeconds}
         subtitles={subtitles}
+        seasonsData={movie.seasonsData ?? []}
+        currentEpisodeId={currentEpisodeId}
+        onEpisodeSelect={(nextEpisodeId) => {
+          if (!id || nextEpisodeId === currentEpisodeId) {
+            return;
+          }
+
+          navigate(`/watch/${id}?episode=${encodeURIComponent(nextEpisodeId)}`, { replace: false });
+        }}
         onProgress={(payload) => {
           if (!sessionToken) {
             return;

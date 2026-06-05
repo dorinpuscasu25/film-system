@@ -150,6 +150,8 @@ export interface StorefrontPlaybackPayload {
     runtime_minutes?: number | null;
     thumbnail_url?: string | null;
     backdrop_url?: string | null;
+    bunny_library_id?: string | null;
+    bunny_video_id?: string | null;
   } | null;
   playback: {
     url: string;

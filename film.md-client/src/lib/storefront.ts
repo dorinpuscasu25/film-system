@@ -55,6 +55,8 @@ interface PublicEpisode {
   runtime_minutes?: number | null;
   thumbnail_url?: string | null;
   backdrop_url?: string | null;
+  bunny_library_id?: string | null;
+  bunny_video_id?: string | null;
   video_url?: string | null;
   trailer_url?: string | null;
 }
@@ -473,6 +475,8 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
         runtimeMinutes: episode.runtime_minutes ?? undefined,
         thumbnailUrl: episode.thumbnail_url ?? undefined,
         backdropUrl: episode.backdrop_url ?? undefined,
+        bunnyLibraryId: episode.bunny_library_id ?? undefined,
+        bunnyVideoId: episode.bunny_video_id ?? undefined,
         videoUrl: episode.video_url ?? undefined,
         trailerUrl: episode.trailer_url ?? undefined,
       })),

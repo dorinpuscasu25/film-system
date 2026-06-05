@@ -30,6 +30,8 @@ export interface Episode {
   runtimeMinutes?: number;
   thumbnailUrl?: string;
   backdropUrl?: string;
+  bunnyLibraryId?: string;
+  bunnyVideoId?: string;
   videoUrl?: string;
   trailerUrl?: string;
 }

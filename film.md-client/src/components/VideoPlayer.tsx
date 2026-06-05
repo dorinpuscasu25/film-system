@@ -18,7 +18,7 @@ import {
   Volume2Icon,
   VolumeXIcon,
 } from 'lucide-react';
-import { Movie } from '../types';
+import { Movie, Season } from '../types';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { isBunnyApiAssetUrl, isDirectMediaUrl, resolveEmbedUrl } from '../lib/videoEmbeds';
@@ -45,6 +45,9 @@ interface VideoPlayerProps {
     url: string;
     is_default: boolean;
   }>;
+  seasonsData?: Season[];
+  currentEpisodeId?: string | null;
+  onEpisodeSelect?: (episodeId: string) => void;
   onProgress?: (payload: {
     position_seconds: number;
     duration_seconds: number;
@@ -160,6 +163,9 @@ export function VideoPlayer({
   episodeTitle,
   initialPositionSeconds = 0,
   subtitles = [],
+  seasonsData = [],
+  currentEpisodeId,
+  onEpisodeSelect,
   onProgress,
   onBack,
 }: VideoPlayerProps) {
@@ -187,8 +193,23 @@ export function VideoPlayer({
   const [textTracks, setTextTracks] = useState<TextTrack[]>([]);
   const [selectedText, setSelectedText] = useState<'off' | number>('off');
   const [settingsPanel, setSettingsPanel] = useState<'quality' | 'speed' | 'subtitles' | null>(null);
+  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
   const resolvedEmbedUrl = resolveEmbedUrl(sourceUrl, embedUrl);
   const shouldUseExternalEmbed = Boolean(resolvedEmbedUrl && !isDirectMediaUrl(sourceUrl));
+  const hasEpisodes = seasonsData.length > 0 && seasonsData.some((season) => season.episodes.length > 0);
+  const activeEpisode = seasonsData.flatMap((season) => season.episodes).find((episode) => episode.id === currentEpisodeId) ?? null;
+  const activeSeasonNumber = activeEpisode
+    ? seasonsData.find((season) => season.episodes.some((episode) => episode.id === activeEpisode.id))?.seasonNumber
+    : seasonsData[0]?.seasonNumber ?? null;
+  const selectedSeason = seasonsData.find((season) => season.seasonNumber === (selectedSeasonNumber ?? activeSeasonNumber))
+    ?? seasonsData[0]
+    ?? null;
+
+  useEffect(() => {
+    if (activeSeasonNumber !== null) {
+      setSelectedSeasonNumber(activeSeasonNumber);
+    }
+  }, [activeSeasonNumber]);
 
   useEffect(() => {
     progressRef.current = onProgress;
@@ -506,6 +527,61 @@ export function VideoPlayer({
     void video.requestPictureInPicture();
   };
 
+  const episodeRail = hasEpisodes && selectedSeason ? (
+    <div className="pointer-events-auto mb-4 rounded-2xl border border-white/10 bg-black/70 p-3 text-white shadow-2xl backdrop-blur-md">
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+        {seasonsData.map((season) => (
+          <button
+            key={season.id}
+            type="button"
+            onClick={() => setSelectedSeasonNumber(season.seasonNumber)}
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              selectedSeason.seasonNumber === season.seasonNumber
+                ? 'bg-white text-black'
+                : 'bg-white/10 text-white/75 hover:bg-white/15 hover:text-white'
+            }`}
+          >
+            {season.title || t('movie.season', { number: season.seasonNumber })}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {selectedSeason.episodes.map((episode) => {
+          const isActiveEpisode = episode.id === currentEpisodeId;
+          return (
+            <button
+              key={episode.id}
+              type="button"
+              onClick={() => onEpisodeSelect?.(episode.id)}
+              className={`flex w-64 shrink-0 gap-3 rounded-xl border p-2 text-left transition ${
+                isActiveEpisode
+                  ? 'border-white bg-white/15'
+                  : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
+              }`}
+            >
+              <div className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg bg-white/10">
+                <img
+                  src={episode.thumbnailUrl || episode.backdropUrl || movie.backdropUrl || movie.posterUrl}
+                  alt={episode.title}
+                  className="h-full w-full object-cover"
+                />
+                {isActiveEpisode ? <div className="absolute inset-x-0 bottom-0 h-1 bg-accent" /> : null}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">
+                  E{episode.episodeNumber} · {episode.title}
+                </div>
+                <div className="mt-1 text-xs text-white/55">
+                  {episode.runtimeMinutes ? `${episode.runtimeMinutes}m` : t('movie.episode', { number: episode.episodeNumber })}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
   if (shouldUseExternalEmbed && resolvedEmbedUrl) {
     return (
       <div ref={containerRef} className="relative h-screen w-full overflow-hidden bg-black">
@@ -528,6 +604,9 @@ export function VideoPlayer({
               </div>
             </div>
           </div>
+        </div>
+        <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-4 sm:p-6">
+          {episodeRail}
         </div>
       </div>
     );
@@ -600,6 +679,8 @@ export function VideoPlayer({
       ) : null}
 
       <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/65 to-transparent p-4 opacity-100 transition sm:p-6">
+        {episodeRail}
+
         <div className="relative mb-4 h-5">
           <div className="absolute left-0 right-0 top-2 h-1 rounded-full bg-white/20">
             <div className="h-full rounded-full bg-white/35" style={{ width: `${bufferedPercent}%` }} />

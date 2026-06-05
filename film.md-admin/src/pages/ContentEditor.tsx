@@ -3,6 +3,8 @@ import {
   ArrowLeftIcon,
   ArrowDownIcon,
   ArrowUpIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   HelpCircleIcon,
   PlusIcon,
   SaveIcon,
@@ -443,6 +445,8 @@ function createEmptyEpisode(): AdminContentEpisode {
     runtime_minutes: null,
     thumbnail_url: null,
     backdrop_url: null,
+    bunny_library_id: null,
+    bunny_video_id: null,
     video_url: null,
     trailer_url: null,
     sort_order: 0,
@@ -826,6 +830,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
+  const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
+  const [openEpisodeIds, setOpenEpisodeIds] = useState<string[]>([]);
 
   const contentMediaDirectories = useMemo(() => {
     const fallbackName = formState.title[formState.default_locale] || localizedTitleFallback(formState.title);
@@ -865,6 +871,22 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       setLocaleTab(currentUser.preferred_locale);
     }
   }, [currentUser?.preferred_locale]);
+
+  useEffect(() => {
+    if (formState.seasons.length === 0) {
+      setActiveSeasonId(null);
+      setOpenEpisodeIds([]);
+      return;
+    }
+
+    const hasActiveSeason = formState.seasons.some((season) => season.id === activeSeasonId);
+    if (!hasActiveSeason) {
+      setActiveSeasonId(formState.seasons[0].id);
+    }
+
+    const knownEpisodeIds = new Set(formState.seasons.flatMap((season) => season.episodes.map((episode) => episode.id)));
+    setOpenEpisodeIds((current) => current.filter((id) => knownEpisodeIds.has(id)));
+  }, [activeSeasonId, formState.seasons]);
 
   async function loadEditor() {
     setIsLoading(true);
@@ -1474,6 +1496,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
               runtime_minutes: episode.runtime_minutes ?? null,
               thumbnail_url: safeTrim(episode.thumbnail_url) || null,
               backdrop_url: safeTrim(episode.backdrop_url) || null,
+              bunny_library_id: safeTrim(episode.bunny_library_id) || null,
+              bunny_video_id: safeTrim(episode.bunny_video_id) || null,
               video_url: safeTrim(episode.video_url) || null,
               trailer_url: safeTrim(episode.trailer_url) || null,
               sort_order: episode.sort_order ?? episodeIndex,
@@ -1711,6 +1735,12 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
       setIsSubmitting(false);
     }
   }
+
+  const activeSeasonIndex = Math.max(
+    0,
+    formState.seasons.findIndex((season) => season.id === activeSeasonId),
+  );
+  const activeSeason = formState.seasons[activeSeasonIndex] ?? null;
 
   if (isLoading) {
     return (
@@ -2823,15 +2853,17 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
               </div>
               <Button
                 variant="outline"
-                onClick={() =>
+                onClick={() => {
+                  const nextSeason = {
+                    ...createEmptySeason(),
+                    season_number: formState.seasons.length + 1,
+                  };
                   setFormState((current) => ({
                     ...current,
-                    seasons: prependSortable(current.seasons, {
-                      ...createEmptySeason(),
-                      season_number: current.seasons.length + 1,
-                    }),
-                  }))
-                }
+                    seasons: prependSortable(current.seasons, nextSeason),
+                  }));
+                  setActiveSeasonId(nextSeason.id);
+                }}
               >
                 <PlusIcon className="h-4 w-4" />
                 Adaugă sezon
@@ -2850,232 +2882,290 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                 </div>
               ) : null}
 
-              {formState.seasons.map((season, seasonIndex) => (
-                <Card key={season.id}>
-                  <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                    <div>
-                      <CardTitle className="text-base">
-                        {season.title?.[localeTab] || season.title?.ro || `Sezonul ${season.season_number}`}
-                      </CardTitle>
-                      <CardDescription>{season.episodes.length} episoade</CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          setFormState((current) => ({
-                            ...current,
-                            seasons: current.seasons.map((item, itemIndex) =>
-                              itemIndex === seasonIndex
-                                ? {
-                                    ...item,
-                                    episodes: prependSortable(item.episodes, {
-                                      ...createEmptyEpisode(),
-                                      episode_number: item.episodes.length + 1,
-                                    }),
-                                  }
-                                : item,
-                            ),
-                          }))
-                        }
+              {formState.seasons.length > 0 ? (
+                <div className="space-y-5">
+                  <div className="flex flex-wrap gap-2 rounded-lg border bg-muted/30 p-2">
+                    {formState.seasons.map((season) => {
+                      const isActive = season.id === activeSeason?.id;
+                      return (
+                        <button
+                          key={season.id}
+                          type="button"
+                          onClick={() => setActiveSeasonId(season.id)}
+                          className={cn(
+                            "rounded-md border px-4 py-2 text-left text-sm transition-colors",
+                            isActive
+                              ? "border-foreground bg-background text-foreground shadow-sm"
+                              : "border-transparent text-muted-foreground hover:bg-background hover:text-foreground",
+                          )}
                         >
-                          <PlusIcon className="h-4 w-4" />
-                        Adaugă episod
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setFormState((current) => ({
-                            ...current,
-                            seasons: current.seasons.filter((_, itemIndex) => itemIndex !== seasonIndex),
-                          }))
-                        }
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6 pt-6">
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      <FormField
-                        label="Număr sezon"
-                        type="number"
-                        value={season.season_number}
-                        onChange={(event) =>
-                          updateSeason(
-                            seasonIndex,
-                            "season_number",
-                            event.target.value === "" ? 1 : Number(event.target.value),
-                          )
-                        }
-                      />
-                      <FormField
-                        label={`Title (${localeTab.toUpperCase()})`}
-                        value={season.title?.[localeTab] ?? ""}
-                        onChange={(event) => updateSeasonLocalized(seasonIndex, "title", localeTab, event.target.value)}
-                      />
-                      <ImageUploadField
-                        label={`Poster sezon ${seasonIndex + 1}`}
-                        value={season.poster_url ?? ""}
-                        previewLabel="Poster sezon"
-                        aspectClassName="aspect-[2/3]"
-                        uploadDirectory="content/seasons"
-                        onChange={(value) => updateSeason(seasonIndex, "poster_url", value)}
-                      />
-                      <FormField
-                        label="Ordine de sortare"
-                        type="number"
-                        value={season.sort_order}
-                        onChange={(event) =>
-                          updateSeason(
-                            seasonIndex,
-                            "sort_order",
-                            event.target.value === "" ? 0 : Number(event.target.value),
-                          )
-                        }
-                      />
-                    </div>
-                    <FormField
-                      label={`Descriere sezon (${localeTab.toUpperCase()})`}
-                      type="textarea"
-                      rows={4}
-                      value={season.description?.[localeTab] ?? ""}
-                      onChange={(event) => updateSeasonLocalized(seasonIndex, "description", localeTab, event.target.value)}
-                    />
+                          <span className="block font-semibold">
+                            {season.title?.[localeTab] || season.title?.ro || `Sezonul ${season.season_number}`}
+                          </span>
+                          <span className="block text-xs">{season.episodes.length} episoade</span>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                    <div className="space-y-4">
-                      {season.episodes.map((episode, episodeIndex) => (
-                        <Card key={episode.id}>
-                          <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                            <CardTitle className="text-base">
-                              {episode.title?.[localeTab] || episode.title?.ro || `Episodul ${episode.episode_number}`}
-                            </CardTitle>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                setFormState((current) => ({
-                                  ...current,
-                                  seasons: current.seasons.map((item, itemIndex) =>
-                                    itemIndex === seasonIndex
-                                      ? {
-                                          ...item,
-                                          episodes: item.episodes.filter((_, currentEpisodeIndex) => currentEpisodeIndex !== episodeIndex),
+                  {activeSeason ? (
+                    <div className="rounded-lg border bg-background">
+                      <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <div className="text-base font-semibold">
+                            {activeSeason.title?.[localeTab] || activeSeason.title?.ro || `Sezonul ${activeSeason.season_number}`}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Editezi sezonul {activeSeason.season_number} din serial.
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              const nextEpisode = {
+                                ...createEmptyEpisode(),
+                                episode_number: activeSeason.episodes.length + 1,
+                              };
+                              setFormState((current) => ({
+                                ...current,
+                                seasons: current.seasons.map((item, itemIndex) =>
+                                  itemIndex === activeSeasonIndex
+                                    ? { ...item, episodes: prependSortable(item.episodes, nextEpisode) }
+                                    : item,
+                                ),
+                              }));
+                              setOpenEpisodeIds((current) => [nextEpisode.id, ...current]);
+                            }}
+                          >
+                            <PlusIcon className="h-4 w-4" />
+                            Adaugă episod
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              setFormState((current) => ({
+                                ...current,
+                                seasons: current.seasons.filter((_, itemIndex) => itemIndex !== activeSeasonIndex),
+                              }))
+                            }
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6 p-4">
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                          <FormField
+                            label="Număr sezon"
+                            type="number"
+                            value={activeSeason.season_number}
+                            onChange={(event) =>
+                              updateSeason(
+                                activeSeasonIndex,
+                                "season_number",
+                                event.target.value === "" ? 1 : Number(event.target.value),
+                              )
+                            }
+                          />
+                          <FormField
+                            label={`Titlu sezon (${localeTab.toUpperCase()})`}
+                            value={activeSeason.title?.[localeTab] ?? ""}
+                            onChange={(event) => updateSeasonLocalized(activeSeasonIndex, "title", localeTab, event.target.value)}
+                          />
+                          <ImageUploadField
+                            label={`Poster sezon ${activeSeason.season_number}`}
+                            value={activeSeason.poster_url ?? ""}
+                            previewLabel="Poster sezon"
+                            aspectClassName="aspect-[2/3]"
+                            uploadDirectory={contentMediaDirectories.episodes}
+                            onChange={(value) => updateSeason(activeSeasonIndex, "poster_url", value)}
+                          />
+                          <FormField
+                            label="Ordine de sortare"
+                            type="number"
+                            value={activeSeason.sort_order}
+                            onChange={(event) =>
+                              updateSeason(
+                                activeSeasonIndex,
+                                "sort_order",
+                                event.target.value === "" ? 0 : Number(event.target.value),
+                              )
+                            }
+                          />
+                        </div>
+                        <FormField
+                          label={`Descriere sezon (${localeTab.toUpperCase()})`}
+                          type="textarea"
+                          rows={4}
+                          value={activeSeason.description?.[localeTab] ?? ""}
+                          onChange={(event) => updateSeasonLocalized(activeSeasonIndex, "description", localeTab, event.target.value)}
+                        />
+
+                        <div className="space-y-3">
+                          {activeSeason.episodes.length === 0 ? (
+                            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                              Nu există încă episoade în acest sezon.
+                            </div>
+                          ) : null}
+
+                          {activeSeason.episodes.map((episode, episodeIndex) => {
+                            const isOpen = openEpisodeIds.includes(episode.id);
+                            return (
+                              <div key={episode.id} className="overflow-hidden rounded-lg border border-slate-300 bg-slate-50">
+                                <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setOpenEpisodeIds((current) =>
+                                        current.includes(episode.id)
+                                          ? current.filter((id) => id !== episode.id)
+                                          : [...current, episode.id],
+                                      )
+                                    }
+                                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                  >
+                                    {isOpen ? <ChevronDownIcon className="h-4 w-4 shrink-0" /> : <ChevronRightIcon className="h-4 w-4 shrink-0" />}
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-sm font-semibold">
+                                        S{activeSeason.season_number} · E{episode.episode_number} · {episode.title?.[localeTab] || episode.title?.ro || "Episod fără titlu"}
+                                      </span>
+                                      <span className="block text-xs text-muted-foreground">
+                                        Bunny: {episode.bunny_library_id && episode.bunny_video_id ? `${episode.bunny_library_id} / ${episode.bunny_video_id}` : "neconfigurat"}
+                                      </span>
+                                    </span>
+                                  </button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      setFormState((current) => ({
+                                        ...current,
+                                        seasons: current.seasons.map((item, itemIndex) =>
+                                          itemIndex === activeSeasonIndex
+                                            ? {
+                                                ...item,
+                                                episodes: item.episodes.filter((_, currentEpisodeIndex) => currentEpisodeIndex !== episodeIndex),
+                                              }
+                                            : item,
+                                        ),
+                                      }))
+                                    }
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
+                                {isOpen ? (
+                                  <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+                                    <FormField
+                                      label="Număr episod"
+                                      type="number"
+                                      value={episode.episode_number}
+                                      onChange={(event) =>
+                                        updateEpisode(
+                                          activeSeasonIndex,
+                                          episodeIndex,
+                                          "episode_number",
+                                          event.target.value === "" ? 1 : Number(event.target.value),
+                                        )
+                                      }
+                                    />
+                                    <FormField
+                                      label={`Titlu (${localeTab.toUpperCase()})`}
+                                      value={episode.title[localeTab]}
+                                      onChange={(event) =>
+                                        updateEpisodeLocalized(activeSeasonIndex, episodeIndex, "title", localeTab, event.target.value)
+                                      }
+                                    />
+                                    <FormField
+                                      label="Durată"
+                                      type="number"
+                                      value={episode.runtime_minutes ?? ""}
+                                      onChange={(event) =>
+                                        updateEpisode(
+                                          activeSeasonIndex,
+                                          episodeIndex,
+                                          "runtime_minutes",
+                                          event.target.value === "" ? null : Number(event.target.value),
+                                        )
+                                      }
+                                    />
+                                    <FormField
+                                      label="Ordine de sortare"
+                                      type="number"
+                                      value={episode.sort_order}
+                                      onChange={(event) =>
+                                        updateEpisode(
+                                          activeSeasonIndex,
+                                          episodeIndex,
+                                          "sort_order",
+                                          event.target.value === "" ? 0 : Number(event.target.value),
+                                        )
+                                      }
+                                    />
+                                    <FormField
+                                      label="Bunny Library ID"
+                                      value={episode.bunny_library_id ?? ""}
+                                      onChange={(event) => updateEpisode(activeSeasonIndex, episodeIndex, "bunny_library_id", event.target.value)}
+                                    />
+                                    <FormField
+                                      label="Bunny Movie ID"
+                                      value={episode.bunny_video_id ?? ""}
+                                      onChange={(event) => updateEpisode(activeSeasonIndex, episodeIndex, "bunny_video_id", event.target.value)}
+                                    />
+                                    <div className="md:col-span-2 xl:col-span-2">
+                                      <ImageUploadField
+                                        label={`Miniatură episod ${episode.episode_number}`}
+                                        value={episode.thumbnail_url ?? ""}
+                                        previewLabel="Miniatură"
+                                        uploadDirectory={contentMediaDirectories.episodes}
+                                        onChange={(value) =>
+                                          updateEpisode(activeSeasonIndex, episodeIndex, "thumbnail_url", value)
                                         }
-                                      : item,
-                                  ),
-                                }))
-                              }
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </Button>
-                          </CardHeader>
-                          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
-                            <FormField
-                              label="Număr episod"
-                              type="number"
-                              value={episode.episode_number}
-                              onChange={(event) =>
-                                updateEpisode(
-                                  seasonIndex,
-                                  episodeIndex,
-                                  "episode_number",
-                                  event.target.value === "" ? 1 : Number(event.target.value),
-                                )
-                              }
-                            />
-                            <FormField
-                              label="Titlu"
-                              value={episode.title[localeTab]}
-                              onChange={(event) =>
-                                updateEpisodeLocalized(seasonIndex, episodeIndex, "title", localeTab, event.target.value)
-                              }
-                            />
-                            <FormField
-                              label="Durată"
-                              type="number"
-                              value={episode.runtime_minutes ?? ""}
-                              onChange={(event) =>
-                                updateEpisode(
-                                  seasonIndex,
-                                  episodeIndex,
-                                  "runtime_minutes",
-                                  event.target.value === "" ? null : Number(event.target.value),
-                                )
-                              }
-                            />
-                            <div className="md:col-span-2 xl:col-span-2">
-                              <ImageUploadField
-                                label={`Miniatură episod ${episodeIndex + 1}`}
-                                value={episode.thumbnail_url ?? ""}
-                                previewLabel="Miniatură"
-                                uploadDirectory={contentMediaDirectories.episodes}
-                                onChange={(value) =>
-                                  updateEpisode(seasonIndex, episodeIndex, "thumbnail_url", value)
-                                }
-                              />
-                            </div>
-                            <div className="md:col-span-2 xl:col-span-2">
-                              <ImageUploadField
-                                label={`Backdrop episod ${episodeIndex + 1}`}
-                                value={episode.backdrop_url ?? ""}
-                                previewLabel="Backdrop"
-                                uploadDirectory={contentMediaDirectories.episodes}
-                                onChange={(value) =>
-                                  updateEpisode(seasonIndex, episodeIndex, "backdrop_url", value)
-                                }
-                              />
-                            </div>
-                            <FormField
-                              label="URL video episod"
-                              value={episode.video_url ?? ""}
-                              onChange={(event) => updateEpisode(seasonIndex, episodeIndex, "video_url", event.target.value)}
-                            />
-                            <FormField
-                              label="URL trailer episod"
-                              value={episode.trailer_url ?? ""}
-                              onChange={(event) =>
-                                updateEpisode(seasonIndex, episodeIndex, "trailer_url", event.target.value)
-                              }
-                            />
-                            <FormField
-                              label="Ordine de sortare"
-                              type="number"
-                              value={episode.sort_order}
-                              onChange={(event) =>
-                                updateEpisode(
-                                  seasonIndex,
-                                  episodeIndex,
-                                  "sort_order",
-                                  event.target.value === "" ? 0 : Number(event.target.value),
-                                )
-                              }
-                            />
-                            <div className="md:col-span-2 xl:col-span-4">
-                              <FormField
-                                label={`Descriere episod (${localeTab.toUpperCase()})`}
-                                type="textarea"
-                                rows={3}
-                                value={episode.description?.[localeTab] ?? ""}
-                                onChange={(event) =>
-                                  updateEpisodeLocalized(
-                                    seasonIndex,
-                                    episodeIndex,
-                                    "description",
-                                    localeTab,
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                                      />
+                                    </div>
+                                    <div className="md:col-span-2 xl:col-span-2">
+                                      <ImageUploadField
+                                        label={`Backdrop episod ${episode.episode_number}`}
+                                        value={episode.backdrop_url ?? ""}
+                                        previewLabel="Backdrop"
+                                        uploadDirectory={contentMediaDirectories.episodes}
+                                        onChange={(value) =>
+                                          updateEpisode(activeSeasonIndex, episodeIndex, "backdrop_url", value)
+                                        }
+                                      />
+                                    </div>
+                                    <div className="md:col-span-2 xl:col-span-4">
+                                      <FormField
+                                        label={`Descriere episod (${localeTab.toUpperCase()})`}
+                                        type="textarea"
+                                        rows={3}
+                                        value={episode.description?.[localeTab] ?? ""}
+                                        onChange={(event) =>
+                                          updateEpisodeLocalized(
+                                            activeSeasonIndex,
+                                            episodeIndex,
+                                            "description",
+                                            localeTab,
+                                            event.target.value,
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  ) : null}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
