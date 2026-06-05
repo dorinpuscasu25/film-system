@@ -5,6 +5,7 @@ import {
   ArrowLeftIcon,
   CaptionsIcon,
   CheckIcon,
+  ListVideoIcon,
   Loader2Icon,
   MaximizeIcon,
   MinimizeIcon,
@@ -194,15 +195,26 @@ export function VideoPlayer({
   const [selectedText, setSelectedText] = useState<'off' | number>('off');
   const [settingsPanel, setSettingsPanel] = useState<'quality' | 'speed' | 'subtitles' | null>(null);
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(null);
+  const [isEpisodeRailOpen, setIsEpisodeRailOpen] = useState(false);
   const resolvedEmbedUrl = resolveEmbedUrl(sourceUrl, embedUrl);
   const shouldUseExternalEmbed = Boolean(resolvedEmbedUrl && !isDirectMediaUrl(sourceUrl));
-  const hasEpisodes = seasonsData.length > 0 && seasonsData.some((season) => season.episodes.length > 0);
-  const activeEpisode = seasonsData.flatMap((season) => season.episodes).find((episode) => episode.id === currentEpisodeId) ?? null;
+  const sortedSeasonsData = useMemo(
+    () =>
+      seasonsData
+        .map((season) => ({
+          ...season,
+          episodes: [...season.episodes].sort((left, right) => left.episodeNumber - right.episodeNumber),
+        }))
+        .sort((left, right) => left.seasonNumber - right.seasonNumber),
+    [seasonsData],
+  );
+  const hasEpisodes = sortedSeasonsData.length > 0 && sortedSeasonsData.some((season) => season.episodes.length > 0);
+  const activeEpisode = sortedSeasonsData.flatMap((season) => season.episodes).find((episode) => episode.id === currentEpisodeId) ?? null;
   const activeSeasonNumber = activeEpisode
-    ? seasonsData.find((season) => season.episodes.some((episode) => episode.id === activeEpisode.id))?.seasonNumber
-    : seasonsData[0]?.seasonNumber ?? null;
-  const selectedSeason = seasonsData.find((season) => season.seasonNumber === (selectedSeasonNumber ?? activeSeasonNumber))
-    ?? seasonsData[0]
+    ? sortedSeasonsData.find((season) => season.episodes.some((episode) => episode.id === activeEpisode.id))?.seasonNumber
+    : sortedSeasonsData[0]?.seasonNumber ?? null;
+  const selectedSeason = sortedSeasonsData.find((season) => season.seasonNumber === (selectedSeasonNumber ?? activeSeasonNumber))
+    ?? sortedSeasonsData[0]
     ?? null;
 
   useEffect(() => {
@@ -527,10 +539,10 @@ export function VideoPlayer({
     void video.requestPictureInPicture();
   };
 
-  const episodeRail = hasEpisodes && selectedSeason ? (
-    <div className="pointer-events-auto mb-4 rounded-2xl border border-white/10 bg-black/70 p-3 text-white shadow-2xl backdrop-blur-md">
+  const episodeRail = hasEpisodes && selectedSeason && isEpisodeRailOpen ? (
+    <div className="pointer-events-auto mb-3 max-h-[34vh] overflow-hidden rounded-2xl border border-white/10 bg-black/80 p-3 text-white shadow-2xl backdrop-blur-md">
       <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-        {seasonsData.map((season) => (
+        {sortedSeasonsData.map((season) => (
           <button
             key={season.id}
             type="button"
@@ -582,6 +594,19 @@ export function VideoPlayer({
     </div>
   ) : null;
 
+  const episodeToggle = hasEpisodes ? (
+    <button
+      type="button"
+      onClick={() => setIsEpisodeRailOpen((current) => !current)}
+      className={`rounded-full p-2 transition ${
+        isEpisodeRailOpen ? 'bg-white text-black hover:bg-white/90' : 'text-white hover:bg-white/10'
+      }`}
+      title={t('movie.episodes')}
+    >
+      <ListVideoIcon className="h-5 w-5" />
+    </button>
+  ) : null;
+
   if (shouldUseExternalEmbed && resolvedEmbedUrl) {
     return (
       <div ref={containerRef} className="relative h-screen w-full overflow-hidden bg-black">
@@ -605,7 +630,8 @@ export function VideoPlayer({
             </div>
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-4 sm:p-6">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-4 sm:p-6">
+          <div className="pointer-events-auto mb-3 flex justify-end">{episodeToggle}</div>
           {episodeRail}
         </div>
       </div>
@@ -805,6 +831,8 @@ export function VideoPlayer({
                 </div>
               ) : null}
             </div>
+
+            {episodeToggle}
 
             <button onClick={enterPictureInPicture} className="hidden rounded-full p-2 transition hover:bg-white/10 sm:block" title={t('player.picture_in_picture')}>
               <PictureInPicture2Icon className="h-5 w-5" />

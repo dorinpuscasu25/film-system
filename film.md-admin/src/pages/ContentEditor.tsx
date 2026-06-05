@@ -703,11 +703,13 @@ function mapContentToForm(content: AdminContent): ContentFormState {
       title: ensureLocalizedText(video.title),
       description: ensureLocalizedText(video.description),
     })),
-    seasons: (content.seasons ?? []).map((season) => ({
+    seasons: (content.seasons ?? [])
+      .sort((left, right) => left.season_number - right.season_number)
+      .map((season) => ({
       ...season,
       title: season.title ? ensureLocalizedText(season.title) : createEmptyLocalizedText(),
       description: season.description ? ensureLocalizedText(season.description) : createEmptyLocalizedText(),
-      episodes: season.episodes.map((episode) => ({
+      episodes: [...season.episodes].sort((left, right) => left.episode_number - right.episode_number).map((episode) => ({
         ...episode,
         title: ensureLocalizedText(episode.title),
         description: episode.description ? ensureLocalizedText(episode.description) : createEmptyLocalizedText(),
@@ -981,16 +983,20 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
     return [item, ...items];
   }
 
-  function prependSortable<T extends { sort_order?: number | "" }>(items: T[], item: T) {
-    return normalizeSortableList([
-      { ...item, sort_order: 0 } as T,
+function prependSortable<T extends { sort_order?: number | "" }>(items: T[], item: T) {
+  return normalizeSortableList([
+    { ...item, sort_order: 0 } as T,
       ...items.map((entry) =>
         typeof entry.sort_order === "number"
           ? ({ ...entry, sort_order: entry.sort_order + 1 } as T)
           : entry,
-      ),
-    ]);
-  }
+    ),
+  ]);
+}
+
+function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item: T) {
+  return normalizeSortableList([...items, { ...item, sort_order: items.length } as T]);
+}
 
   function toggleTaxonomy(id: number) {
     setFormState((current) => ({
@@ -2860,7 +2866,7 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                   };
                   setFormState((current) => ({
                     ...current,
-                    seasons: prependSortable(current.seasons, nextSeason),
+                    seasons: appendSortable(current.seasons, nextSeason),
                   }));
                   setActiveSeasonId(nextSeason.id);
                 }}
@@ -2931,11 +2937,11 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
                                 ...current,
                                 seasons: current.seasons.map((item, itemIndex) =>
                                   itemIndex === activeSeasonIndex
-                                    ? { ...item, episodes: prependSortable(item.episodes, nextEpisode) }
+                                    ? { ...item, episodes: appendSortable(item.episodes, nextEpisode) }
                                     : item,
                                 ),
                               }));
-                              setOpenEpisodeIds((current) => [nextEpisode.id, ...current]);
+                              setOpenEpisodeIds((current) => [...current, nextEpisode.id]);
                             }}
                           >
                             <PlusIcon className="h-4 w-4" />

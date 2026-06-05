@@ -254,7 +254,9 @@ class ApiController extends Controller
         $primaryVideo = $videos->firstWhere('is_primary', true)
             ?? $videos->firstWhere('type', 'trailer')
             ?? $videos->first();
-        $seasonRecords = collect($content->seasons ?? [])->sortBy('sort_order')->values();
+        $seasonRecords = collect($content->seasons ?? [])
+            ->sortBy(fn (array $season): int => (int) data_get($season, 'season_number', data_get($season, 'sort_order', 0)))
+            ->values();
         $activeOffers = $offers
             ->filter(fn (Offer $offer): bool => $offer->isCurrentlyAvailable())
             ->values();
@@ -309,7 +311,7 @@ class ApiController extends Controller
                     'poster_url' => data_get($season, 'poster_url'),
                     'sort_order' => (int) data_get($season, 'sort_order', 0),
                     'episodes' => collect(data_get($season, 'episodes', []))
-                        ->sortBy('sort_order')
+                        ->sortBy(fn (array $episode): int => (int) data_get($episode, 'episode_number', data_get($episode, 'sort_order', 0)))
                         ->values()
                         ->map(function (array $episode) use ($defaultLocale, $resolvedLocale, $seasonNumber) {
                             $title = data_get($episode, 'title');

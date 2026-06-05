@@ -461,13 +461,13 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
     typeLabel: item.type_label,
     seasons: item.seasons_count ?? item.seasons?.length ?? 0,
     episodes: item.episodes_count ?? item.seasons?.reduce((sum, season) => sum + (season.episodes?.length ?? 0), 0) ?? 0,
-    seasonsData: (item.seasons ?? []).map((season) => ({
+    seasonsData: [...(item.seasons ?? [])].sort((left, right) => left.season_number - right.season_number).map((season) => ({
       id: season.id,
       seasonNumber: season.season_number,
       title: season.title ?? undefined,
       description: season.description ?? undefined,
       posterUrl: season.poster_url ?? undefined,
-      episodes: (season.episodes ?? []).map((episode) => ({
+      episodes: [...(season.episodes ?? [])].sort((left, right) => left.episode_number - right.episode_number).map((episode) => ({
         id: episode.id,
         episodeNumber: episode.episode_number,
         title: episode.title,

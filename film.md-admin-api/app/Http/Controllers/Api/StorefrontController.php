@@ -335,13 +335,15 @@ class StorefrontController extends ApiController
 
         $seriesEpisode = null;
         if ($content->type === Content::TYPE_SERIES) {
-            $seasonRecords = collect($content->seasons ?? [])->sortBy('sort_order')->values();
+            $seasonRecords = collect($content->seasons ?? [])
+                ->sortBy(fn (array $season): int => (int) data_get($season, 'season_number', data_get($season, 'sort_order', 0)))
+                ->values();
             $seriesEpisode = $seasonRecords
                 ->flatMap(function (array $season): array {
                     $seasonNumber = (int) data_get($season, 'season_number', 1);
 
                     return collect(data_get($season, 'episodes', []))
-                        ->sortBy('sort_order')
+                        ->sortBy(fn (array $episode): int => (int) data_get($episode, 'episode_number', data_get($episode, 'sort_order', 0)))
                         ->map(fn (array $episode): array => [
                             ...$episode,
                             'id' => (string) (data_get($episode, 'id') ?: "season-{$seasonNumber}-episode-".((int) data_get($episode, 'episode_number', 1))),
