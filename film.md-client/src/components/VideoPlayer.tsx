@@ -598,12 +598,16 @@ export function VideoPlayer({
     <button
       type="button"
       onClick={() => setIsEpisodeRailOpen((current) => !current)}
-      className={`rounded-full p-2 transition ${
-        isEpisodeRailOpen ? 'bg-white text-black hover:bg-white/90' : 'text-white hover:bg-white/10'
+      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur-md transition sm:px-5 sm:py-2.5 ${
+        isEpisodeRailOpen
+          ? 'border-white bg-white text-black hover:bg-white/90'
+          : 'border-white/20 bg-black/55 text-white hover:border-white/40 hover:bg-white/10'
       }`}
       title={t('movie.episodes')}
     >
       <ListVideoIcon className="h-5 w-5" />
+      <span>{t('movie.episodes')}</span>
+      <span className={`h-2 w-2 rounded-full ${isEpisodeRailOpen ? 'bg-accent' : 'bg-white/45'}`} />
     </button>
   ) : null;
 

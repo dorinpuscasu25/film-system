@@ -14,6 +14,11 @@ return [
     |
     */
 
+    'frontend' => [
+        // Public storefront SPA — used to build device-pairing verification links.
+        'client_url' => env('CLIENT_FRONTEND_URL', 'http://localhost:5173'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

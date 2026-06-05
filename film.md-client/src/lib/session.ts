@@ -367,6 +367,33 @@ export async function fetchPublicPlatformSettings(locale?: string) {
   return requestJson<PublicPlatformSettingsPayload>("/public/settings", {}, { locale });
 }
 
+export interface DevicePairingLookupPayload {
+  user_code: string;
+  device_name?: string | null;
+  expires_at?: string | null;
+}
+
+export async function lookupDevicePairing(userCode: string) {
+  return requestJson<DevicePairingLookupPayload>(
+    `/device/${encodeURIComponent(userCode)}`,
+    {},
+    undefined,
+    true,
+  );
+}
+
+export async function authorizeDevicePairing(userCode: string, action: "approve" | "deny" = "approve") {
+  return requestJson<{ message: string }>(
+    "/device/authorize",
+    {
+      method: "POST",
+      body: JSON.stringify({ user_code: userCode, action }),
+    },
+    undefined,
+    true,
+  );
+}
+
 export async function registerWithPassword(payload: {
   name: string;
   email: string;

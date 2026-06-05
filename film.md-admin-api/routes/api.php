@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\Admin\WatchPartyController;
 use App\Http\Controllers\Api\AdsController;
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\Auth\DeviceAuthController;
 use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\BunnyWebhookController;
 use App\Http\Controllers\Api\ContentReviewController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Api\PublicPlatformSettingsController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StorefrontController;
 use App\Http\Controllers\Api\StorefrontCouponController;
+use App\Http\Controllers\Api\StorefrontDeviceController;
 use App\Http\Controllers\Api\StorefrontParentalController;
 use App\Http\Controllers\Api\StorefrontProfileController;
 use App\Http\Controllers\Api\StorefrontTrackingController;
@@ -57,6 +59,10 @@ use Illuminate\Support\Facades\Route;
             Route::post('register/resend', [AuthController::class, 'resendRegistrationCode']);
             Route::post('login', [AuthController::class, 'login']);
             Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+
+            // Device pairing (TV "log in with a code", RFC 8628)
+            Route::post('device/code', [DeviceAuthController::class, 'requestCode'])->middleware('throttle:30,1');
+            Route::post('device/token', [DeviceAuthController::class, 'pollToken'])->middleware('throttle:240,1');
         });
 
     Route::prefix('invites')->group(function (): void {
@@ -102,6 +108,10 @@ use Illuminate\Support\Facades\Route;
             Route::put('profile', [SettingsController::class, 'updateProfile']);
             Route::put('password', [SettingsController::class, 'updatePassword']);
         });
+
+        // Device pairing — the logged-in user approves a TV code from their phone/PC.
+        Route::get('device/{userCode}', [StorefrontDeviceController::class, 'show']);
+        Route::post('device/authorize', [StorefrontDeviceController::class, 'authorize'])->middleware('throttle:30,1');
 
         Route::prefix('storefront')->middleware('permission:storefront.access')->group(function (): void {
             Route::get('account', [StorefrontController::class, 'account']);
