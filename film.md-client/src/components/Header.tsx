@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { HeartIcon, SearchIcon, WalletIcon, MenuIcon, XIcon } from 'lucide-react';
+import { HeartIcon, SearchIcon, WalletIcon, MenuIcon, XIcon, TvIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -253,8 +253,15 @@ export function Header() {
                     to="/profiles"
                     onClick={() => setShowProfileMenu(false)}
                     className="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5">
-                    
+
                           {t('profiles.manage')}
+                        </Link>
+                        <Link
+                    to="/tv"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5">
+                          <TvIcon className="h-4 w-4" />
+                          Conectează TV
                         </Link>
                         <button
                     onClick={() => {

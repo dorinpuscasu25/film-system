@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://filmmd-api.veezify.com/api/v1";
 const AUTH_TOKEN_STORAGE_KEY = "film_auth_token";
 
 export interface SessionProfilePayload {

@@ -1,6 +1,6 @@
 import { Movie, Offer } from "../types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://filmmd-api.veezify.com/api/v1";
 const DEFAULT_PAGE_SIZE = 100;
 
 type LocaleCode = "en" | "ro" | "ru";

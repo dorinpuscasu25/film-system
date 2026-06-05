@@ -2,7 +2,7 @@
  * Bootstraps Google Analytics 4 if a measurement ID is configured in the
  * platform_settings (caiet de sarcini §8). Loaded lazily after first paint.
  */
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1') as string;
+const API_BASE = (import.meta.env.VITE_API_URL ?? 'https://filmmd-api.veezify.com/api/v1') as string;
 
 declare global {
   interface Window {

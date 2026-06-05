@@ -22,7 +22,7 @@ interface ChatMessage {
   sent_at: string | null;
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1') as string;
+const API_BASE = (import.meta.env.VITE_API_URL ?? 'https://filmmd-api.veezify.com/api/v1') as string;
 
 export function WatchPartyPage() {
   const { t } = useTranslation();

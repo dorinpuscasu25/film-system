@@ -130,6 +130,8 @@ class ApiController extends Controller
             'avatar_color' => $profile->avatar_color,
             'is_kids' => $profile->is_kids,
             'is_default' => $profile->is_default,
+            'has_pin' => $profile->hasPin(),
+            'max_age_rating' => $profile->max_age_rating,
             'sort_order' => $profile->sort_order,
             'favorite_slugs' => $profile->relationLoaded('favorites')
                 ? $profile->favorites->pluck('slug')->values()
