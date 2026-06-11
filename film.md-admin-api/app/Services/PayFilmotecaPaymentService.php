@@ -77,7 +77,7 @@ class PayFilmotecaPaymentService
             'currency' => $currency,
             'total' => number_format($amount, 2, '.', ''),
             'description' => $description,
-            'name' => $user->name ?: $user->email,
+            'name' => $this->resolveProviderCustomerName($user),
             'email' => $user->email,
             'phone' => $phone,
             'client_ip_addr' => $this->resolveClientIp($request),
@@ -1608,6 +1608,13 @@ class PayFilmotecaPaymentService
     protected function normalizeProviderStatus(string $status): string
     {
         return strtolower(trim($status));
+    }
+
+    protected function resolveProviderCustomerName(User $user): string
+    {
+        $name = trim((string) $user->name);
+
+        return $name !== '' ? $name : (string) $user->email;
     }
 
     protected function normalizeLocale(string $locale): string
