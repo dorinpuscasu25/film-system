@@ -16,7 +16,7 @@ export function PlayerPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isAuthenticated, openAuthModal, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, openAuthModal, isLoading: isAuthLoading, activeProfile } = useAuth();
   const { currentLanguage, t } = useLanguage();
   const [movie, setMovie] = useState<Movie | null>(null);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
@@ -72,6 +72,7 @@ export function PlayerPage() {
           fetchStorefrontPlayback(id, {
             locale: currentLanguage.code,
             episodeId,
+            accountProfileId: activeProfile?.id ?? null,
           }),
         ]);
 
@@ -98,6 +99,7 @@ export function PlayerPage() {
         if (!playback.playback.session_token) {
           const session = await startStorefrontPlaybackSession(id, {
             content_format_id: playback.playback.content_format_id ?? null,
+            account_profile_id: activeProfile?.id ?? null,
             device_type: window.innerWidth > window.innerHeight ? "landscape" : "portrait",
             country_code: playback.playback.country_code ?? null,
           });
@@ -144,7 +146,7 @@ export function PlayerPage() {
     return () => {
       active = false;
     };
-  }, [currentLanguage.code, episodeId, id, isAuthenticated, isAuthLoading, navigate, openAuthModal]);
+  }, [activeProfile?.id, currentLanguage.code, episodeId, id, isAuthenticated, isAuthLoading, navigate, openAuthModal, t]);
 
   if (isLoading || isAuthLoading) {
     return <div className="min-h-screen bg-black" />;

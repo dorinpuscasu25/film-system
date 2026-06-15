@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { HeartIcon, SearchIcon, WalletIcon, MenuIcon, XIcon, TvIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -94,10 +94,10 @@ function MobileMenuNode({ item, depth = 0, onClick }: { item: MenuNode; depth?: 
       <MenuLink
         item={item}
         onClick={onClick}
-        className="block text-white font-medium"
+        className="block rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
       />
       {item.children.map((child) => (
-        <div key={child.id} style={{ paddingLeft: `${(depth + 1) * 16}px` }}>
+        <div key={child.id} style={{ paddingLeft: `${(depth + 1) * 12}px` }}>
           <MobileMenuNode item={child} depth={depth + 1} onClick={onClick} />
         </div>
       ))}
@@ -116,6 +116,7 @@ export function Header() {
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [menuItems, setMenuItems] = useState<MenuNode[]>([]);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -135,12 +136,44 @@ export function Header() {
 
     void loadMenu();
   }, [currentLanguage.code]);
+
+  useEffect(() => {
+    if (!showProfileMenu) {
+      return;
+    }
+
+    const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showProfileMenu]);
+
+  useEffect(() => {
+    setShowProfileMenu(false);
+  }, [location.pathname]);
+
   // Don't show header on player page
   if (location.pathname.startsWith('/watch')) return null;
   return (
     <>
       <header
-        className={`fixed top-0 w-full z-40 transition-all duration-300 ${isScrolled ? 'bg-background/95 backdrop-blur-md shadow-lg py-3' : 'bg-gradient-to-b from-black/80 to-transparent py-5'}`}>
+        className={`fixed top-0 w-full z-40 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'bg-background/95 backdrop-blur-md shadow-lg py-3' : 'bg-gradient-to-b from-black/80 to-transparent py-5'}`}>
         
         <div className="container mx-auto px-4 md:px-8 flex items-center justify-between">
           {/* Logo & Desktop Nav */}
@@ -220,7 +253,7 @@ export function Header() {
 
                 {/* Profile Dropdown */}
                 {activeProfile &&
-              <div className="relative">
+              <div ref={profileMenuRef} className="relative">
                     <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
                   className="flex items-center space-x-2">
@@ -233,7 +266,7 @@ export function Header() {
                     </button>
 
                     {showProfileMenu &&
-                <div className="absolute right-0 mt-4 w-48 glass-panel rounded-xl py-2 shadow-2xl border border-white/10">
+                <div className="absolute right-0 mt-4 w-56 rounded-xl border border-white/10 bg-surface/95 py-2 shadow-2xl shadow-black/40 backdrop-blur-xl">
                         <div className="px-4 py-2 border-b border-white/10 mb-2">
                           <p className="text-sm text-white font-medium">
                             {activeProfile.name}
@@ -303,30 +336,53 @@ export function Header() {
 
         {/* Mobile Menu — always available */}
         {isMobileMenuOpen &&
-        <div className="md:hidden absolute top-full left-0 w-full bg-surface border-b border-white/10 py-4 px-4 shadow-xl">
-            <nav className="flex flex-col space-y-4">
+        <div className="absolute left-0 top-full max-h-[calc(100vh-72px)] w-full overflow-y-auto border-b border-white/10 bg-background px-4 pb-5 pt-3 shadow-2xl shadow-black/60 backdrop-blur-xl md:hidden">
+            <nav className="flex flex-col gap-1">
               {menuItems.length > 0 ? (
                 menuItems.map((item) => (
                   <MobileMenuNode key={item.id} item={item} onClick={() => setIsMobileMenuOpen(false)} />
                 ))
               ) : (
                 <>
-                  <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-white font-medium">
+                  <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
                     {t('nav.home')}
                   </Link>
-                  <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="text-white font-medium">
+                  <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
                     {t('nav.movies_series')}
                   </Link>
                 </>
               )}
+              <div className="my-2 border-t border-white/10 pt-3">
+                <p className="px-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('header.language')}</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {languages.map((lang) => (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => {
+                        setLanguage(lang.code);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`rounded-lg border px-3 py-2 text-sm font-bold transition ${
+                        currentLanguage.code === lang.code
+                          ? 'border-white bg-white text-background'
+                          : 'border-white/10 bg-white/5 text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {lang.code.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {isAuthenticated ?
             <>
+                <div className="my-2 border-t border-white/10" />
                 <button
                   onClick={() => {
                     setIsWalletModalOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="flex items-center space-x-2 text-accentGreen font-medium">
+                  className="flex items-center gap-2 rounded-lg px-3 py-3 text-sm font-semibold text-accentGreen transition hover:bg-white/10">
                 
                     <WalletIcon className="w-5 h-5" />
                     <span>{t('wallet.title')}: {currency} {balance.toFixed(2)}</span>
@@ -336,7 +392,7 @@ export function Header() {
                     navigate('/dashboard?tab=favorites');
                     setIsMobileMenuOpen(false);
                   }}
-                  className="flex items-center space-x-2 text-white font-medium">
+                  className="flex items-center gap-2 rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
                   <HeartIcon className="w-5 h-5 text-accent" />
                   <span>{t('dashboard.favorites')}</span>
                 </button>
@@ -347,7 +403,7 @@ export function Header() {
                 openAuthModal();
                 setIsMobileMenuOpen(false);
               }}
-              className="text-accent font-medium text-left">
+              className="rounded-lg px-3 py-3 text-left text-sm font-semibold text-accent transition hover:bg-white/10">
               
                   {t('auth.login_register')}
                 </button>

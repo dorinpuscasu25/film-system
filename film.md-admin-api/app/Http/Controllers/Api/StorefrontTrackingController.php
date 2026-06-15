@@ -7,6 +7,7 @@ use App\Models\Content;
 use App\Models\PlaybackSession;
 use App\Models\WatchProgress;
 use App\Services\IpGeoLocationService;
+use App\Services\ParentalControlService;
 use App\Services\PlaybackAccessService;
 use App\Services\RecommendationService;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class StorefrontTrackingController extends ApiController
         protected RecommendationService $recommendations,
         protected IpGeoLocationService $geoLocation,
         protected PlaybackAccessService $playbackAccess,
+        protected ParentalControlService $parentalControls,
     ) {}
 
     public function startPlaybackSession(Request $request, string $identifier): JsonResponse
@@ -32,6 +34,21 @@ class StorefrontTrackingController extends ApiController
         $userId = $request->user()?->id;
         $profileId = $request->integer('account_profile_id') ?: null;
         $formatId = $request->integer('content_format_id') ?: null;
+
+        if ($request->user() !== null && $profileId !== null) {
+            $profile = $request->user()->profiles()->whereKey($profileId)->first();
+            if ($profile === null) {
+                return response()->json([
+                    'message' => 'The requested profile was not found.',
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if (! $this->parentalControls->canAccessContent($profile, $content)) {
+                return response()->json([
+                    'message' => 'Acest conținut depășește limita de vârstă permisă pentru profilul copil.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
 
         // Geo-restriction: block playback session creation if the user's country
         // has no rights window for this content.

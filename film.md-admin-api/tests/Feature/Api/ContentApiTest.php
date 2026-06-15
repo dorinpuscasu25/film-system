@@ -44,6 +44,17 @@ class ContentApiTest extends TestCase
             ->assertJsonPath('filters.types.0.value', Content::TYPE_MOVIE);
     }
 
+    public function test_admin_content_search_matches_metadata_beyond_title(): void
+    {
+        foreach (['tanc abandonat', 'Ion Vutcărău', 'Moldova', 'family-night'] as $term) {
+            $response = $this->getJson('/api/v1/admin/content?search='.urlencode($term), [
+                'Authorization' => 'Bearer '.$this->token,
+            ])->assertOk();
+
+            $this->assertContains('carbon', collect($response->json('items'))->pluck('slug')->all(), "Term {$term} should find Carbon.");
+        }
+    }
+
     public function test_admin_role_can_list_all_content_even_with_scoped_role(): void
     {
         $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();

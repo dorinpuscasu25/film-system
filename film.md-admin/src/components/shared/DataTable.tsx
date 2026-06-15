@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowUpDownIcon,
   ChevronLeftIcon,
@@ -21,6 +21,9 @@ interface DataTableProps<T> {
   data: T[];
   columns: Column<T>[];
   searchPlaceholder?: string;
+  searchTerm?: string;
+  onSearchTermChange?: (term: string) => void;
+  disableLocalSearch?: boolean;
   onRowClick?: (item: T) => void;
   actions?: React.ReactNode;
   keyExtractor: (item: T) => string;
@@ -30,22 +33,26 @@ export function DataTable<T>({
   data,
   columns,
   searchPlaceholder = "Caută...",
+  searchTerm,
+  onSearchTermChange,
+  disableLocalSearch = false,
   onRowClick,
   actions,
   keyExtractor,
 }: DataTableProps<T>) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [internalSearchTerm, setInternalSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const itemsPerPage = 10;
+  const resolvedSearchTerm = searchTerm ?? internalSearchTerm;
 
-  const filteredData = data.filter((item: any) => {
-    if (!searchTerm) {
+  const filteredData = disableLocalSearch ? data : data.filter((item: any) => {
+    if (!resolvedSearchTerm) {
       return true;
     }
 
     return Object.values(item).some((val) =>
-      String(val).toLowerCase().includes(searchTerm.toLowerCase()),
+      String(val).toLowerCase().includes(resolvedSearchTerm.toLowerCase()),
     );
   });
 
@@ -54,6 +61,10 @@ export function DataTable<T>({
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data, resolvedSearchTerm]);
 
   function toggleAll() {
     if (selectedRows.size === paginatedData.length) {
@@ -82,9 +93,14 @@ export function DataTable<T>({
           <Input
             className="pl-9"
             placeholder={searchPlaceholder}
-            value={searchTerm}
+            value={resolvedSearchTerm}
             onChange={(event) => {
-              setSearchTerm(event.target.value);
+              const nextSearchTerm = event.target.value;
+              if (onSearchTermChange) {
+                onSearchTermChange(nextSearchTerm);
+              } else {
+                setInternalSearchTerm(nextSearchTerm);
+              }
               setCurrentPage(1);
             }}
           />

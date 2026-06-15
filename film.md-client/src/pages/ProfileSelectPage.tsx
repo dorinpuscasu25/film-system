@@ -41,6 +41,7 @@ export function ProfileSelectPage() {
     () => [...(user?.profiles ?? [])].sort((left, right) => Number(right.isDefault) - Number(left.isDefault)),
     [user?.profiles],
   );
+  const visibleProfiles = useMemo(() => sortedProfiles.slice(0, 3), [sortedProfiles]);
 
   const resetEditor = () => {
     setEditingProfile(null);
@@ -173,7 +174,7 @@ export function ProfileSelectPage() {
         animate="show"
         className="flex max-w-4xl flex-wrap justify-center gap-8 md:gap-12"
       >
-        {sortedProfiles.map((profile) => (
+        {visibleProfiles.map((profile) => (
           <motion.div key={profile.id} variants={itemVariants} className="group relative flex w-32 flex-col items-center">
             <div className={`relative ${isManaging ? "cursor-pointer hover:opacity-90" : ""}`}>
               <ProfileAvatar profile={profile} size="xl" onClick={() => handleSelect(profile.id)} />
@@ -205,7 +206,7 @@ export function ProfileSelectPage() {
           </motion.div>
         ))}
 
-        {user.profiles.length < 5 && (
+        {visibleProfiles.length < 3 && (
           <motion.div variants={itemVariants} className="flex flex-col items-center">
             <button
               onClick={openCreateModal}

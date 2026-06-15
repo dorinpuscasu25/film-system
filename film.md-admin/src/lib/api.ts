@@ -350,8 +350,11 @@ export const adminApi = {
     });
   },
 
-  getContentIndex() {
-    return request<{ items: AdminContent[]; filters: AdminContentFilters }>("GET", "/admin/content");
+  getContentIndex(search?: string) {
+    const query = search?.trim();
+    const path = query ? `/admin/content?search=${encodeURIComponent(query)}` : "/admin/content";
+
+    return request<{ items: AdminContent[]; filters: AdminContentFilters }>("GET", path);
   },
 
   getPages() {

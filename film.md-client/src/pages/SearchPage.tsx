@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { ChevronDownIcon, FilterIcon, SearchIcon } from "lucide-react";
 import { MovieCard } from "../components/MovieCard";
 import { useLanguage } from "../contexts/LanguageContext";
-import { CatalogFilters, getCatalogPage } from "../lib/storefront";
+import { CatalogFilterOption, CatalogFilters, getCatalogPage } from "../lib/storefront";
 import { Movie } from "../types";
 
 const EMPTY_FILTERS: CatalogFilters = {
@@ -13,6 +13,13 @@ const EMPTY_FILTERS: CatalogFilters = {
   types: [],
   access: [],
 };
+
+interface FilterOptionState {
+  filters: CatalogFilters;
+  genresScope: string;
+  yearsScope: string;
+  countriesScope: string;
+}
 
 export function SearchPage() {
   const { currentLanguage, t } = useLanguage();
@@ -25,12 +32,60 @@ export function SearchPage() {
   const [selectedPrice, setSelectedPrice] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<number>(0);
   const [results, setResults] = useState<Movie[]>([]);
-  const [filters, setFilters] = useState<CatalogFilters>(EMPTY_FILTERS);
+  const [filterOptions, setFilterOptions] = useState<FilterOptionState>({
+    filters: EMPTY_FILTERS,
+    genresScope: "",
+    yearsScope: "",
+    countriesScope: "",
+  });
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
+  const normalizedQuery = deferredQuery.trim();
+  const normalizedType = selectedType === "movie" || selectedType === "series" ? selectedType : null;
+  const normalizedAccess = selectedPrice === "free" || selectedPrice === "paid" ? selectedPrice : null;
+  const normalizedMinRating = minRating > 0 ? minRating : 0;
+  const genresScope = useMemo(
+    () =>
+      JSON.stringify({
+        locale: currentLanguage.code,
+        query: normalizedQuery,
+        type: normalizedType,
+        country: selectedCountry,
+        access: normalizedAccess,
+        year: selectedYear,
+        minRating: normalizedMinRating,
+      }),
+    [currentLanguage.code, normalizedAccess, normalizedMinRating, normalizedQuery, normalizedType, selectedCountry, selectedYear],
+  );
+  const yearsScope = useMemo(
+    () =>
+      JSON.stringify({
+        locale: currentLanguage.code,
+        query: normalizedQuery,
+        type: normalizedType,
+        genre: selectedGenre,
+        country: selectedCountry,
+        access: normalizedAccess,
+        minRating: normalizedMinRating,
+      }),
+    [currentLanguage.code, normalizedAccess, normalizedMinRating, normalizedQuery, normalizedType, selectedCountry, selectedGenre],
+  );
+  const countriesScope = useMemo(
+    () =>
+      JSON.stringify({
+        locale: currentLanguage.code,
+        query: normalizedQuery,
+        type: normalizedType,
+        genre: selectedGenre,
+        access: normalizedAccess,
+        year: selectedYear,
+        minRating: normalizedMinRating,
+      }),
+    [currentLanguage.code, normalizedAccess, normalizedMinRating, normalizedQuery, normalizedType, selectedGenre, selectedYear],
+  );
 
   useEffect(() => {
     setSelectedType(searchParams.get("type"));
@@ -45,13 +100,13 @@ export function SearchPage() {
 
       try {
         const response = await getCatalogPage(currentLanguage.code, {
-          query: deferredQuery.trim() || undefined,
-          type: selectedType === "movie" || selectedType === "series" ? selectedType : undefined,
+          query: normalizedQuery || undefined,
+          type: normalizedType ?? undefined,
           genre: selectedGenre ?? undefined,
-          access: selectedPrice === "free" || selectedPrice === "paid" ? selectedPrice : undefined,
+          access: normalizedAccess ?? undefined,
           year: selectedYear ?? undefined,
           country: selectedCountry ?? undefined,
-          minRating: minRating > 0 ? minRating : undefined,
+          minRating: normalizedMinRating > 0 ? normalizedMinRating : undefined,
           page: 1,
           pageSize: 100,
         });
@@ -61,7 +116,27 @@ export function SearchPage() {
         }
 
         setResults(response.items);
-        setFilters(response.filters);
+        setFilterOptions((previous) => ({
+          filters: {
+            genres:
+              previous.genresScope === genresScope
+                ? mergeFilterOptions(previous.filters.genres, response.filters.genres)
+                : response.filters.genres,
+            years:
+              previous.yearsScope === yearsScope
+                ? mergeFilterOptions(previous.filters.years, response.filters.years)
+                : response.filters.years,
+            countries:
+              previous.countriesScope === countriesScope
+                ? mergeFilterOptions(previous.filters.countries, response.filters.countries)
+                : response.filters.countries,
+            types: response.filters.types,
+            access: response.filters.access,
+          },
+          genresScope,
+          yearsScope,
+          countriesScope,
+        }));
         setTotal(response.total);
       } catch (loadError) {
         if (!active) {
@@ -70,7 +145,12 @@ export function SearchPage() {
 
         setError(loadError instanceof Error ? loadError.message : "Nu am putut încărca catalogul.");
         setResults([]);
-        setFilters(EMPTY_FILTERS);
+        setFilterOptions({
+          filters: EMPTY_FILTERS,
+          genresScope: "",
+          yearsScope: "",
+          countriesScope: "",
+        });
         setTotal(0);
       } finally {
         if (active) {
@@ -86,13 +166,17 @@ export function SearchPage() {
     };
   }, [
     currentLanguage.code,
-    deferredQuery,
+    countriesScope,
+    genresScope,
     minRating,
+    normalizedAccess,
+    normalizedMinRating,
+    normalizedQuery,
+    normalizedType,
     selectedCountry,
     selectedGenre,
-    selectedPrice,
-    selectedType,
     selectedYear,
+    yearsScope,
   ]);
 
   function clearFilters() {
@@ -118,9 +202,24 @@ export function SearchPage() {
     [minRating, selectedCountry, selectedGenre, selectedPrice, selectedType, selectedYear],
   );
 
-  const selectedGenreLabel = filters.genres.find((genre) => genre.value === selectedGenre)?.label;
-  const selectedYearLabel = filters.years.find((year) => year.value === selectedYear)?.label;
-  const selectedCountryLabel = filters.countries.find((country) => country.value === selectedCountry)?.label;
+  const selectedGenreLabel = filterOptions.filters.genres.find((genre) => genre.value === selectedGenre)?.label;
+  const selectedYearLabel = filterOptions.filters.years.find((year) => year.value === selectedYear)?.label;
+  const countryDisplayNames = useMemo(() => {
+    if (typeof Intl === "undefined" || typeof Intl.DisplayNames !== "function") {
+      return null;
+    }
+
+    return new Intl.DisplayNames([currentLanguage.code], { type: "region" });
+  }, [currentLanguage.code]);
+  const countryOptions = useMemo(
+    () =>
+      filterOptions.filters.countries.map((country) => ({
+        ...country,
+        label: getCountryLabel(country.value, country.label, countryDisplayNames),
+      })),
+    [countryDisplayNames, filterOptions.filters.countries],
+  );
+  const selectedCountryLabel = countryOptions.find((country) => country.value === selectedCountry)?.label;
 
   const selectClassName =
     "h-8 min-w-[126px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-2.5 pr-7 text-[11px] font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50";
@@ -201,7 +300,7 @@ export function SearchPage() {
                   aria-label={t("search.genres")}
                 >
                   <option value="">{t("search.all_genres")}</option>
-                  {filters.genres.map((genre) => (
+                  {filterOptions.filters.genres.map((genre) => (
                     <option key={genre.value} value={genre.value}>
                       {genre.label} ({genre.count})
                     </option>
@@ -218,7 +317,7 @@ export function SearchPage() {
                   aria-label={t("search.country")}
                 >
                   <option value="">{t("search.all_countries")}</option>
-                  {filters.countries.map((country) => (
+                  {countryOptions.map((country) => (
                     <option key={country.value} value={country.value}>
                       {country.label} ({country.count})
                     </option>
@@ -235,7 +334,7 @@ export function SearchPage() {
                   aria-label={t("search.release_year")}
                 >
                   <option value="">{t("search.all_years")}</option>
-                  {filters.years.map((year) => (
+                  {filterOptions.filters.years.map((year) => (
                     <option key={year.value} value={year.value}>
                       {year.label}
                     </option>
@@ -336,4 +435,27 @@ export function SearchPage() {
       </div>
     </div>
   );
+}
+
+function getCountryLabel(
+  value: string,
+  fallbackLabel: string,
+  displayNames: Intl.DisplayNames | null,
+): string {
+  const countryCode = value.trim().toUpperCase();
+  const localizedLabel = /^[A-Z]{2}$/.test(countryCode) ? displayNames?.of(countryCode) : null;
+
+  return localizedLabel && localizedLabel !== countryCode ? localizedLabel : fallbackLabel;
+}
+
+function mergeFilterOptions(
+  previousOptions: CatalogFilterOption[],
+  incomingOptions: CatalogFilterOption[],
+): CatalogFilterOption[] {
+  const incomingByValue = new Map(incomingOptions.map((option) => [option.value, option]));
+  const merged = previousOptions.map((option) => incomingByValue.get(option.value) ?? option);
+  const previousValues = new Set(previousOptions.map((option) => option.value));
+  const appendedOptions = incomingOptions.filter((option) => !previousValues.has(option.value));
+
+  return [...merged, ...appendedOptions];
 }

@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use libphonenumber\NumberParseException;
+use libphonenumber\PhoneNumberFormat;
+use libphonenumber\PhoneNumberUtil;
 use Symfony\Component\HttpFoundation\Response;
 
 class StorefrontWalletTopUpController extends ApiController
@@ -41,7 +44,16 @@ class StorefrontWalletTopUpController extends ApiController
             $data = $request->validate([
                 'amount' => ['required', 'numeric', 'min:20', 'max:20000'],
                 'currency' => ['nullable', 'string', Rule::in(['MDL', 'EUR', 'USD'])],
-                'phone' => ['nullable', 'string', 'max:32'],
+                'phone' => [
+                    'required',
+                    'string',
+                    'max:32',
+                    function (string $attribute, mixed $value, \Closure $fail): void {
+                        if (! is_scalar($value) || $this->normalizePhoneNumber((string) $value) === null) {
+                            $fail('Introduceți un număr de telefon valid.');
+                        }
+                    },
+                ],
                 'locale' => ['nullable', 'string', Rule::in(['ro', 'en', 'ru'])],
             ]);
         } catch (ValidationException $exception) {
@@ -59,6 +71,7 @@ class StorefrontWalletTopUpController extends ApiController
         }
 
         $data['currency'] = strtoupper((string) ($data['currency'] ?? $wallet->currency));
+        $data['phone'] = $this->normalizePhoneNumber((string) $data['phone']);
 
         Log::channel('payments')->info('PayFilmoteca wallet top-up request validated', [
             'user_id' => $user?->id,
@@ -236,6 +249,36 @@ class StorefrontWalletTopUpController extends ApiController
         }
 
         return null;
+    }
+
+    protected function normalizePhoneNumber(string $phone): ?string
+    {
+        $phone = trim($phone);
+
+        if ($phone === '') {
+            return null;
+        }
+
+        if (str_starts_with($phone, '00')) {
+            $phone = '+'.substr($phone, 2);
+        }
+
+        if (preg_match('/^\+?\d{7,15}$/', $phone) !== 1) {
+            return null;
+        }
+
+        try {
+            $util = PhoneNumberUtil::getInstance();
+            $number = $util->parse($phone, str_starts_with($phone, '+') ? null : 'MD');
+
+            if (! $util->isValidNumber($number)) {
+                return null;
+            }
+
+            return $util->format($number, PhoneNumberFormat::E164);
+        } catch (NumberParseException) {
+            return null;
+        }
     }
 
     protected function providerCheckoutIdFromRequest(Request $request): ?string

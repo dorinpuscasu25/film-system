@@ -275,7 +275,7 @@ class ApiController extends Controller
             : ($activeOffers->isNotEmpty()
             ? (float) $activeOffers->min('price_amount')
             : null);
-        $countryOptions = Content::countryOptions();
+        $countryOptions = Content::countryOptions($locale);
         $countryCodes = collect($content->country_codes ?? [])
             ->map(fn (mixed $countryCode): string => strtoupper(trim((string) $countryCode)))
             ->filter()
@@ -296,6 +296,12 @@ class ApiController extends Controller
         $resolvedLocale = in_array($locale, Content::supportedLocales(), true)
             ? $locale
             : $defaultLocale;
+        $subtitleLocales = collect($content->subtitle_locales ?? [])
+            ->map(fn (mixed $locale): string => strtolower(trim((string) $locale)))
+            ->filter(fn (string $locale): bool => in_array($locale, Content::supportedLocales(), true))
+            ->unique()
+            ->values();
+        $audioLocales = $this->audioLocales($formats, $defaultLocale);
         $seasons = $seasonRecords
             ->map(function (array $season) use ($defaultLocale, $resolvedLocale) {
                 $title = data_get($season, 'title');
@@ -371,6 +377,7 @@ class ApiController extends Controller
             'platform_rating' => $content->platform_rating,
             'runtime_minutes' => $content->runtime_minutes,
             'age_rating' => $content->age_rating,
+            'age_rating_label' => Content::ageRatingLabels()[$content->age_rating] ?? $content->age_rating,
             'poster_url' => $content->poster_url,
             'backdrop_url' => $content->backdrop_url,
             'hero_desktop_url' => $content->hero_desktop_url,
@@ -471,7 +478,8 @@ class ApiController extends Controller
             'seasons' => $seasons->all(),
             'seasons_count' => $seasons->count(),
             'episodes_count' => $seasons->sum(fn (array $season): int => count($season['episodes'] ?? [])),
-            'subtitle_locales' => $content->subtitle_locales ?? [],
+            'audio_locales' => $audioLocales->all(),
+            'subtitle_locales' => $subtitleLocales->all(),
             'available_qualities' => $resolvedQualities->values(),
             'is_featured' => $content->is_featured,
             'is_trending' => $content->is_trending,
@@ -603,6 +611,11 @@ class ApiController extends Controller
             'country_names' => $adminData['country_names'],
             'imdb_rating' => $adminData['imdb_rating'],
             'platform_rating' => $adminData['platform_rating'],
+            'runtime_minutes' => $adminData['runtime_minutes'],
+            'age_rating' => $adminData['age_rating'],
+            'age_rating_label' => $adminData['age_rating_label'],
+            'audio_locales' => $adminData['audio_locales'],
+            'subtitle_locales' => $adminData['subtitle_locales'],
             'genres' => collect($adminData['genres'])->pluck('localized_name')->filter()->values(),
             'collections' => collect($adminData['collections'])->pluck('localized_name')->filter()->values(),
             'tags' => collect($adminData['tags'])->pluck('localized_name')->filter()->values(),
@@ -722,6 +735,7 @@ class ApiController extends Controller
             'editor_notes' => $editorNotes,
             'runtime_minutes' => $adminData['runtime_minutes'],
             'age_rating' => $adminData['age_rating'],
+            'age_rating_label' => $adminData['age_rating_label'],
             'default_locale' => $adminData['default_locale'],
             'meta_title' => $metaTitle,
             'meta_description' => $metaDescription,
@@ -733,6 +747,7 @@ class ApiController extends Controller
             'seasons' => $seasons,
             'seasons_count' => $adminData['seasons_count'],
             'episodes_count' => $adminData['episodes_count'],
+            'audio_locales' => $adminData['audio_locales'],
             'subtitle_locales' => $adminData['subtitle_locales'],
             'offers' => ($adminData['is_free'] ?? false) && $offers->isEmpty()
                 ? [[
@@ -771,6 +786,56 @@ class ApiController extends Controller
 
         return collect(Content::supportedLocales())
             ->mapWithKeys(fn (string $locale) => [$locale => $stringValue])
+            ->all();
+    }
+
+    protected function audioLocales(Collection $formats, ?string $fallbackLocale): Collection
+    {
+        $locales = $formats
+            ->flatMap(function ($format): array {
+                $meta = is_array($format->meta ?? null) ? $format->meta : [];
+
+                return [
+                    ...$this->normalizeLocaleList(data_get($meta, 'audio_locales', [])),
+                    ...$this->normalizeLocaleList(data_get($meta, 'audio_languages', [])),
+                    ...$this->normalizeLocaleList(data_get($meta, 'audio', [])),
+                    ...$this->normalizeLocaleList(data_get($meta, 'language')),
+                    ...$this->normalizeLocaleList(data_get($meta, 'locale')),
+                ];
+            })
+            ->filter(fn (string $locale): bool => in_array($locale, Content::supportedLocales(), true))
+            ->unique()
+            ->values();
+
+        if ($locales->isNotEmpty()) {
+            return $locales;
+        }
+
+        $fallback = strtolower(trim((string) $fallbackLocale));
+
+        return in_array($fallback, Content::supportedLocales(), true)
+            ? collect([$fallback])
+            : collect();
+    }
+
+    protected function normalizeLocaleList(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        if (is_string($value)) {
+            $value = preg_split('/[,\s|]+/', $value) ?: [];
+        }
+
+        if (! is_array($value)) {
+            $value = [$value];
+        }
+
+        return collect($value)
+            ->map(fn (mixed $locale): string => strtolower(trim((string) $locale)))
+            ->filter()
+            ->values()
             ->all();
     }
 

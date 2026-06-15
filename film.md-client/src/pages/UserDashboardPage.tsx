@@ -250,6 +250,8 @@ export function UserDashboardPage() {
     return null;
   }
 
+  const visibleProfiles = user.profiles.slice(0, 3);
+
   return (
     <div className="min-h-screen bg-background pb-20 pt-24">
       <div className="container mx-auto max-w-6xl px-4 md:px-8">
@@ -267,7 +269,7 @@ export function UserDashboardPage() {
                 </span>
               )}
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
-                {t(user.profiles.length === 1 ? "dashboard.profiles_count_one" : "dashboard.profiles_count", { count: user.profiles.length })}
+                {t(visibleProfiles.length === 1 ? "dashboard.profiles_count_one" : "dashboard.profiles_count", { count: visibleProfiles.length })}
               </span>
             </div>
           </div>
@@ -340,7 +342,7 @@ export function UserDashboardPage() {
                             <h3 className="mb-1 font-bold text-white">{movie.title}</h3>
                             <p className="mb-4 text-xs text-gray-300">
                               {purchase.expiresAt
-                                ? t("dashboard.expires", { date: new Date(purchase.expiresAt).toLocaleDateString() })
+                                ? t("dashboard.access_until", { date: new Date(purchase.expiresAt).toLocaleDateString() })
                                 : t("dashboard.lifetime_access")}
                             </p>
                             <button
@@ -604,10 +606,10 @@ export function UserDashboardPage() {
                 <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-8">
                   <h3 className="border-b border-white/10 pb-4 text-xl font-bold text-white">{t("dashboard.profiles")}</h3>
                   <p className="text-sm text-gray-400">
-                    {t(user.profiles.length === 1 ? "dashboard.profiles_hint_one" : "dashboard.profiles_hint", { count: user.profiles.length })}
+                    {t(visibleProfiles.length === 1 ? "dashboard.profiles_hint_one" : "dashboard.profiles_hint", { count: visibleProfiles.length })}
                   </p>
                   <div className="space-y-3">
-                    {user.profiles.map((profile) => (
+                    {visibleProfiles.map((profile) => (
                       <div key={profile.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${profile.color} text-sm font-bold text-white`}>

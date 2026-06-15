@@ -70,8 +70,14 @@ export interface Movie {
   year: number;
   genres: string[];
   country: string;
+  countryCodes?: string[];
   rating: number;
   platformRating: number;
+  runtimeMinutes?: number;
+  ageRating?: string;
+  ageRatingLabel?: string;
+  audioLocales?: string[];
+  subtitleLocales?: string[];
   price: number;
   accessDuration: number;
   posterUrl: string;
@@ -110,6 +116,7 @@ export interface UserProfile {
   isKids: boolean;
   color: string;
   isDefault?: boolean;
+  maxAgeRating?: string | null;
   favoriteSlugs?: string[];
 }
 

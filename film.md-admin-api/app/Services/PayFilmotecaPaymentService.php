@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\PaymentTopUp;
 use App\Models\PaymentRefund;
+use App\Models\PaymentTopUp;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use libphonenumber\NumberParseException;
+use libphonenumber\PhoneNumberFormat;
+use libphonenumber\PhoneNumberUtil;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -956,12 +959,12 @@ class PayFilmotecaPaymentService
                 [
                     'payment_top_up_id' => $lockedTopUp->uuid,
                     'provider' => 'pay.filmoteca.md',
-                'provider_order_id' => $lockedTopUp->provider_order_id,
-                'provider_checkout_id' => $lockedTopUp->provider_checkout_id,
-                'provider_rrn' => $lockedTopUp->provider_rrn,
-                'provider_status' => $providerStatus,
-                'details' => $details,
-            ],
+                    'provider_order_id' => $lockedTopUp->provider_order_id,
+                    'provider_checkout_id' => $lockedTopUp->provider_checkout_id,
+                    'provider_rrn' => $lockedTopUp->provider_rrn,
+                    'provider_status' => $providerStatus,
+                    'details' => $details,
+                ],
                 $lockedTopUp,
             );
 
@@ -1302,10 +1305,12 @@ class PayFilmotecaPaymentService
         foreach ($lines as $line) {
             if (preg_match('~^>\s*Authorization:~i', $line) === 1) {
                 $kept[] = '> Authorization: [redacted]';
+
                 continue;
             }
             if (preg_match('~^>\s*Auth-API-Key:~i', $line) === 1) {
                 $kept[] = '> Auth-API-Key: [redacted]';
+
                 continue;
             }
             $kept[] = $line;
@@ -1614,7 +1619,19 @@ class PayFilmotecaPaymentService
     {
         $name = trim((string) $user->name);
 
-        return $name !== '' ? $name : (string) $user->email;
+        if ($name === '') {
+            $name = 'Client Filmoteca';
+        }
+
+        $name = Str::ascii($name);
+        $name = preg_replace('/[^A-Za-z0-9 .-]+/', ' ', $name) ?? $name;
+        $name = preg_replace('/\s+/', ' ', trim($name)) ?? $name;
+
+        if (strlen($name) < 2) {
+            return 'Client Filmoteca';
+        }
+
+        return substr($name, 0, 80);
     }
 
     protected function normalizeLocale(string $locale): string
@@ -1699,31 +1716,26 @@ class PayFilmotecaPaymentService
             return '';
         }
 
-        $phone = preg_replace('/[\s().-]+/', '', $phone) ?? $phone;
-
         if (str_starts_with($phone, '00')) {
             $phone = '+'.substr($phone, 2);
         }
 
-        if (str_starts_with($phone, '+')) {
-            return '+'.preg_replace('/\D+/', '', substr($phone, 1));
+        if (preg_match('/^\+?\d{7,15}$/', $phone) !== 1) {
+            return '';
         }
 
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        try {
+            $util = PhoneNumberUtil::getInstance();
+            $number = $util->parse($phone, str_starts_with($phone, '+') ? null : 'MD');
 
-        if (str_starts_with($digits, '373')) {
-            return '+'.$digits;
+            if (! $util->isValidNumber($number)) {
+                return '';
+            }
+
+            return $util->format($number, PhoneNumberFormat::E164);
+        } catch (NumberParseException) {
+            return '';
         }
-
-        if (str_starts_with($digits, '0') && strlen($digits) === 9) {
-            return '+373'.substr($digits, 1);
-        }
-
-        if (strlen($digits) === 8 && preg_match('/^[67]\d{7}$/', $digits) === 1) {
-            return '+373'.$digits;
-        }
-
-        return $digits !== '' ? '+'.$digits : '';
     }
 
     protected function phoneDiagnostics(string $phone): array

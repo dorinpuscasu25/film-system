@@ -13,6 +13,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\BunnyTokenService;
 use App\Services\IpGeoLocationService;
+use App\Services\ParentalControlService;
 use App\Services\PlaybackAccessService;
 use App\Services\PayFilmotecaPaymentService;
 use App\Services\StorefrontPurchaseService;
@@ -32,6 +33,7 @@ class StorefrontController extends ApiController
         protected BunnyTokenService $bunnyToken,
         protected IpGeoLocationService $geoLocation,
         protected PayFilmotecaPaymentService $payments,
+        protected ParentalControlService $parentalControls,
     ) {
     }
 
@@ -133,6 +135,23 @@ class StorefrontController extends ApiController
             ], Response::HTTP_NOT_FOUND);
         }
 
+        $profile = null;
+        $profileId = $request->integer('account_profile_id') ?: null;
+        if ($user !== null && $profileId !== null) {
+            $profile = $user->profiles()->whereKey($profileId)->first();
+            if ($profile === null) {
+                return response()->json([
+                    'message' => 'The requested profile was not found.',
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if (! $this->parentalControls->canAccessContent($profile, $content)) {
+                return response()->json([
+                    'message' => 'Acest conținut depășește limita de vârstă permisă pentru profilul copil.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
         $entitlement = $this->purchases->resolveActiveEntitlement($user, $content);
         $hasFreeAccess = (bool) $content->is_free
             || $content->offers->contains(fn (Offer $offer): bool => $offer->offer_type === Offer::TYPE_FREE && $offer->isCurrentlyAvailable());
@@ -149,6 +168,7 @@ class StorefrontController extends ApiController
         if ($resolvedEpisodeId === null && $content->type === Content::TYPE_SERIES && $user !== null) {
             $resolvedEpisodeId = \App\Models\WatchProgress::query()
                 ->where('user_id', $user->id)
+                ->where('account_profile_id', $profile?->id)
                 ->where('content_id', $content->id)
                 ->whereNotNull('episode_id')
                 ->latest('last_watched_at')
@@ -176,6 +196,7 @@ class StorefrontController extends ApiController
             'content_id' => $content->id,
             'content_format_id' => $playback['content_format_id'],
             'offer_id' => $entitlement?->offer_id,
+            'account_profile_id' => $profile?->id,
             'country_code' => $countryCode,
             'status' => PlaybackSession::STATUS_STARTED,
             'started_at' => now(),
@@ -189,7 +210,7 @@ class StorefrontController extends ApiController
         if ($user !== null && $resolvedEpisodeId !== null) {
             $progress = \App\Models\WatchProgress::query()->firstOrNew([
                 'user_id' => $user->id,
-                'account_profile_id' => null,
+                'account_profile_id' => $profile?->id,
                 'content_id' => $content->id,
                 'episode_id' => $resolvedEpisodeId,
             ]);

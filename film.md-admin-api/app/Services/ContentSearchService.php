@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Content;
 use App\Models\Offer;
 use App\Models\Taxonomy;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -20,6 +21,7 @@ class ContentSearchService
 
     public function searchCatalog(string $locale, array $filters = []): array
     {
+        $filters['status'] = Content::STATUS_PUBLISHED;
         $page = max((int) Arr::get($filters, 'page', 1), 1);
         $pageSize = min(max((int) Arr::get($filters, 'page_size', 24), 1), 100);
 
@@ -34,6 +36,36 @@ class ContentSearchService
         return $this->searchWithDatabase($locale, $filters, $page, $pageSize);
     }
 
+    public function searchAdminContent(string $locale, string $query, ?User $user = null): Collection
+    {
+        $term = trim($query);
+        if ($term === '') {
+            return $this->adminDatabaseQuery('', $user)->get();
+        }
+
+        if ($this->shouldUseMeilisearch()) {
+            try {
+                $this->configureIndex();
+                $result = $this->index()->search($term, [
+                    'limit' => 500,
+                    'sort' => ['is_featured:desc', 'sort_order:asc', 'release_year:desc', 'published_timestamp:desc'],
+                    'locales' => config("search.locales.{$locale}", [$locale]),
+                ]);
+                $contentIds = collect($result->getHits())
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->values()
+                    ->all();
+
+                return $this->loadContentsByOrderedIds($contentIds, false, $user);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return $this->adminDatabaseQuery($term, $user)->get();
+    }
+
     public function syncContent(Content|int|null $content): void
     {
         if (! $this->shouldUseMeilisearch() || $content === null) {
@@ -46,7 +78,7 @@ class ContentSearchService
                 ? $content->loadMissing('taxonomies', 'offers')
                 : Content::query()->with('taxonomies', 'offers')->find($content);
 
-            if ($resolvedContent === null || $resolvedContent->status !== Content::STATUS_PUBLISHED) {
+            if ($resolvedContent === null) {
                 $this->deleteDocuments([$content instanceof Content ? $content->getKey() : $content]);
 
                 return;
@@ -78,20 +110,16 @@ class ContentSearchService
                 ->whereIn('id', $contentIds)
                 ->get();
 
-            $publishedContents = $contents
-                ->filter(fn (Content $content): bool => $content->status === Content::STATUS_PUBLISHED)
-                ->values();
-
-            if ($publishedContents->isNotEmpty()) {
+            if ($contents->isNotEmpty()) {
                 $this->index()->addDocuments(
-                    $publishedContents
+                    $contents
                         ->map(fn (Content $content) => $this->makeDocument($content))
                         ->all(),
                     'id',
                 );
             }
 
-            $this->deleteDocuments($contentIds->diff($publishedContents->pluck('id')->map(fn ($id) => (int) $id))->all());
+            $this->deleteDocuments($contentIds->diff($contents->pluck('id')->map(fn ($id) => (int) $id))->all());
         } catch (Throwable $exception) {
             report($exception);
         }
@@ -111,7 +139,6 @@ class ContentSearchService
         $count = 0;
 
         Content::query()
-            ->published()
             ->with('taxonomies', 'offers')
             ->orderBy('id')
             ->chunk(100, function ($contents) use (&$count): void {
@@ -187,18 +214,23 @@ class ContentSearchService
     protected function makeDatabaseQuery(array $filters): Builder
     {
         $query = Content::query()
-            ->published()
             ->orderByDesc('is_featured')
             ->orderBy('sort_order')
             ->orderByDesc('release_year')
             ->orderByDesc('published_at');
 
+        $status = trim((string) Arr::get($filters, 'status', ''));
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
         $term = trim((string) Arr::get($filters, 'query', ''));
         if ($term !== '') {
             $likeOperator = $this->likeOperator();
             $likeTerm = '%'.$term.'%';
+            $jsonLikeTerms = $this->jsonLikeTerms($term);
 
-            $query->where(function (Builder $builder) use ($likeOperator, $likeTerm): void {
+            $query->where(function (Builder $builder) use ($jsonLikeTerms, $likeOperator, $likeTerm): void {
                 $builder
                     ->where('slug', $likeOperator, $likeTerm)
                     ->orWhere('original_title', $likeOperator, $likeTerm);
@@ -209,12 +241,13 @@ class ContentSearchService
                     }
                 }
 
-                $builder
-                    ->orWhereRaw("CAST(cast_members AS TEXT) {$likeOperator} ?", [$likeTerm])
-                    ->orWhereRaw("CAST(crew_members AS TEXT) {$likeOperator} ?", [$likeTerm])
-                    ->orWhereRaw("CAST(videos AS TEXT) {$likeOperator} ?", [$likeTerm])
-                    ->orWhereRaw("CAST(seasons AS TEXT) {$likeOperator} ?", [$likeTerm])
-                    ->orWhereHas('taxonomies', function (Builder $taxonomyQuery) use ($likeOperator, $likeTerm): void {
+                foreach (['cast_members', 'crew_members', 'videos', 'seasons'] as $column) {
+                    foreach ($jsonLikeTerms as $jsonLikeTerm) {
+                        $builder->orWhereRaw("CAST({$column} AS TEXT) {$likeOperator} ?", [$jsonLikeTerm]);
+                    }
+                }
+
+                $builder->orWhereHas('taxonomies', function (Builder $taxonomyQuery) use ($likeOperator, $likeTerm): void {
                         $taxonomyQuery
                             ->where('active', true)
                             ->where(function (Builder $nested) use ($likeOperator, $likeTerm): void {
@@ -229,7 +262,9 @@ class ContentSearchService
         }
 
         $type = (string) Arr::get($filters, 'type', '');
-        if (in_array($type, Content::availableTypes(), true)) {
+        if ($type === Content::TYPE_MOVIE) {
+            $query->where('type', '!=', Content::TYPE_SERIES);
+        } elseif (in_array($type, Content::availableTypes(), true)) {
             $query->where('type', $type);
         }
 
@@ -288,12 +323,76 @@ class ContentSearchService
         return $query;
     }
 
+    protected function adminDatabaseQuery(string $term, ?User $user = null): Builder
+    {
+        $query = Content::query()
+            ->with('taxonomies', 'offers')
+            ->orderByDesc('is_featured')
+            ->orderBy('sort_order')
+            ->orderByDesc('published_at')
+            ->orderByDesc('updated_at');
+
+        if ($user?->hasScopedContentAccess()) {
+            $assignedIds = $user->assignedContentIds();
+            $assignedIds === []
+                ? $query->whereRaw('1 = 0')
+                : $query->whereIn('contents.id', $assignedIds);
+        }
+
+        if ($term === '') {
+            return $query;
+        }
+
+        $likeOperator = $this->likeOperator();
+        $likeTerm = '%'.$term.'%';
+        $jsonLikeTerms = $this->jsonLikeTerms($term);
+        $countryCode = $this->resolveCountryCode($term);
+
+        return $query->where(function (Builder $builder) use ($countryCode, $jsonLikeTerms, $likeOperator, $likeTerm): void {
+            $builder
+                ->where('slug', $likeOperator, $likeTerm)
+                ->orWhere('movie_id', $likeOperator, $likeTerm)
+                ->orWhere('original_title', $likeOperator, $likeTerm)
+                ->orWhere('country_code', $likeOperator, $likeTerm);
+
+            if ($countryCode !== null) {
+                $builder
+                    ->orWhere('country_code', $countryCode)
+                    ->orWhereJsonContains('country_codes', $countryCode);
+            }
+
+            foreach (['title', 'tagline', 'short_description', 'description'] as $column) {
+                foreach ($this->localizedJsonExpressions($column) as $expression) {
+                    $builder->orWhereRaw("{$expression} {$likeOperator} ?", [$likeTerm]);
+                }
+            }
+
+            foreach (['cast_members', 'crew_members', 'videos', 'seasons'] as $column) {
+                foreach ($jsonLikeTerms as $jsonLikeTerm) {
+                    $builder->orWhereRaw("CAST({$column} AS TEXT) {$likeOperator} ?", [$jsonLikeTerm]);
+                }
+            }
+
+            $builder->orWhereHas('taxonomies', function (Builder $taxonomyQuery) use ($likeOperator, $likeTerm): void {
+                    $taxonomyQuery->where(function (Builder $nested) use ($likeOperator, $likeTerm): void {
+                        $nested->where('slug', $likeOperator, $likeTerm);
+
+                        foreach ($this->localizedJsonExpressions('name') as $expression) {
+                            $nested->orWhereRaw("{$expression} {$likeOperator} ?", [$likeTerm]);
+                        }
+                    });
+                });
+        });
+    }
+
     protected function buildMeilisearchFilterExpression(array $filters): ?string
     {
         $expressions = [];
 
         $type = (string) Arr::get($filters, 'type', '');
-        if (in_array($type, Content::availableTypes(), true)) {
+        if ($type === Content::TYPE_MOVIE) {
+            $expressions[] = sprintf('type != "%s"', $this->escapeFilterValue(Content::TYPE_SERIES));
+        } elseif (in_array($type, Content::availableTypes(), true)) {
             $expressions[] = sprintf('type = "%s"', $this->escapeFilterValue($type));
         }
 
@@ -326,12 +425,17 @@ class ContentSearchService
             $expressions[] = sprintf('imdb_rating >= %s', rtrim(rtrim(number_format($minRating, 2, '.', ''), '0'), '.'));
         }
 
+        $status = trim((string) Arr::get($filters, 'status', ''));
+        if ($status !== '') {
+            $expressions[] = sprintf('status = "%s"', $this->escapeFilterValue($status));
+        }
+
         return $expressions !== [] ? implode(' AND ', $expressions) : null;
     }
 
     protected function buildFacetPayload(array $facetDistribution, string $locale): array
     {
-        $countryOptions = Content::countryOptions();
+        $countryOptions = Content::countryOptions($locale);
         $typeLabels = Content::typeLabels($locale);
         $genreCounts = collect($facetDistribution['genre_slugs'] ?? []);
         $genres = Taxonomy::query()
@@ -395,7 +499,7 @@ class ContentSearchService
 
     protected function buildDatabaseFacetPayload(Collection $contents, string $locale): array
     {
-        $countryOptions = Content::countryOptions();
+        $countryOptions = Content::countryOptions($locale);
         $typeLabels = Content::typeLabels($locale);
         $genreCounts = [];
         $genreLabels = [];
@@ -486,18 +590,25 @@ class ContentSearchService
         ];
     }
 
-    protected function loadContentsByOrderedIds(array $contentIds): Collection
+    protected function loadContentsByOrderedIds(array $contentIds, bool $publishedOnly = true, ?User $user = null): Collection
     {
         if ($contentIds === []) {
             return collect();
         }
 
-        $contents = Content::query()
-            ->published()
+        $query = Content::query()
             ->with('taxonomies', 'offers')
             ->whereIn('id', $contentIds)
-            ->get()
-            ->keyBy('id');
+            ->when($publishedOnly, fn (Builder $builder) => $builder->published());
+
+        if ($user?->hasScopedContentAccess()) {
+            $assignedIds = $user->assignedContentIds();
+            $assignedIds === []
+                ? $query->whereRaw('1 = 0')
+                : $query->whereIn('contents.id', $assignedIds);
+        }
+
+        $contents = $query->get()->keyBy('id');
 
         return collect($contentIds)
             ->map(fn (int $id) => $contents->get($id))
@@ -624,6 +735,10 @@ class ContentSearchService
                 $description,
                 $content->original_title,
                 $content->slug,
+                $content->movie_id,
+                $document['country_code'],
+                implode(' ', $document['country_codes']),
+                implode(' ', $document['country_names']),
                 implode(' ', $genreNames),
                 implode(' ', $collectionNames),
                 implode(' ', $tagNames),
@@ -712,6 +827,11 @@ class ContentSearchService
                 'title_en',
                 'original_title',
                 'slug',
+                'movie_id',
+                'country_code',
+                'country_codes',
+                'country_name',
+                'country_names',
                 'genre_names_ro',
                 'genre_names_ru',
                 'genre_names_en',
@@ -747,6 +867,7 @@ class ContentSearchService
             ]),
             $index->updateFilterableAttributes([
                 'type',
+                'status',
                 'genre_slugs',
                 'release_year',
                 'country_code',
@@ -844,9 +965,11 @@ class ContentSearchService
             return $resolved;
         }
 
-        foreach (Content::countryOptions() as $code => $label) {
-            if (mb_strtolower($label) === mb_strtolower((string) $value)) {
-                return $code;
+        foreach (array_unique([...Content::supportedLocales(), 'en']) as $locale) {
+            foreach (Content::countryOptions($locale) as $code => $label) {
+                if (mb_strtolower($label) === mb_strtolower((string) $value)) {
+                    return $code;
+                }
             }
         }
 
@@ -862,6 +985,19 @@ class ContentSearchService
     {
         return collect(Content::supportedLocales())
             ->map(fn (string $locale) => $this->jsonTextExpression($column, $locale))
+            ->all();
+    }
+
+    protected function jsonLikeTerms(string $term): array
+    {
+        $encoded = json_encode($term, JSON_UNESCAPED_SLASHES);
+        $encodedTerm = is_string($encoded) ? trim($encoded, '"') : $term;
+
+        return collect([$term, $encodedTerm])
+            ->filter(fn (string $value): bool => $value !== '')
+            ->unique()
+            ->map(fn (string $value): string => '%'.$value.'%')
+            ->values()
             ->all();
     }
 

@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCardIcon, HistoryIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { fetchPublicPlatformSettings } from '../lib/session';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
+const DEFAULT_COUNTRY: CountryCode = 'MD';
 
 interface WalletModalProps {
   isOpen: boolean;
@@ -17,16 +19,34 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { balance, currency, addFunds } = useWallet();
   const { t, currentLanguage } = useLanguage();
   const navigate = useNavigate();
-  const [amount, setAmount] = useState('20');
+  const [amount, setAmount] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(DEFAULT_COUNTRY);
   const [phone, setPhone] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [termsUrl, setTermsUrl] = useState('/page/termeni-si-conditii');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const quickAmounts = [20, 50, 100, 250];
+  const quickAmounts = [200, 300, 400, 500];
   const amountValue = Number(amount);
   const canSubmit = !isSubmitting && amountValue >= 20 && amountValue <= 20000 && acceptedTerms;
+  const normalizedPhone = normalizePhoneNumber(phone, selectedCountry);
+  const phoneError = phoneTouched && !normalizedPhone ? t('wallet.phone_invalid') : null;
+  const countryOptions = useMemo(() => {
+    const displayNames =
+      typeof Intl !== 'undefined' && 'DisplayNames' in Intl
+        ? new Intl.DisplayNames([currentLanguage.code], { type: 'region' })
+        : null;
+
+    return getCountries()
+      .map((country) => ({
+        country,
+        callingCode: getCountryCallingCode(country),
+        name: displayNames?.of(country) ?? country,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, currentLanguage.code));
+  }, [currentLanguage.code]);
 
   function updateAmount(value: string) {
     const normalized = value
@@ -53,6 +73,11 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     }
 
     setAcceptedTerms(false);
+    setAmount('');
+    setPhone('');
+    setPhoneTouched(false);
+    setSelectedCountry(DEFAULT_COUNTRY);
+    setErrorMessage(null);
 
     fetchPublicPlatformSettings(currentLanguage.code)
       .then((settings) => {
@@ -69,11 +94,18 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       return;
     }
 
+    setPhoneTouched(true);
+
+    if (!normalizedPhone) {
+      setErrorMessage(t('wallet.phone_invalid'));
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
-      const topUp = await addFunds(amountValue, { phone: phone.trim() || undefined });
+      const topUp = await addFunds(amountValue, { phone: normalizedPhone });
 
       if (!topUp.payment_url) {
         throw new Error(t('wallet.provider_missing_url'));
@@ -86,6 +118,18 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       setIsSubmitting(false);
     }
   };
+
+  function updatePhone(value: string) {
+    const withoutInvalidCharacters = value.replace(/[^\d+]/g, '');
+    const normalized =
+      withoutInvalidCharacters.includes('+')
+        ? `+${withoutInvalidCharacters.replace(/\+/g, '')}`
+        : withoutInvalidCharacters;
+
+    setPhone(normalized);
+    setPhoneTouched(true);
+    setErrorMessage(null);
+  }
 
   return (
     <AnimatePresence>
@@ -176,19 +220,45 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                   inputMode="decimal"
                   value={amount}
                   onChange={(event) => updateAmount(event.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-white outline-none transition focus:border-accent"
+                  placeholder={t('wallet.amount_placeholder')}
+                  className="w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-white outline-none transition placeholder:text-gray-500 focus:border-accent"
                 />
               </label>
 
               <label className="mb-5 block">
                 <span className="mb-2 block text-sm text-gray-400">{t('wallet.phone')}</span>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="+373..."
-                  className="w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-white outline-none transition focus:border-accent"
-                />
+                <div className={`flex rounded-lg border bg-surface transition focus-within:border-accent ${
+                  phoneError ? 'border-red-500/50' : 'border-white/10'
+                }`}>
+                  <select
+                    value={selectedCountry}
+                    onChange={(event) => {
+                      setSelectedCountry(event.target.value as CountryCode);
+                      setPhoneTouched(true);
+                      setErrorMessage(null);
+                    }}
+                    aria-label={t('wallet.country_code')}
+                    className="max-w-[42%] rounded-l-lg border-r border-white/10 bg-surface px-3 py-3 text-sm text-white outline-none"
+                  >
+                    {countryOptions.map(({ country, callingCode, name }) => (
+                      <option key={country} value={country} className="bg-surface text-white">
+                        {name} +{callingCode}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(event) => updatePhone(event.target.value)}
+                    onBlur={() => setPhoneTouched(true)}
+                    placeholder={t('wallet.phone_placeholder')}
+                    className="min-w-0 flex-1 rounded-r-lg bg-transparent px-4 py-3 text-white outline-none placeholder:text-gray-500"
+                  />
+                </div>
+                {phoneError ? (
+                  <span className="mt-2 block text-sm text-red-200">{phoneError}</span>
+                ) : null}
               </label>
 
               <label className="mb-5 flex items-start gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-gray-300">
@@ -248,4 +318,18 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       }
     </AnimatePresence>);
 
+}
+
+function normalizePhoneNumber(value: string, country: CountryCode): string | null {
+  const trimmed = value.trim();
+
+  if (trimmed === '') {
+    return null;
+  }
+
+  const parsed = trimmed.startsWith('+')
+    ? parsePhoneNumberFromString(trimmed)
+    : parsePhoneNumberFromString(trimmed, country);
+
+  return parsed?.isValid() ? parsed.number : null;
 }

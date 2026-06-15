@@ -86,6 +86,11 @@ interface PublicContentCard {
   country_codes?: string[] | null;
   imdb_rating?: number | null;
   platform_rating?: number | null;
+  runtime_minutes?: number | null;
+  age_rating?: string | null;
+  age_rating_label?: string | null;
+  audio_locales?: string[] | null;
+  subtitle_locales?: string[] | null;
   genres: string[];
   badges?: PublicBadge[];
   is_featured?: boolean;
@@ -363,8 +368,14 @@ function mapCardToMovie(item: PublicContentCard): Movie {
     year,
     genres: item.genres ?? [],
     country: item.country_names?.filter(Boolean).join(", ") || item.country_name || item.country_code || "Unknown",
+    countryCodes: item.country_codes?.filter(Boolean) ?? (item.country_code ? [item.country_code] : []),
     rating: Number(item.imdb_rating ?? 0),
     platformRating: Number(item.platform_rating ?? 0),
+    runtimeMinutes: item.runtime_minutes ?? undefined,
+    ageRating: item.age_rating ?? undefined,
+    ageRatingLabel: item.age_rating_label ?? undefined,
+    audioLocales: item.audio_locales?.filter(Boolean) ?? [],
+    subtitleLocales: item.subtitle_locales?.filter(Boolean) ?? [],
     price: Number(item.lowest_price ?? 0),
     accessDuration: deriveAccessDuration(offers, Number(item.lowest_price ?? 0)),
     posterUrl: item.poster_url,
@@ -409,8 +420,14 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
     year,
     genres: item.genres ?? [],
     country: item.country_names?.filter(Boolean).join(", ") || item.country_name || item.country_code || "Unknown",
+    countryCodes: item.country_codes?.filter(Boolean) ?? (item.country_code ? [item.country_code] : []),
     rating: Number(item.imdb_rating ?? 0),
     platformRating: Number(item.platform_rating ?? 0),
+    runtimeMinutes: item.runtime_minutes ?? undefined,
+    ageRating: item.age_rating ?? undefined,
+    ageRatingLabel: item.age_rating_label ?? undefined,
+    audioLocales: item.audio_locales?.filter(Boolean) ?? [],
+    subtitleLocales: item.subtitle_locales?.filter(Boolean) ?? [],
     price: Number(item.lowest_price ?? 0),
     accessDuration: deriveAccessDuration(offers, Number(item.lowest_price ?? 0)),
     posterUrl: item.poster_url,

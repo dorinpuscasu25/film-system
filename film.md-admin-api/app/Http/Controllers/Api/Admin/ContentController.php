@@ -28,13 +28,16 @@ class ContentController extends ApiController
     {
         $user = request()->user();
         $locale = Taxonomy::LOCALE_RO;
-        $items = $this->contentScope->scopeContentQuery($user, Content::query())
-            ->with('taxonomies', 'offers')
-            ->orderByDesc('is_featured')
-            ->orderBy('sort_order')
-            ->orderByDesc('published_at')
-            ->orderByDesc('updated_at')
-            ->get();
+        $search = trim((string) request()->query('search', ''));
+        $items = $search !== ''
+            ? $this->contentSearch->searchAdminContent($locale, $search, $user)
+            : $this->contentScope->scopeContentQuery($user, Content::query())
+                ->with('taxonomies', 'offers')
+                ->orderByDesc('is_featured')
+                ->orderBy('sort_order')
+                ->orderByDesc('published_at')
+                ->orderByDesc('updated_at')
+                ->get();
 
         return response()->json([
             'items' => $items->map(fn (Content $content) => $this->contentData($content, $locale)),

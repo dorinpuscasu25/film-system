@@ -208,6 +208,39 @@ class StorefrontCommerceApiTest extends TestCase
             ->assertJsonPath('playback.quality', 'Full HD');
     }
 
+    public function test_kids_profile_cannot_play_content_above_12_plus(): void
+    {
+        $user = $this->createActiveViewer('kids-playback@example.com');
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+        $kidsProfile = app(AccountProfileService::class)->create($user, [
+            'name' => 'Kids',
+            'avatar_label' => 'K',
+            'is_kids' => true,
+        ]);
+        $offer = Offer::query()
+            ->where('name', 'Forever Full HD')
+            ->whereHas('content', fn ($query) => $query->where('slug', 'carbon'))
+            ->firstOrFail();
+        $offer->content->forceFill(['age_rating' => 'I.M.-18'])->save();
+        $offer->content->formats()->create([
+            'quality' => 'Full HD',
+            'format_type' => 'main',
+            'bunny_library_id' => '123',
+            'bunny_video_id' => 'carbon-fullhd',
+            'stream_url' => 'https://storage.filmoteca.md/playback/carbon-fullhd.mp4',
+            'is_active' => true,
+            'is_default' => true,
+        ]);
+
+        $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase", [], [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertOk();
+
+        $this->getJson("/api/v1/storefront/content/carbon/playback?locale=ro&account_profile_id={$kidsProfile->id}", [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertForbidden();
+    }
+
     public function test_series_playback_can_resolve_episode_video_for_owned_content(): void
     {
         $token = $this->registerViewerAndReturnToken(email: 'series@example.com');

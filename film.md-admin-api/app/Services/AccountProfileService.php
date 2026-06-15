@@ -10,6 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class AccountProfileService
 {
+    public const MAX_PROFILES_PER_ACCOUNT = 3;
+    public const KIDS_MAX_AGE_RATING = 'A.P.-12';
+
     protected array $defaultColors = [
         'from-blue-500 to-purple-600',
         'from-pink-500 to-rose-500',
@@ -42,29 +45,35 @@ class AccountProfileService
 
     public function create(User $user, array $payload): AccountProfile
     {
-        if ($user->profiles()->count() >= 5) {
+        if ($user->profiles()->count() >= self::MAX_PROFILES_PER_ACCOUNT) {
             throw ValidationException::withMessages([
-                'profiles' => ['You can create up to 5 profiles on one account.'],
+                'profiles' => ['You can create up to '.self::MAX_PROFILES_PER_ACCOUNT.' profiles on one account.'],
             ]);
         }
+
+        $isKids = (bool) ($payload['is_kids'] ?? false);
 
         return $user->profiles()->create([
             'name' => trim((string) $payload['name']),
             'avatar_label' => $payload['avatar_label'] ?? mb_strtoupper(mb_substr(trim((string) $payload['name']), 0, 1)),
             'avatar_color' => $payload['avatar_color'] ?? $this->defaultColorForUser($user->id + $user->profiles()->count()),
-            'is_kids' => (bool) ($payload['is_kids'] ?? false),
+            'is_kids' => $isKids,
             'is_default' => ! $user->profiles()->exists(),
+            'max_age_rating' => $isKids ? self::KIDS_MAX_AGE_RATING : null,
             'sort_order' => ((int) $user->profiles()->max('sort_order')) + 10,
         ]);
     }
 
     public function update(AccountProfile $profile, array $payload): AccountProfile
     {
+        $isKids = (bool) ($payload['is_kids'] ?? false);
+
         $profile->fill([
             'name' => trim((string) $payload['name']),
             'avatar_label' => $payload['avatar_label'] ?? mb_strtoupper(mb_substr(trim((string) $payload['name']), 0, 1)),
             'avatar_color' => $payload['avatar_color'] ?? $profile->avatar_color,
-            'is_kids' => (bool) ($payload['is_kids'] ?? false),
+            'is_kids' => $isKids,
+            'max_age_rating' => $isKids ? self::KIDS_MAX_AGE_RATING : null,
         ]);
         $profile->save();
 

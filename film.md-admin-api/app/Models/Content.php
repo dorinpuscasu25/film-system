@@ -290,7 +290,7 @@ class Content extends Model
             ?: $value;
     }
 
-    public static function countryOptions(): array
+    public static function countryOptions(string $locale = 'en'): array
     {
         $codes = preg_split('/\s+/', trim('
             AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ
@@ -304,13 +304,26 @@ class Content extends Model
 
         return collect($codes)
             ->filter()
-            ->mapWithKeys(function (string $code): array {
-                $label = class_exists(\Locale::class) ? \Locale::getDisplayRegion('und_'.$code, 'en') : $code;
+            ->mapWithKeys(function (string $code) use ($locale): array {
+                $label = class_exists(\Locale::class) ? \Locale::getDisplayRegion('und_'.$code, $locale) : null;
 
-                return [$code => $label !== '' ? $label : $code];
+                return [$code => $label !== null && $label !== '' ? $label : self::countryFallbackLabel($code, $locale)];
             })
             ->sort()
             ->all();
+    }
+
+    protected static function countryFallbackLabel(string $code, string $locale): string
+    {
+        $labels = [
+            'MD' => ['ro' => 'Moldova', 'ru' => 'Молдова', 'en' => 'Moldova'],
+            'RO' => ['ro' => 'România', 'ru' => 'Румыния', 'en' => 'Romania'],
+            'ES' => ['ro' => 'Spania', 'ru' => 'Испания', 'en' => 'Spain'],
+        ];
+
+        return $labels[$code][$locale]
+            ?? $labels[$code]['en']
+            ?? $code;
     }
 
     public static function recalculateTaxonomyCounts(): void

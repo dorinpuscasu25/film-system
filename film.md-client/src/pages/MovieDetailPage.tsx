@@ -60,6 +60,58 @@ function contentTypeLabel(movie: Movie, t: (key: string) => string) {
   return t(`content_types.${movie.type}`) || movie.type;
 }
 
+function formatRuntime(minutes?: number) {
+  if (!minutes || minutes <= 0) {
+    return null;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours > 0 && remainingMinutes > 0) {
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h`;
+  }
+
+  return `${minutes}m`;
+}
+
+function formatAgeRating(ageRating?: string, ageRatingLabel?: string) {
+  if (!ageRating) {
+    return null;
+  }
+
+  const shortLabels: Record<string, string> = {
+    AG: "AG",
+    "A.P.-12": "12+",
+    "N-15": "15+",
+    "I.M.-18": "18+",
+    "I.M.-18-XXX": "18+",
+  };
+
+  return shortLabels[ageRating] ?? ageRatingLabel ?? ageRating;
+}
+
+function formatLocaleList(locales: string[] | undefined, displayLocale: string) {
+  const uniqueLocales = Array.from(new Set((locales ?? []).map((locale) => locale.trim().toLowerCase()).filter(Boolean)));
+
+  if (uniqueLocales.length === 0) {
+    return null;
+  }
+
+  const displayNames =
+    typeof Intl !== "undefined" && "DisplayNames" in Intl
+      ? new Intl.DisplayNames([displayLocale], { type: "language" })
+      : null;
+
+  return uniqueLocales
+    .map((locale) => displayNames?.of(locale) ?? locale.toUpperCase())
+    .join(", ");
+}
+
 function shareUrlFor(platform: string, url: string, title: string, description: string) {
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
@@ -287,18 +339,10 @@ export function MovieDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!user) {
-      setReviewRating(5);
-      setReviewComment("");
-      return;
-    }
-
-    const ownReview = reviews.find((review) => review.userId === String(user.id));
-    if (ownReview) {
-      setReviewRating(ownReview.rating);
-      setReviewComment(ownReview.comment);
-    }
-  }, [reviews, user]);
+    setReviewRating(5);
+    setReviewComment("");
+    setReviewError(null);
+  }, [id, user?.id]);
 
   const relatedMovies = useMemo(() => {
     if (!movie) {
@@ -482,6 +526,8 @@ export function MovieDetailPage() {
         count: response.summary.count,
         averageRating: response.summary.average_rating,
       });
+      setReviewRating(5);
+      setReviewComment("");
     } catch (submitError) {
       setReviewError(submitError instanceof Error ? submitError.message : t("movie.review_save_error"));
     } finally {
@@ -499,6 +545,17 @@ export function MovieDetailPage() {
   ];
 
   const currentSeason = seasonsData.find((season) => season.seasonNumber === activeSeason) || seasonsData[0];
+  const runtimeLabel = formatRuntime(movie.runtimeMinutes);
+  const ageRatingLabel = formatAgeRating(movie.ageRating, movie.ageRatingLabel);
+  const audioLabel = formatLocaleList(movie.audioLocales, currentLanguage.code);
+  const subtitleLabel = formatLocaleList(movie.subtitleLocales, currentLanguage.code);
+  const movieFacts = [
+    runtimeLabel ? { label: t("movie.duration"), value: runtimeLabel } : null,
+    ageRatingLabel ? { label: t("movie.age_rating"), value: ageRatingLabel } : null,
+    movie.country ? { label: t("movie.production_countries"), value: movie.country } : null,
+    audioLabel ? { label: t("movie.audio_languages"), value: audioLabel } : null,
+    subtitleLabel ? { label: t("movie.subtitles"), value: subtitleLabel } : null,
+  ].filter((item): item is { label: string; value: string } => item !== null);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -554,8 +611,6 @@ export function MovieDetailPage() {
               </div>
               <span className="text-gray-300">{movie.year}</span>
               <span className="text-gray-500">•</span>
-              <span className="text-gray-300">{movie.country}</span>
-              <span className="text-gray-500">•</span>
               <span className="text-gray-300">{contentTypeLabel(movie, t)}</span>
               <span className="text-gray-500">•</span>
               <div className="flex flex-wrap gap-2">
@@ -566,6 +621,17 @@ export function MovieDetailPage() {
                 ))}
               </div>
             </div>
+
+            {movieFacts.length > 0 ? (
+              <dl className="mb-8 grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {movieFacts.map((item) => (
+                  <div key={item.label} className="rounded-lg border border-white/10 bg-surface/70 px-4 py-3">
+                    <dt className="text-xs font-semibold uppercase text-gray-500">{item.label}</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
 
             {movie.premiereEvent ? (
               <div className="mb-8 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-amber-50">

@@ -110,6 +110,7 @@ function mapProfile(sessionUser: SessionUserPayload, profile: SessionProfilePayl
       ? profile.avatar_color
       : colorForUser(String(sessionUser.id)),
     isDefault: Boolean(profile.is_default),
+    maxAgeRating: typeof profile.max_age_rating === "string" ? profile.max_age_rating : null,
     favoriteSlugs: Array.isArray(profile.favorite_slugs)
       ? profile.favorite_slugs.filter((value): value is string => typeof value === "string")
       : [],

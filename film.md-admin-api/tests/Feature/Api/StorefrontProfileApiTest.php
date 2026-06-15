@@ -47,6 +47,7 @@ class StorefrontProfileApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('profile.name', 'Kids')
             ->assertJsonPath('profile.is_kids', true)
+            ->assertJsonPath('profile.max_age_rating', AccountProfileService::KIDS_MAX_AGE_RATING)
             ->assertJsonCount(2, 'profiles');
 
         $createdProfileId = (string) $createResponse->json('profile.id');
@@ -61,7 +62,8 @@ class StorefrontProfileApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('profile.name', 'Kids Updated')
-            ->assertJsonPath('profile.is_kids', false);
+            ->assertJsonPath('profile.is_kids', false)
+            ->assertJsonPath('profile.max_age_rating', null);
 
         $this->deleteJson("/api/v1/storefront/profiles/{$createdProfileId}", [], [
             'Authorization' => 'Bearer '.$token,
@@ -104,6 +106,31 @@ class StorefrontProfileApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath("favorites_by_profile.{$secondaryProfile->id}", []);
+    }
+
+    public function test_accounts_can_have_at_most_three_profiles(): void
+    {
+        [$user, $token] = $this->createViewerAndToken('profile-limit@example.com');
+
+        foreach (['Second', 'Third'] as $name) {
+            $this->postJson('/api/v1/storefront/profiles', [
+                'name' => $name,
+                'avatar_label' => mb_substr($name, 0, 1),
+            ], [
+                'Authorization' => 'Bearer '.$token,
+            ])->assertCreated();
+        }
+
+        $this->assertSame(AccountProfileService::MAX_PROFILES_PER_ACCOUNT, $user->fresh()->profiles()->count());
+
+        $this->postJson('/api/v1/storefront/profiles', [
+            'name' => 'Fourth',
+            'avatar_label' => 'F',
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('profiles');
     }
 
     /**

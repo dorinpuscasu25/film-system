@@ -51,13 +51,15 @@ export function ContentCatalog() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-  async function loadData() {
+  async function loadData(search = debouncedSearchTerm) {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await adminApi.getContentIndex();
+      const response = await adminApi.getContentIndex(search);
       setItems(response.items);
       setTypeFilters(response.filters.types ?? []);
     } catch (loadError) {
@@ -68,8 +70,16 @@ export function ContentCatalog() {
   }
 
   useEffect(() => {
-    void loadData();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    void loadData(debouncedSearchTerm);
+  }, [debouncedSearchTerm]);
 
   const genreOptions = useMemo(
     () =>
@@ -127,7 +137,7 @@ export function ContentCatalog() {
     try {
       await adminApi.deleteContent(item.id);
       setSuccessMessage(t("movies.messages.delete_success"));
-      await loadData();
+      await loadData(debouncedSearchTerm);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : t("movies.messages.delete_error"));
     }
@@ -323,6 +333,9 @@ export function ContentCatalog() {
               columns={columns}
               keyExtractor={(item) => String(item.id)}
               searchPlaceholder={t("movies.search_placeholder")}
+              searchTerm={searchTerm}
+              onSearchTermChange={setSearchTerm}
+              disableLocalSearch
               onRowClick={(item) => navigate("editor", String(item.id), [t("movies.breadcrumb"), item.localized_title])}
             />
           )}

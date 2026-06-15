@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Content;
+use App\Models\HomePageSection;
 use App\Models\Offer;
 use App\Services\ContentSearchService;
 use App\Services\HomePageService;
@@ -10,7 +11,6 @@ use App\Services\IpGeoLocationService;
 use App\Services\PlaybackAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\Response;
 
 class PublicCatalogController extends ApiController
@@ -28,15 +28,15 @@ class PublicCatalogController extends ApiController
         $countryCode = $this->geoLocation->resolveCountryCode($request);
         $legacyData = $this->legacyHomeData($locale, $countryCode);
         $resolvedSections = $this->homePageService->activeSections();
-        $heroSection = $resolvedSections->firstWhere('section_type', \App\Models\HomePageSection::TYPE_HERO_SLIDER);
+        $heroSection = $resolvedSections->firstWhere('section_type', HomePageSection::TYPE_HERO_SLIDER);
         $heroSlides = $heroSection
             ? $this->homePageService->resolveHeroSlides($heroSection)
                 ->map(fn (array $slide) => $this->publicHeroSlideData($slide, $locale))
                 ->values()
             : collect();
         $carouselSections = $resolvedSections
-            ->where('section_type', \App\Models\HomePageSection::TYPE_CONTENT_CAROUSEL)
-            ->map(function (\App\Models\HomePageSection $section) use ($locale, $countryCode): array {
+            ->where('section_type', HomePageSection::TYPE_CONTENT_CAROUSEL)
+            ->map(function (HomePageSection $section) use ($locale, $countryCode): array {
                 return [
                     'id' => (string) $section->id,
                     'name' => $section->name,
@@ -230,7 +230,7 @@ class PublicCatalogController extends ApiController
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                 ->values(),
             'movies' => $allPublished
-                ->where('type', Content::TYPE_MOVIE)
+                ->where('type', '!=', Content::TYPE_SERIES)
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                 ->values(),
             'series' => $allPublished

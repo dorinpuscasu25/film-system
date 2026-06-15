@@ -141,11 +141,9 @@ export function Footer() {
               />
             ))}
           </div>
-          <div className="flex space-x-4 mt-4 md:mt-0">
-            <span>English</span>
-            <span>Română</span>
-            <span>Русский</span>
-          </div>
+          <p className="mt-4 max-w-xs text-center text-xs font-medium text-gray-500 md:mt-0 md:text-right">
+            {t('footer.support_message')}
+          </p>
         </div>
       </div>
     </footer>);

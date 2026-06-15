@@ -8,6 +8,7 @@ export interface SessionProfilePayload {
   avatar_color?: string | null;
   is_kids?: boolean;
   is_default?: boolean;
+  max_age_rating?: string | null;
   sort_order?: number;
   favorite_slugs?: string[];
 }
@@ -535,11 +536,13 @@ export async function fetchStorefrontPlayback(
   options?: {
     locale?: "en" | "ro" | "ru";
     episodeId?: string;
+    accountProfileId?: string | number | null;
   },
 ) {
   return requestJson<StorefrontPlaybackPayload>(`/storefront/content/${identifier}/playback`, {}, {
     locale: options?.locale,
     episode_id: options?.episodeId,
+    account_profile_id: options?.accountProfileId ?? undefined,
   }, true);
 }
 
