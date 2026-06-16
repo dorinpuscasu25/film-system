@@ -51,6 +51,7 @@ class ContentApiTest extends TestCase
                 'Authorization' => 'Bearer '.$this->token,
             ])->assertOk();
 
+            $response->assertJsonPath('search_engine', 'database');
             $this->assertContains('carbon', collect($response->json('items'))->pluck('slug')->all(), "Term {$term} should find Carbon.");
         }
     }

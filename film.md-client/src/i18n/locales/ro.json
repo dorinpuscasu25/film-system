@@ -11,6 +11,8 @@
   "nav": {
     "home": "Acasă",
     "movies": "Filme",
+    "documentaries": "Documentare",
+    "animations": "Animații",
     "series": "Seriale",
     "movies_series": "Filme și seriale",
     "search": "Căutare",
@@ -237,7 +239,7 @@
     "privacy": "Politica de confidențialitate",
     "cookies": "Politica cookies",
     "rights": "Toate drepturile rezervate.",
-    "support_message": "Mulțumim pentru susținere."
+    "support_message": "Mulțumim pentru susținere 😀"
   },
   "payment": {
     "paid_title": "Plata a fost efectuată cu succes",
@@ -275,7 +277,7 @@
     "saved_progress": "Ai progres salvat pe aceste titluri.",
     "active": "ACTIV",
     "expired": "EXPIRAT",
-    "expires": "Expiră: {{date}}",
+    "expires": "Acces: {{date}}",
     "access_until": "Acces: {{date}}",
     "lifetime_access": "Acces pe viață",
     "buy_again": "Cumpără din nou",
@@ -317,6 +319,7 @@
     "manage_hint": "Poți avea cel mult 3 profile pe cont.",
     "choose_hint": "Alege profilul cu care vrei să vizionezi.",
     "kids": "Copii",
+    "kids_age_limit": "Copii · Limită 12+",
     "add": "Adaugă profil",
     "edit": "Editează profil",
     "name": "Nume",

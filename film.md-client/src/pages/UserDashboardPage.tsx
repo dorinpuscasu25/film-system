@@ -265,7 +265,7 @@ export function UserDashboardPage() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {activeProfile.isKids && (
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                  {t("dashboard.kids_profile")}
+                  {t("profiles.kids_age_limit")}
                 </span>
               )}
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
@@ -618,7 +618,7 @@ export function UserDashboardPage() {
                           <div>
                             <p className="font-medium text-white">{profile.name}</p>
                             <p className="text-xs text-gray-400">
-                              {profile.isKids ? t("profiles.kids") : t("dashboard.standard")} {profile.isDefault ? `• ${t("dashboard.default")}` : ""}
+                              {profile.isKids ? t("profiles.kids_age_limit") : t("dashboard.standard")} {profile.isDefault ? `• ${t("dashboard.default")}` : ""}
                             </p>
                           </div>
                         </div>

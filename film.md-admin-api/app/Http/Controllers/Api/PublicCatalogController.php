@@ -11,6 +11,7 @@ use App\Services\IpGeoLocationService;
 use App\Services\PlaybackAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class PublicCatalogController extends ApiController
@@ -128,6 +129,62 @@ class PublicCatalogController extends ApiController
         }
 
         return response()->json($this->publicContentDetailData($content, $locale));
+    }
+
+    public function sharePreview(Request $request, string $identifier): \Illuminate\Http\Response
+    {
+        $locale = $this->resolveLocale($request);
+        $countryCode = $this->geoLocation->resolveCountryCode($request);
+        $content = Content::query()
+            ->published()
+            ->with('taxonomies', 'offers', 'formats', 'rightsWindows', 'premiereEvents')
+            ->where(function ($builder) use ($identifier): void {
+                $builder->where('slug', $identifier);
+
+                if (ctype_digit($identifier)) {
+                    $builder->orWhere('id', (int) $identifier);
+                }
+            })
+            ->first();
+
+        if ($content === null || ! $this->isCatalogVisible($content, $countryCode)) {
+            return response('<!doctype html><html><head><title>filmoteca.md</title></head><body>Not found</body></html>', Response::HTTP_NOT_FOUND)
+                ->header('Content-Type', 'text/html; charset=UTF-8');
+        }
+
+        $frontendBaseUrl = rtrim((string) config('services.frontend.client_url', 'https://filmoteca.md'), '/');
+        $data = $this->publicContentDetailData($content, $locale);
+        $title = (string) (data_get($data, 'meta_title') ?: data_get($data, 'title') ?: $content->original_title);
+        $shareTitle = Str::contains($title, 'filmoteca.md') ? $title : "{$title} | filmoteca.md";
+        $shareUrl = $this->absolutePublicUrl((string) (data_get($data, 'canonical_url') ?: "/movie/{$content->slug}"), $frontendBaseUrl);
+        $imageUrl = $this->absolutePublicUrl(
+            (string) (data_get($data, 'hero_desktop_url') ?: data_get($data, 'backdrop_url') ?: data_get($data, 'poster_url') ?: ''),
+            $frontendBaseUrl,
+        );
+        $description = $this->shareDescription($content, $data, $locale);
+
+        $html = '<!doctype html><html lang="'.e($locale).'"><head>'
+            .'<meta charset="UTF-8">'
+            .'<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            .'<title>'.e($shareTitle).'</title>'
+            .'<meta name="description" content="'.e($description).'">'
+            .'<meta property="og:site_name" content="filmoteca.md">'
+            .'<meta property="og:title" content="'.e($shareTitle).'">'
+            .'<meta property="og:description" content="'.e($description).'">'
+            .'<meta property="og:image" content="'.e($imageUrl).'">'
+            .'<meta property="og:url" content="'.e($shareUrl).'">'
+            .'<meta property="og:type" content="video.movie">'
+            .'<meta name="twitter:card" content="summary_large_image">'
+            .'<meta name="twitter:title" content="'.e($shareTitle).'">'
+            .'<meta name="twitter:description" content="'.e($description).'">'
+            .'<meta name="twitter:image" content="'.e($imageUrl).'">'
+            .'<link rel="canonical" href="'.e($shareUrl).'">'
+            .'<meta http-equiv="refresh" content="0;url='.e($shareUrl).'">'
+            .'</head><body><a href="'.e($shareUrl).'">'.e($shareTitle).'</a></body></html>';
+
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'public, max-age=600');
     }
 
     public function premiere(Request $request, string $identifier): JsonResponse
@@ -249,6 +306,37 @@ class PublicCatalogController extends ApiController
         $format = $this->playbackAccess->resolveAvailableFormat($content, $countryCode);
 
         return $format !== null;
+    }
+
+    protected function absolutePublicUrl(string $url, string $frontendBaseUrl): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        if (preg_match('/^https?:\/\//i', $url) === 1) {
+            return $url;
+        }
+
+        return rtrim($frontendBaseUrl, '/').'/'.ltrim($url, '/');
+    }
+
+    protected function shareDescription(Content $content, array $data, string $locale): string
+    {
+        $description = (string) (data_get($data, 'meta_description')
+            ?: data_get($data, 'short_description')
+            ?: data_get($data, 'description')
+            ?: '');
+        $description = trim(preg_replace('/\s+/', ' ', strip_tags($description)) ?: '');
+        $details = collect([
+            data_get($data, 'release_year'),
+            Content::typeLabel($content->type, $locale),
+            collect(data_get($data, 'genres', []))->take(2)->implode(', '),
+        ])->filter()->implode(' · ');
+        $suffix = $details !== '' ? " {$details}." : '';
+        $text = "{$description}{$suffix} Vezi {$content->original_title} online pe filmoteca.md.";
+
+        return Str::limit(trim($text), 220);
     }
 
     protected function publicHeroSlideData(array $slide, string $locale): array

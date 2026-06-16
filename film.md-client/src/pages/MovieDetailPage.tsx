@@ -20,7 +20,7 @@ import { Carousel } from "../components/Carousel";
 import { UniversalVideoPlayer } from "../components/UniversalVideoPlayer";
 import { fetchContentReviews, getCatalogPage, getContentDetail } from "../lib/storefront";
 import { fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/session";
-import { applyMovieSeo } from "../lib/seo";
+import { applyMovieSeo, movieShareDescription, movieSharePreviewUrl } from "../lib/seo";
 import { Movie, Review } from "../types";
 
 function formatCountdown(targetDate: string | undefined, liveLabel: string) {
@@ -300,25 +300,42 @@ export function MovieDetailPage() {
 
     async function loadReviews() {
       setIsReviewsLoading(true);
+      setReviews([]);
+      setReviewsSummary({ count: 0, averageRating: 0 });
       try {
         const response = await fetchContentReviews(id);
         if (!active) {
           return;
         }
 
-        setReviews(response.items.map((review) => ({
+        const mappedReviews = response.items.map((review) => ({
           id: String(review.id),
+          contentId: String(review.content_id),
           userId: String(review.user_id),
           userName: review.user_name,
           userAvatar: review.user_avatar,
           rating: review.rating,
           comment: review.comment,
           date: review.created_at,
-        })));
+        }));
+
+        setReviews(mappedReviews);
         setReviewsSummary({
           count: response.summary.count,
           averageRating: response.summary.average_rating,
         });
+
+        const ownReview = user
+          ? mappedReviews.find((review) => review.userId === user.id)
+          : undefined;
+
+        if (ownReview) {
+          setReviewRating(ownReview.rating);
+          setReviewComment(ownReview.comment);
+        } else {
+          setReviewRating(5);
+          setReviewComment("");
+        }
       } catch {
         if (active) {
           setReviews([]);
@@ -336,7 +353,7 @@ export function MovieDetailPage() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, user?.id]);
 
   useEffect(() => {
     setReviewRating(5);
@@ -453,8 +470,9 @@ export function MovieDetailPage() {
   };
 
   const handleShare = async (platform: string) => {
-    const shareUrl = window.location.href;
-    const description = movie.shortDescription || movie.description;
+    const shareUrl = movie.canonicalUrl || window.location.href;
+    const platformShareUrl = platform === "facebook" ? movieSharePreviewUrl(movie, currentLanguage.code) : shareUrl;
+    const description = movieShareDescription(movie);
 
     if (platform === "native") {
       if (navigator.share) {
@@ -478,7 +496,7 @@ export function MovieDetailPage() {
       return;
     }
 
-    window.open(shareUrlFor(platform, shareUrl, movie.title, description), "_blank", "noopener,noreferrer");
+    window.open(shareUrlFor(platform, platformShareUrl, movie.title, description), "_blank", "noopener,noreferrer");
     setIsShareOpen(false);
   };
 
@@ -510,6 +528,7 @@ export function MovieDetailPage() {
 
       const nextReview: Review = {
         id: String(response.review.id),
+        contentId: String(response.review.content_id),
         userId: String(response.review.user_id),
         userName: response.review.user_name,
         userAvatar: response.review.user_avatar,
@@ -519,15 +538,15 @@ export function MovieDetailPage() {
       };
 
       setReviews((current) => {
-        const withoutMine = current.filter((review) => review.userId !== String(response.review.user_id));
+        const withoutMine = current.filter((review) => review.id !== nextReview.id);
         return [nextReview, ...withoutMine];
       });
       setReviewsSummary({
         count: response.summary.count,
         averageRating: response.summary.average_rating,
       });
-      setReviewRating(5);
-      setReviewComment("");
+      setReviewRating(nextReview.rating);
+      setReviewComment(nextReview.comment);
     } catch (submitError) {
       setReviewError(submitError instanceof Error ? submitError.message : t("movie.review_save_error"));
     } finally {

@@ -73,6 +73,7 @@ use Illuminate\Support\Facades\Route;
     Route::prefix('public')->group(function (): void {
         Route::get('home', [PublicCatalogController::class, 'home']);
         Route::get('catalog', [PublicCatalogController::class, 'catalog']);
+        Route::get('content/{slug}/share-preview', [PublicCatalogController::class, 'sharePreview']);
         Route::get('content/{slug}', [PublicCatalogController::class, 'show']);
         Route::get('content/{slug}/reviews', [ContentReviewController::class, 'index']);
         Route::get('content/{slug}/premiere', [PublicCatalogController::class, 'premiere']);

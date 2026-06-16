@@ -226,6 +226,7 @@ export interface RecommendationsResponsePayload {
 
 export interface StorefrontReviewPayload {
   id: string | number;
+  content_id: string | number;
   user_id: string | number;
   user_name: string;
   user_avatar: string;
@@ -477,9 +478,18 @@ export async function fetchStorefrontAccount(locale?: "en" | "ro" | "ru") {
   }, true);
 }
 
-export async function purchaseStorefrontOffer(offerId: string, locale?: "en" | "ro" | "ru") {
+export async function purchaseStorefrontOffer(
+  offerId: string,
+  locale?: "en" | "ro" | "ru",
+  options?: {
+    accountProfileId?: string | number | null;
+  },
+) {
   return requestJson<StorefrontPurchasePayload>(`/storefront/offers/${offerId}/purchase`, {
     method: "POST",
+    body: JSON.stringify({
+      account_profile_id: options?.accountProfileId ?? undefined,
+    }),
   }, {
     locale,
   }, true);

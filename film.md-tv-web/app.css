@@ -1,0 +1,120 @@
+/* FILMOTECA.md — TV web styles. Designed for a 1280×720 TV viewport. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #0A0A0F;
+  color: #fff;
+  font-family: 'Inter', 'Roboto', 'Segoe UI', Arial, sans-serif;
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+
+#app { width: 100%; height: 100vh; overflow-y: auto; overflow-x: hidden; }
+
+.accent { color: #E50914; }
+.spacer { flex: 1; }
+
+.screen { padding: 36px 56px 64px; min-height: 100vh; }
+.center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.loading, .error { color: #A6A6B2; font-size: 22px; padding: 40px; }
+.error { color: #ff6b6b; }
+
+/* ----------------------------------------------------------- Focus + buttons */
+.focusable { outline: none; transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease; }
+.focused {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 3px #E50914, 0 12px 40px rgba(229, 9, 20, .45);
+  z-index: 5;
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 14px 28px; border-radius: 12px;
+  background: #1E1E2E; color: #fff; font-size: 18px; font-weight: 600;
+  cursor: pointer;
+}
+.btn-primary { background: #E50914; }
+.btn.focused, .btn-primary.focused { transform: scale(1.06); }
+
+.chip {
+  display: inline-flex; align-items: center; padding: 10px 18px;
+  border-radius: 999px; background: rgba(255,255,255,.08);
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+
+/* -------------------------------------------------------------------- Topbar */
+.topbar { display: flex; align-items: center; gap: 16px; padding: 22px 56px; }
+.brand { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
+.brand-lg { font-size: 44px; font-weight: 900; margin-bottom: 24px; }
+
+/* --------------------------------------------------------------------- Hero */
+.hero {
+  position: relative; height: 460px; border-radius: 20px; overflow: hidden;
+  background-size: cover; background-position: center; margin: 0 56px 8px;
+}
+.hero-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, #0A0A0F 8%, rgba(10,10,15,.6) 45%, rgba(10,10,15,.05) 100%),
+              linear-gradient(0deg, #0A0A0F 0%, rgba(10,10,15,0) 50%);
+}
+.hero-content { position: absolute; left: 48px; bottom: 40px; max-width: 60%; }
+.hero-title { font-size: 46px; font-weight: 900; line-height: 1.05; margin-bottom: 12px; text-shadow: 0 4px 24px rgba(0,0,0,.7); }
+.hero-desc { font-size: 18px; color: #d6d6e0; margin-bottom: 22px; max-height: 56px; overflow: hidden; }
+.hero-btn { }
+
+/* ---------------------------------------------------------------------- Rows */
+.row { padding: 22px 0 6px; }
+.row-title { font-size: 22px; font-weight: 700; padding: 0 56px 14px; }
+.row-strip { display: flex; gap: 16px; padding: 6px 56px 18px; overflow-x: auto; scroll-behavior: smooth; }
+.card {
+  position: relative; flex: 0 0 auto;
+  width: 170px; height: 255px; border-radius: 12px;
+  background: #14141F center/cover no-repeat;
+  cursor: pointer; overflow: hidden;
+}
+.card-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 10px; font-size: 14px; color: #A6A6B2; text-align: center; }
+
+/* -------------------------------------------------------------------- Detail */
+.detail { position: relative; min-height: 100vh; background-size: cover; background-position: right center; }
+.detail-scrim { position: absolute; inset: 0;
+  background: linear-gradient(90deg, #0A0A0F 30%, rgba(10,10,15,.85) 55%, rgba(10,10,15,.1) 100%); }
+.detail-content { position: relative; max-width: 720px; padding: 40px 56px; }
+.back-chip { margin-bottom: 22px; }
+.detail-type { color: #E50914; font-size: 15px; font-weight: 800; letter-spacing: 2px; margin-bottom: 8px; }
+.detail-title { font-size: 46px; font-weight: 900; line-height: 1.05; }
+.detail-meta { color: #A6A6B2; font-size: 16px; margin: 12px 0; }
+.detail-desc { font-size: 18px; color: #e8e8ef; line-height: 1.5; margin-bottom: 26px; max-height: 140px; overflow: hidden; }
+
+.episodes { margin-top: 28px; }
+.ep-season { font-size: 20px; font-weight: 700; margin: 18px 0 10px; }
+.ep { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: 12px;
+  background: rgba(255,255,255,.05); margin-bottom: 10px; cursor: pointer; }
+.ep-num { color: #E50914; font-size: 20px; font-weight: 800; }
+.ep-title { font-size: 17px; }
+
+/* --------------------------------------------------------------------- Buy */
+.buy-title { font-size: 34px; font-weight: 800; margin-bottom: 14px; }
+.buy-text { font-size: 18px; color: #A6A6B2; max-width: 620px; margin-bottom: 16px; }
+.buy-url { font-size: 18px; font-weight: 600; margin-bottom: 28px; }
+.buy-actions { display: flex; gap: 16px; }
+
+/* ------------------------------------------------------------------ Pairing */
+.pair-title { font-size: 34px; font-weight: 800; margin-bottom: 24px; }
+.pair-body { font-size: 20px; color: #cfcfda; }
+.pair-step { font-size: 20px; color: #A6A6B2; margin-top: 16px; }
+.pair-url { font-size: 24px; font-weight: 700; color: #E50914; margin-top: 4px; }
+.pair-code {
+  display: inline-block; margin-top: 14px; padding: 18px 36px; border-radius: 16px;
+  background: #14141F; font-size: 54px; font-weight: 900; letter-spacing: 8px; font-family: monospace;
+}
+.pair-note { font-size: 15px; color: #6B6B7B; margin-top: 26px; }
+
+/* ------------------------------------------------------------------ Player */
+.player-overlay { position: fixed; inset: 0; background: #000; z-index: 100; }
+.player-overlay.hidden { display: none; }
+#player-frame { width: 100%; height: 100%; border: 0; }
+.player-hint { position: absolute; top: 18px; right: 22px; padding: 8px 14px; border-radius: 8px;
+  background: rgba(0,0,0,.55); font-size: 14px; color: #ddd; }

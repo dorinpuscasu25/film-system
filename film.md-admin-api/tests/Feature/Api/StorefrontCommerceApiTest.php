@@ -241,6 +241,30 @@ class StorefrontCommerceApiTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_kids_profile_cannot_purchase_content_above_12_plus(): void
+    {
+        $user = $this->createActiveViewer('kids-purchase@example.com');
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+        $kidsProfile = app(AccountProfileService::class)->create($user, [
+            'name' => 'Kids',
+            'avatar_label' => 'K',
+            'is_kids' => true,
+        ]);
+        $offer = Offer::query()
+            ->where('name', 'Forever Full HD')
+            ->whereHas('content', fn ($query) => $query->where('slug', 'carbon'))
+            ->firstOrFail();
+        $offer->content->forceFill(['age_rating' => 'I.M.-18'])->save();
+
+        $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase?locale=ro", [
+            'account_profile_id' => $kidsProfile->id,
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Acest conținut depășește limita de vârstă permisă pentru profilul copil.');
+    }
+
     public function test_series_playback_can_resolve_episode_video_for_owned_content(): void
     {
         $token = $this->registerViewerAndReturnToken(email: 'series@example.com');

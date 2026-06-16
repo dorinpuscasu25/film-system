@@ -31,6 +31,44 @@ function absoluteUrl(url?: string | null) {
   }
 }
 
+function compactText(value?: string | null, maxLength = 180) {
+  const text = (value ?? "").replace(/\s+/g, " ").trim();
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  const slice = text.slice(0, maxLength - 1).trimEnd();
+  const lastSpace = slice.lastIndexOf(" ");
+  const shortened = lastSpace > 80 ? slice.slice(0, lastSpace) : slice;
+
+  return `${shortened}...`;
+}
+
+export function movieShareImage(movie: Movie, fallbackImageUrl?: string) {
+  return movie.heroDesktopUrl || movie.backdropUrl || movie.posterUrl || fallbackImageUrl || "";
+}
+
+export function movieShareDescription(movie: Movie, fallbackDescription?: string) {
+  const baseDescription = movie.metaDescription || movie.shortDescription || movie.description || fallbackDescription || "";
+  const details = [
+    movie.year ? String(movie.year) : null,
+    movie.typeLabel,
+    movie.genres?.slice(0, 2).join(", "),
+  ].filter(Boolean);
+  const detailSuffix = details.length > 0 ? ` ${details.join(" · ")}.` : "";
+  const watchSuffix = ` Vezi ${movie.title} online pe filmoteca.md.`;
+
+  return compactText(`${baseDescription}${detailSuffix}${watchSuffix}`);
+}
+
+export function movieSharePreviewUrl(movie: Movie, locale: LocaleCode) {
+  const apiBaseUrl = API_URL.replace(/\/$/, "");
+  const identifier = encodeURIComponent(movie.id);
+
+  return `${apiBaseUrl}/public/content/${identifier}/share-preview?locale=${encodeURIComponent(locale)}`;
+}
+
 function setMeta(selector: string, attr: "name" | "property", key: string, content?: string) {
   let element = document.head.querySelector<HTMLMetaElement>(selector);
 
@@ -129,8 +167,8 @@ export async function applyMovieSeo(movie: Movie, locale: LocaleCode) {
 
   applySeo({
     title,
-    description: movie.metaDescription || movie.shortDescription || movie.description || localized(settings.default_description, locale),
-    imageUrl: movie.posterUrl || settings.default_image_url,
+    description: movieShareDescription(movie, localized(settings.default_description, locale)),
+    imageUrl: movieShareImage(movie, settings.default_image_url),
     canonicalUrl: movie.canonicalUrl || (settings.canonical_base_url
       ? `${settings.canonical_base_url.replace(/\/$/, "")}/movie/${movie.id}`
       : window.location.href),

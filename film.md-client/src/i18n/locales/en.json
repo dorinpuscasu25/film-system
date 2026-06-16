@@ -11,6 +11,8 @@
   "nav": {
     "home": "Home",
     "movies": "Movies",
+    "documentaries": "Documentaries",
+    "animations": "Animations",
     "series": "Series",
     "movies_series": "Movies & Series",
     "search": "Search",
@@ -237,7 +239,7 @@
     "privacy": "Privacy policy",
     "cookies": "Cookie policy",
     "rights": "All rights reserved.",
-    "support_message": "Thank you for your support."
+    "support_message": "Thank you for your support 😀"
   },
   "payment": {
     "paid_title": "Payment completed successfully",
@@ -275,7 +277,7 @@
     "saved_progress": "You have saved progress on these titles.",
     "active": "ACTIVE",
     "expired": "EXPIRED",
-    "expires": "Expires: {{date}}",
+    "expires": "Access: {{date}}",
     "access_until": "Access: {{date}}",
     "lifetime_access": "Lifetime access",
     "buy_again": "Buy again",
@@ -317,6 +319,7 @@
     "manage_hint": "You can have up to 3 profiles per account.",
     "choose_hint": "Choose the profile you want to watch with.",
     "kids": "Kids",
+    "kids_age_limit": "Kids · 12+ limit",
     "add": "Add profile",
     "edit": "Edit profile",
     "name": "Name",

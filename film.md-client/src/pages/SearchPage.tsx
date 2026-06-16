@@ -3,8 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { ChevronDownIcon, FilterIcon, SearchIcon } from "lucide-react";
 import { MovieCard } from "../components/MovieCard";
 import { useLanguage } from "../contexts/LanguageContext";
-import { CatalogFilterOption, CatalogFilters, getCatalogPage } from "../lib/storefront";
-import { Movie } from "../types";
+import { getCatalogPage } from "../lib/storefront";
+import type { CatalogFilterOption, CatalogFilters, CatalogQuery } from "../lib/storefront";
+import type { Movie } from "../types";
+
+type ContentType = NonNullable<CatalogQuery["type"]>;
+
+const CONTENT_TYPE_VALUES: ContentType[] = ["movie", "documentary", "short", "animation", "series"];
 
 const EMPTY_FILTERS: CatalogFilters = {
   genres: [],
@@ -44,7 +49,7 @@ export function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
   const normalizedQuery = deferredQuery.trim();
-  const normalizedType = selectedType === "movie" || selectedType === "series" ? selectedType : null;
+  const normalizedType = isContentType(selectedType) ? selectedType : null;
   const normalizedAccess = selectedPrice === "free" || selectedPrice === "paid" ? selectedPrice : null;
   const normalizedMinRating = minRating > 0 ? minRating : 0;
   const genresScope = useMemo(
@@ -182,7 +187,8 @@ export function SearchPage() {
   function clearFilters() {
     setQuery("");
     setSelectedGenre(null);
-    setSelectedType(searchParams.get("type"));
+    const routeType = searchParams.get("type");
+    setSelectedType(isContentType(routeType) ? routeType : null);
     setSelectedYear(null);
     setSelectedCountry(null);
     setSelectedPrice(null);
@@ -193,15 +199,31 @@ export function SearchPage() {
     () =>
       [
         selectedGenre,
-        selectedType,
+        normalizedType,
         selectedYear,
         selectedCountry,
         selectedPrice,
         minRating > 0 ? String(minRating) : null,
       ].filter(Boolean).length,
-    [minRating, selectedCountry, selectedGenre, selectedPrice, selectedType, selectedYear],
+    [minRating, normalizedType, selectedCountry, selectedGenre, selectedPrice, selectedYear],
   );
 
+  const typeOptions = useMemo(() => {
+    const optionsByValue = new Map(filterOptions.filters.types.map((option) => [option.value, option]));
+
+    return [
+      { value: null, label: t("common.all") },
+      ...CONTENT_TYPE_VALUES.map((value) => {
+        const apiOption = optionsByValue.get(value);
+
+        return {
+          value,
+          label: apiOption?.label || t(`content_types.${value}`),
+        };
+      }),
+    ];
+  }, [filterOptions.filters.types, t]);
+  const selectedTypeLabel = typeOptions.find((option) => option.value === normalizedType)?.label;
   const selectedGenreLabel = filterOptions.filters.genres.find((genre) => genre.value === selectedGenre)?.label;
   const selectedYearLabel = filterOptions.filters.years.find((year) => year.value === selectedYear)?.label;
   const countryDisplayNames = useMemo(() => {
@@ -271,18 +293,14 @@ export function SearchPage() {
         {isFiltersOpen ? (
           <div className="mb-7 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-3 shadow-lg shadow-black/10">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex h-8 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
-                {[
-                  { value: null, label: t("common.all") },
-                  { value: "movie", label: t("nav.movies") },
-                  { value: "series", label: t("nav.series") },
-                ].map((option) => (
+              <div className="flex h-8 max-w-full overflow-x-auto rounded-md border border-white/10 bg-white/[0.03] p-0.5">
+                {typeOptions.map((option) => (
                   <button
                     key={option.label}
                     type="button"
                     onClick={() => setSelectedType(option.value)}
-                    className={`rounded px-2.5 text-[11px] font-semibold transition ${
-                      selectedType === option.value
+                    className={`shrink-0 rounded px-2.5 text-[11px] font-semibold transition ${
+                      normalizedType === option.value
                         ? "bg-white text-background"
                         : "text-gray-400 hover:text-white"
                     }`}
@@ -389,7 +407,7 @@ export function SearchPage() {
 
             {activeFilterCount > 0 ? (
               <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                {selectedType ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedType === "movie" ? t("nav.movies") : t("nav.series")}</span> : null}
+                {normalizedType ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedTypeLabel ?? normalizedType}</span> : null}
                 {selectedGenre ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedGenreLabel ?? selectedGenre}</span> : null}
                 {selectedCountry ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedCountryLabel ?? selectedCountry}</span> : null}
                 {selectedYear ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedYearLabel ?? selectedYear}</span> : null}
@@ -446,6 +464,10 @@ function getCountryLabel(
   const localizedLabel = /^[A-Z]{2}$/.test(countryCode) ? displayNames?.of(countryCode) : null;
 
   return localizedLabel && localizedLabel !== countryCode ? localizedLabel : fallbackLabel;
+}
+
+function isContentType(value: string | null): value is ContentType {
+  return value !== null && CONTENT_TYPE_VALUES.includes(value as ContentType);
 }
 
 function mergeFilterOptions(

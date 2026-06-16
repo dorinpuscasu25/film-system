@@ -38,9 +38,20 @@ class ContentSearchService
 
     public function searchAdminContent(string $locale, string $query, ?User $user = null): Collection
     {
+        return $this->searchAdminContentResult($locale, $query, $user)['items'];
+    }
+
+    /**
+     * @return array{items: Collection<int, Content>, engine: string}
+     */
+    public function searchAdminContentResult(string $locale, string $query, ?User $user = null): array
+    {
         $term = trim($query);
         if ($term === '') {
-            return $this->adminDatabaseQuery('', $user)->get();
+            return [
+                'items' => $this->adminDatabaseQuery('', $user)->get(),
+                'engine' => 'database',
+            ];
         }
 
         if ($this->shouldUseMeilisearch()) {
@@ -48,6 +59,7 @@ class ContentSearchService
                 $this->configureIndex();
                 $result = $this->index()->search($term, [
                     'limit' => 500,
+                    'attributesToRetrieve' => ['id'],
                     'sort' => ['is_featured:desc', 'sort_order:asc', 'release_year:desc', 'published_timestamp:desc'],
                     'locales' => config("search.locales.{$locale}", [$locale]),
                 ]);
@@ -57,13 +69,19 @@ class ContentSearchService
                     ->values()
                     ->all();
 
-                return $this->loadContentsByOrderedIds($contentIds, false, $user);
+                return [
+                    'items' => $this->loadContentsByOrderedIds($contentIds, false, $user),
+                    'engine' => 'meilisearch',
+                ];
             } catch (Throwable $exception) {
                 report($exception);
             }
         }
 
-        return $this->adminDatabaseQuery($term, $user)->get();
+        return [
+            'items' => $this->adminDatabaseQuery($term, $user)->get(),
+            'engine' => 'database',
+        ];
     }
 
     public function syncContent(Content|int|null $content): void

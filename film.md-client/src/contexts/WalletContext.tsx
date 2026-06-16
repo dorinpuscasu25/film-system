@@ -140,7 +140,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const purchaseAccess = async (offerId: string) => {
-    await purchaseStorefrontOffer(offerId, currentLanguage.code);
+    await purchaseStorefrontOffer(offerId, currentLanguage.code, {
+      accountProfileId: activeProfile?.id ?? null,
+    });
     await loadAccount();
   };
 

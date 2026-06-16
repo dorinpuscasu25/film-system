@@ -75,6 +75,28 @@ class StorefrontController extends ApiController
     {
         $user = $request->user();
         $locale = $this->resolveRequestedLocale($request, $user);
+        $validated = $request->validate([
+            'account_profile_id' => ['nullable', 'integer'],
+        ]);
+        $offer->loadMissing('content');
+
+        $profileId = (int) ($validated['account_profile_id'] ?? 0);
+        if ($profileId > 0) {
+            $profile = $user->profiles()->whereKey($profileId)->first();
+
+            if ($profile === null) {
+                return response()->json([
+                    'message' => 'The requested profile was not found.',
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($offer->content !== null && ! $this->parentalControls->canAccessContent($profile, $offer->content)) {
+                return response()->json([
+                    'message' => 'Acest conținut depășește limita de vârstă permisă pentru profilul copil.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
         $purchase = $this->purchases->purchase($user, $offer);
         $libraryItem = $this->libraryItemData($purchase['entitlement'], $locale);
 

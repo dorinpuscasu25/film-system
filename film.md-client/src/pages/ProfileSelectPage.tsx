@@ -189,7 +189,7 @@ export function ProfileSelectPage() {
             <div className="mt-2 flex h-7 items-start justify-center">
               {profile.isKids && (
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                  {t("profiles.kids")}
+                  {t("profiles.kids_age_limit")}
                 </span>
               )}
             </div>

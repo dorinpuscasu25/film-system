@@ -106,6 +106,7 @@ class ContentReviewController extends ApiController
 
         return [
             'id' => $review->id,
+            'content_id' => $review->content_id,
             'user_id' => $review->user_id,
             'user_name' => $displayName,
             'user_avatar' => $avatarLabel,

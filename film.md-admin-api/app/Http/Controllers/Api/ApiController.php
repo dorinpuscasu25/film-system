@@ -15,6 +15,7 @@ use App\Models\Taxonomy;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Services\AccountProfileService;
 use Illuminate\Support\Collection;
 
 class ApiController extends Controller
@@ -49,9 +50,7 @@ class ApiController extends Controller
             'wallet' => $user->relationLoaded('wallet') && $user->wallet !== null
                 ? $this->walletSummaryData($user->wallet)
                 : null,
-            'profiles' => $user->relationLoaded('profiles')
-                ? $user->profiles->map(fn (AccountProfile $profile) => $this->accountProfileData($profile))->values()
-                : [],
+            'profiles' => $this->accountProfilesData($user),
         ];
     }
 
@@ -141,9 +140,38 @@ class ApiController extends Controller
         ];
     }
 
+    protected function accountProfilesData(User $user, bool $queryWhenMissing = false): Collection
+    {
+        if (! $user->relationLoaded('profiles') && ! $queryWhenMissing) {
+            return collect();
+        }
+
+        $profiles = $user->relationLoaded('profiles')
+            ? $user->profiles
+            : $user->profiles()->with('favorites')->orderByDesc('is_default')->orderBy('sort_order')->get();
+
+        return $profiles
+            ->sortBy(fn (AccountProfile $profile): string => sprintf(
+                '%d-%010d-%010d',
+                $profile->is_default ? 0 : 1,
+                (int) $profile->sort_order,
+                (int) $profile->id,
+            ))
+            ->take(AccountProfileService::MAX_PROFILES_PER_ACCOUNT)
+            ->map(fn (AccountProfile $profile) => $this->accountProfileData($profile))
+            ->values();
+    }
+
     protected function favoriteMapData(Collection $profiles): array
     {
         return $profiles
+            ->sortBy(fn (AccountProfile $profile): string => sprintf(
+                '%d-%010d-%010d',
+                $profile->is_default ? 0 : 1,
+                (int) $profile->sort_order,
+                (int) $profile->id,
+            ))
+            ->take(AccountProfileService::MAX_PROFILES_PER_ACCOUNT)
             ->mapWithKeys(fn (AccountProfile $profile) => [
                 (string) $profile->id => $profile->relationLoaded('favorites')
                     ? $profile->favorites->pluck('slug')->values()->all()

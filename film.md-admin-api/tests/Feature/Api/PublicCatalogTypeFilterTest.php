@@ -43,6 +43,20 @@ class PublicCatalogTypeFilterTest extends TestCase
         $this->assertSame(['series-title'], $result['items']->pluck('slug')->values()->all());
     }
 
+    public function test_specific_non_series_type_filter_returns_only_that_type(): void
+    {
+        $this->createContent('feature-film', Content::TYPE_MOVIE);
+        $this->createContent('documentary-film', Content::TYPE_DOCUMENTARY);
+        $this->createContent('animation-film', Content::TYPE_ANIMATION);
+
+        $result = app(ContentSearchService::class)->searchCatalog('ro', [
+            'type' => Content::TYPE_ANIMATION,
+            'page_size' => 20,
+        ]);
+
+        $this->assertSame(['animation-film'], $result['items']->pluck('slug')->values()->all());
+    }
+
     private function createContent(string $slug, string $type): Content
     {
         return Content::query()->create([

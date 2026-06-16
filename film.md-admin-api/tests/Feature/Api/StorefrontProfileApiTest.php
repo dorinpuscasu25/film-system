@@ -133,6 +133,30 @@ class StorefrontProfileApiTest extends TestCase
             ->assertJsonValidationErrors('profiles');
     }
 
+    public function test_legacy_accounts_return_only_three_profiles_to_storefront(): void
+    {
+        [$user, $token] = $this->createViewerAndToken('legacy-profile-limit@example.com');
+
+        foreach (range(2, 5) as $index) {
+            $user->profiles()->create([
+                'name' => "Legacy {$index}",
+                'avatar_label' => (string) $index,
+                'avatar_color' => 'from-blue-500 to-purple-600',
+                'is_kids' => false,
+                'is_default' => false,
+                'sort_order' => $index * 10,
+            ]);
+        }
+
+        $this->assertSame(5, $user->fresh()->profiles()->count());
+
+        $this->getJson('/api/v1/storefront/account?locale=ro', [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertOk()
+            ->assertJsonCount(AccountProfileService::MAX_PROFILES_PER_ACCOUNT, 'user.profiles');
+    }
+
     /**
      * @return array{0: User, 1: string}
      */

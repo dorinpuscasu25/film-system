@@ -129,6 +129,7 @@ interface PublicContentDetail extends PublicContentCard {
 
 export interface PublicReview {
   id: string | number;
+  content_id: string | number;
   user_id: string | number;
   user_name: string;
   user_avatar: string;

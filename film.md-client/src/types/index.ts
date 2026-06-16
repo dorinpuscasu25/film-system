@@ -143,6 +143,7 @@ export interface WalletTransaction {
 
 export interface Review {
   id: string;
+  contentId?: string;
   userId: string;
   userName: string;
   userAvatar: string;

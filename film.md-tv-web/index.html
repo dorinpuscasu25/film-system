@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>FILMOTECA.md</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <!-- App root; screens are injected here by app.js -->
+  <div id="app"></div>
+
+  <!-- Fullscreen Bunny player overlay (iframe handles HLS + DRM, like on web) -->
+  <div id="player-overlay" class="player-overlay hidden">
+    <iframe id="player-frame" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen frameborder="0" referrerpolicy="origin-when-cross-origin"></iframe>
+    <div id="player-hint" class="player-hint">Apasă <b>Înapoi</b> pentru a ieși</div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="spatial.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

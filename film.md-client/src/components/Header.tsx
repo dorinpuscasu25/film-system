@@ -142,7 +142,7 @@ export function Header() {
       return;
     }
 
-    const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+    const handleOutsideClick = (event: PointerEvent) => {
       if (!profileMenuRef.current?.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
@@ -153,13 +153,11 @@ export function Header() {
       }
     };
 
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('touchstart', handleOutsideClick);
+    document.addEventListener('pointerdown', handleOutsideClick, true);
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('touchstart', handleOutsideClick);
+      document.removeEventListener('pointerdown', handleOutsideClick, true);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showProfileMenu]);
@@ -197,6 +195,12 @@ export function Header() {
                   </Link>
                   <Link to="/search?type=movie" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
                     {t('nav.movies')}
+                  </Link>
+                  <Link to="/search?type=documentary" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                    {t('nav.documentaries')}
+                  </Link>
+                  <Link to="/search?type=animation" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                    {t('nav.animations')}
                   </Link>
                   <Link to="/search?type=series" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
                     {t('nav.series')}
@@ -266,7 +270,14 @@ export function Header() {
                     </button>
 
                     {showProfileMenu &&
-                <div className="absolute right-0 mt-4 w-56 rounded-xl border border-white/10 bg-surface/95 py-2 shadow-2xl shadow-black/40 backdrop-blur-xl">
+                <>
+                    <button
+                      type="button"
+                      aria-label={t('common.close')}
+                      className="fixed inset-0 z-0 cursor-default"
+                      onClick={() => setShowProfileMenu(false)}
+                    />
+                    <div className="absolute right-0 z-10 mt-4 w-56 rounded-xl border border-white/10 bg-surface/95 py-2 shadow-2xl shadow-black/40 backdrop-blur-xl">
                         <div className="px-4 py-2 border-b border-white/10 mb-2">
                           <p className="text-sm text-white font-medium">
                             {activeProfile.name}
@@ -307,6 +318,7 @@ export function Header() {
                           {t('header.logout')}
                         </button>
                       </div>
+                    </>
                 }
                   </div>
               }
@@ -347,8 +359,17 @@ export function Header() {
                   <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
                     {t('nav.home')}
                   </Link>
-                  <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-                    {t('nav.movies_series')}
+                  <Link to="/search?type=movie" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+                    {t('nav.movies')}
+                  </Link>
+                  <Link to="/search?type=documentary" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+                    {t('nav.documentaries')}
+                  </Link>
+                  <Link to="/search?type=animation" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+                    {t('nav.animations')}
+                  </Link>
+                  <Link to="/search?type=series" onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+                    {t('nav.series')}
                   </Link>
                 </>
               )}

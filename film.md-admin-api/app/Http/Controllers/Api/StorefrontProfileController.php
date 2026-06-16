@@ -31,9 +31,7 @@ class StorefrontProfileController extends ApiController
 
         return response()->json([
             'profile' => $this->accountProfileData($profile),
-            'profiles' => $request->user()->profiles()->with('favorites')->orderByDesc('is_default')->orderBy('sort_order')->get()
-                ->map(fn (AccountProfile $item) => $this->accountProfileData($item))
-                ->values(),
+            'profiles' => $this->accountProfilesData($request->user(), true),
         ], Response::HTTP_CREATED);
     }
 
@@ -53,9 +51,7 @@ class StorefrontProfileController extends ApiController
 
         return response()->json([
             'profile' => $this->accountProfileData($profile),
-            'profiles' => $request->user()->profiles()->with('favorites')->orderByDesc('is_default')->orderBy('sort_order')->get()
-                ->map(fn (AccountProfile $item) => $this->accountProfileData($item))
-                ->values(),
+            'profiles' => $this->accountProfilesData($request->user(), true),
         ]);
     }
 
@@ -65,9 +61,7 @@ class StorefrontProfileController extends ApiController
         $this->profiles->delete($profile);
 
         return response()->json([
-            'profiles' => $request->user()->profiles()->with('favorites')->orderByDesc('is_default')->orderBy('sort_order')->get()
-                ->map(fn (AccountProfile $item) => $this->accountProfileData($item))
-                ->values(),
+            'profiles' => $this->accountProfilesData($request->user(), true),
         ]);
     }
 

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PlayerView backed by a TextureView instead of the default SurfaceView.
+
+  A SurfaceView renders on a separate compositor layer; on some TVs (e.g. TCL
+  Google TV) that layer ends up behind the opaque app window, so the video is
+  invisible (black) even though ExoPlayer is decoding and rendering frames.
+  A TextureView draws inside the normal view hierarchy, so it always shows.
+  Safe here because we force Widevine L3 (non-secure) — TextureView can't show
+  secure (L1) content.
+-->
+<androidx.media3.ui.PlayerView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    app:surface_type="texture_view"
+    app:use_controller="true"
+    app:resize_mode="fit"
+    app:show_buffering="when_playing" />
