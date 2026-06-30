@@ -102,6 +102,7 @@ interface PublicContentCard {
   hero_desktop_url?: string | null;
   hero_mobile_url?: string | null;
   trailer_url?: string | null;
+  preview_images?: string[] | null;
   premiere_event?: {
     id: string | number;
     title: string;
@@ -301,6 +302,22 @@ export interface CatalogPageResult {
   searchEngine: "meilisearch" | "database";
 }
 
+function arrayOf<T>(value: T[] | Record<string, T> | null | undefined): T[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (value && typeof value === "object") {
+    return Object.values(value);
+  }
+
+  return [];
+}
+
+function compactStrings(value: string[] | Record<string, string> | null | undefined): string[] {
+  return arrayOf(value).filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
 async function fetchJson<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
   const params = new URLSearchParams();
 
@@ -350,12 +367,16 @@ function mapOffer(offer: PublicOffer): Offer {
 }
 
 function mapCardToMovie(item: PublicContentCard): Movie {
+  const availableQualities = compactStrings(item.available_qualities);
+  const badges = arrayOf(item.badges);
+  const countryNames = compactStrings(item.country_names);
+  const countryCodes = compactStrings(item.country_codes);
   const offers = item.is_free
     ? [{
         id: `${item.slug}-free`,
         name: "Free access",
         accessType: "free" as const,
-        quality: item.available_qualities?.[0] ?? "HD",
+        quality: availableQualities[0] ?? "HD",
         price: 0,
         currency: item.currency || "MDL",
       }]
@@ -368,23 +389,23 @@ function mapCardToMovie(item: PublicContentCard): Movie {
     title: item.title,
     originalTitle: item.original_title,
     year,
-    genres: item.genres ?? [],
-    country: item.country_names?.filter(Boolean).join(", ") || item.country_name || item.country_code || "Unknown",
-    countryCodes: item.country_codes?.filter(Boolean) ?? (item.country_code ? [item.country_code] : []),
+    genres: compactStrings(item.genres),
+    country: countryNames.join(", ") || item.country_name || item.country_code || "Unknown",
+    countryCodes: countryCodes.length > 0 ? countryCodes : (item.country_code ? [item.country_code] : []),
     rating: Number(item.imdb_rating ?? 0),
     platformRating: Number(item.platform_rating ?? 0),
     runtimeMinutes: item.runtime_minutes ?? undefined,
     ageRating: item.age_rating ?? undefined,
     ageRatingLabel: item.age_rating_label ?? undefined,
-    audioLocales: item.audio_locales?.filter(Boolean) ?? [],
-    subtitleLocales: item.subtitle_locales?.filter(Boolean) ?? [],
+    audioLocales: compactStrings(item.audio_locales),
+    subtitleLocales: compactStrings(item.subtitle_locales),
     price: Number(item.lowest_price ?? 0),
     accessDuration: deriveAccessDuration(offers, Number(item.lowest_price ?? 0)),
     posterUrl: item.poster_url,
     backdropUrl: item.backdrop_url,
     heroDesktopUrl: item.hero_desktop_url ?? undefined,
     heroMobileUrl: item.hero_mobile_url ?? undefined,
-    previewImages: item.preview_images?.filter(Boolean) ?? [],
+    previewImages: compactStrings(item.preview_images),
     shortDescription: item.short_description ?? "",
     tagline: item.tagline ?? "",
     description: item.short_description ?? item.tagline ?? "",
@@ -400,7 +421,7 @@ function mapCardToMovie(item: PublicContentCard): Movie {
           endsAt: item.premiere_event.ends_at ?? undefined,
         }
       : undefined,
-    isNew: Boolean(item.badges?.some((badge) => badge.slug === "new")) || year >= currentYear - 1,
+    isNew: badges.some((badge) => badge.slug === "new") || year >= currentYear - 1,
     isTrending: Boolean(item.is_trending),
     isFeatured: Boolean(item.is_featured),
     isFree: Boolean(item.is_free),
@@ -411,7 +432,14 @@ function mapCardToMovie(item: PublicContentCard): Movie {
 }
 
 function mapDetailToMovie(item: PublicContentDetail): Movie {
-  const offers = (item.offers ?? []).map(mapOffer);
+  const offers = arrayOf(item.offers).map(mapOffer);
+  const badges = arrayOf(item.badges);
+  const cast = arrayOf(item.cast);
+  const crew = arrayOf(item.crew);
+  const videos = arrayOf(item.videos);
+  const seasons = arrayOf(item.seasons);
+  const countryNames = compactStrings(item.country_names);
+  const countryCodes = compactStrings(item.country_codes);
   const currentYear = new Date().getFullYear();
   const year = item.release_year ?? currentYear;
 
@@ -420,16 +448,16 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
     title: item.title,
     originalTitle: item.original_title,
     year,
-    genres: item.genres ?? [],
-    country: item.country_names?.filter(Boolean).join(", ") || item.country_name || item.country_code || "Unknown",
-    countryCodes: item.country_codes?.filter(Boolean) ?? (item.country_code ? [item.country_code] : []),
+    genres: compactStrings(item.genres),
+    country: countryNames.join(", ") || item.country_name || item.country_code || "Unknown",
+    countryCodes: countryCodes.length > 0 ? countryCodes : (item.country_code ? [item.country_code] : []),
     rating: Number(item.imdb_rating ?? 0),
     platformRating: Number(item.platform_rating ?? 0),
     runtimeMinutes: item.runtime_minutes ?? undefined,
     ageRating: item.age_rating ?? undefined,
     ageRatingLabel: item.age_rating_label ?? undefined,
-    audioLocales: item.audio_locales?.filter(Boolean) ?? [],
-    subtitleLocales: item.subtitle_locales?.filter(Boolean) ?? [],
+    audioLocales: compactStrings(item.audio_locales),
+    subtitleLocales: compactStrings(item.subtitle_locales),
     price: Number(item.lowest_price ?? 0),
     accessDuration: deriveAccessDuration(offers, Number(item.lowest_price ?? 0)),
     posterUrl: item.poster_url,
@@ -439,19 +467,19 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
     shortDescription: item.short_description ?? "",
     tagline: item.tagline ?? "",
     description: item.description ?? item.short_description ?? "",
-    cast: (item.cast ?? []).map((member) => ({
+    cast: cast.map((member) => ({
       id: member.id,
       name: member.name,
       role: member.role,
       avatarUrl: member.avatar_url || item.poster_url,
     })),
-    crew: (item.crew ?? []).map((member) => ({
+    crew: crew.map((member) => ({
       id: member.id,
       name: member.name,
       job: member.job,
       avatarUrl: member.avatar_url || item.poster_url,
     })),
-    videos: (item.videos ?? []).map((video) => ({
+    videos: videos.map((video) => ({
       id: video.id,
       type: video.type,
       title: video.title,
@@ -460,7 +488,7 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
       durationSeconds: video.duration_seconds ?? undefined,
       isPrimary: Boolean(video.is_primary),
     })),
-    trailerUrl: item.trailer_url ?? item.videos?.find((video) => video.is_primary)?.video_url ?? "",
+    trailerUrl: item.trailer_url ?? videos.find((video) => video.is_primary)?.video_url ?? "",
     metaTitle: item.meta_title ?? undefined,
     metaDescription: item.meta_description ?? undefined,
     canonicalUrl: item.canonical_url ?? undefined,
@@ -472,21 +500,21 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
           endsAt: item.premiere_event.ends_at ?? undefined,
         }
       : undefined,
-    isNew: Boolean(item.badges?.some((badge) => badge.slug === "new")) || year >= currentYear - 1,
+    isNew: badges.some((badge) => badge.slug === "new") || year >= currentYear - 1,
     isTrending: Boolean(item.is_trending),
     isFeatured: Boolean(item.is_featured),
     isFree: Boolean(item.is_free),
     type: item.type,
     typeLabel: item.type_label,
-    seasons: item.seasons_count ?? item.seasons?.length ?? 0,
-    episodes: item.episodes_count ?? item.seasons?.reduce((sum, season) => sum + (season.episodes?.length ?? 0), 0) ?? 0,
-    seasonsData: [...(item.seasons ?? [])].sort((left, right) => left.season_number - right.season_number).map((season) => ({
+    seasons: item.seasons_count ?? seasons.length,
+    episodes: item.episodes_count ?? seasons.reduce((sum, season) => sum + arrayOf(season.episodes).length, 0),
+    seasonsData: [...seasons].sort((left, right) => left.season_number - right.season_number).map((season) => ({
       id: season.id,
       seasonNumber: season.season_number,
       title: season.title ?? undefined,
       description: season.description ?? undefined,
       posterUrl: season.poster_url ?? undefined,
-      episodes: [...(season.episodes ?? [])].sort((left, right) => left.episode_number - right.episode_number).map((episode) => ({
+      episodes: [...arrayOf(season.episodes)].sort((left, right) => left.episode_number - right.episode_number).map((episode) => ({
         id: episode.id,
         episodeNumber: episode.episode_number,
         title: episode.title,
@@ -509,7 +537,7 @@ export async function getHomeSections(locale: LocaleCode): Promise<HomeSections>
 
   return {
     hero: response.hero ? mapCardToMovie(response.hero) : null,
-    heroSlides: (response.hero_slides ?? []).map((slide) => ({
+    heroSlides: arrayOf(response.hero_slides).map((slide) => ({
       id: slide.id,
       desktopImageUrl: slide.desktop_image_url,
       mobileImageUrl: slide.mobile_image_url ?? undefined,
@@ -520,19 +548,19 @@ export async function getHomeSections(locale: LocaleCode): Promise<HomeSections>
       secondaryCtaLabel: slide.secondary_cta_label ?? undefined,
       content: mapCardToMovie(slide.content),
     })),
-    sections: (response.sections ?? []).map((section) => ({
+    sections: arrayOf(response.sections).map((section) => ({
       id: section.id,
       name: section.name,
       title: section.title,
       subtitle: section.subtitle ?? undefined,
       sourceMode: section.source_mode ?? undefined,
-      items: (section.items ?? []).map(mapCardToMovie),
+      items: arrayOf(section.items).map(mapCardToMovie),
     })),
-    featured: (response.featured ?? []).map(mapCardToMovie),
-    freeToWatch: (response.free_to_watch ?? []).map(mapCardToMovie),
-    latest: (response.latest ?? []).map(mapCardToMovie),
-    movies: (response.movies ?? []).map(mapCardToMovie),
-    series: (response.series ?? []).map(mapCardToMovie),
+    featured: arrayOf(response.featured).map(mapCardToMovie),
+    freeToWatch: arrayOf(response.free_to_watch).map(mapCardToMovie),
+    latest: arrayOf(response.latest).map(mapCardToMovie),
+    movies: arrayOf(response.movies).map(mapCardToMovie),
+    series: arrayOf(response.series).map(mapCardToMovie),
   };
 }
 
@@ -551,16 +579,16 @@ export async function getCatalogPage(locale: LocaleCode, query: CatalogQuery = {
   });
 
   return {
-    items: (response.items ?? []).map(mapCardToMovie),
+    items: arrayOf(response.items).map(mapCardToMovie),
     page: response.page ?? 1,
     pageSize: response.page_size ?? DEFAULT_PAGE_SIZE,
     total: response.total ?? 0,
     filters: {
-      genres: response.filters?.genres ?? [],
-      years: response.filters?.years ?? [],
-      countries: response.filters?.countries ?? [],
-      types: response.filters?.types ?? [],
-      access: response.filters?.access ?? [],
+      genres: arrayOf(response.filters?.genres),
+      years: arrayOf(response.filters?.years),
+      countries: arrayOf(response.filters?.countries),
+      types: arrayOf(response.filters?.types),
+      access: arrayOf(response.filters?.access),
     },
     searchEngine: response.search_engine ?? "database",
   };
