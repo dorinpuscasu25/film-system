@@ -7,6 +7,7 @@ use App\Models\Content;
 use App\Models\CmsPage;
 use App\Models\Menu;
 use App\Models\Taxonomy;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -15,6 +16,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class MenuController extends ApiController
 {
+    public function __construct(
+        protected StorefrontCacheService $storefrontCache,
+    ) {}
+
     public function index(): JsonResponse
     {
         $locale = $this->adminLocale();
@@ -51,6 +56,7 @@ class MenuController extends ApiController
     {
         $menu = Menu::query()->create($this->validatedPayload($request));
         $this->ensureSingleActiveMenu($menu);
+        $this->storefrontCache->clear();
 
         return response()->json([
             'menu' => $this->menuData($menu->fresh(), $this->adminLocale(), true),
@@ -61,6 +67,7 @@ class MenuController extends ApiController
     {
         $menu->fill($this->validatedPayload($request, $menu))->save();
         $this->ensureSingleActiveMenu($menu);
+        $this->storefrontCache->clear();
 
         return response()->json([
             'menu' => $this->menuData($menu->fresh(), $this->adminLocale(), true),
@@ -70,6 +77,7 @@ class MenuController extends ApiController
     public function destroy(Menu $menu): JsonResponse
     {
         $menu->delete();
+        $this->storefrontCache->clear();
 
         return response()->json([], Response::HTTP_NO_CONTENT);
     }

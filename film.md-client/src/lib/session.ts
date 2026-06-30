@@ -19,6 +19,8 @@ export interface SessionUserPayload {
   email: string;
   preferred_locale?: "en" | "ro" | "ru" | null;
   avatar_url?: string | null;
+  admin_panel_access?: boolean;
+  permission_codes?: string[];
   wallet?: {
     id: string | number;
     currency: string;
@@ -352,6 +354,12 @@ export function writeAuthToken(token: string) {
 
 export function clearAuthToken() {
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+}
+
+export async function clearStorefrontCache() {
+  return requestJson<{ message: string; version: number }>("/admin/storefront-cache", {
+    method: "DELETE",
+  }, undefined, true);
 }
 
 export async function loginWithPassword(email: string, password: string) {

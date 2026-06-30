@@ -10,6 +10,7 @@ import type { Movie } from "../types";
 type ContentType = NonNullable<CatalogQuery["type"]>;
 
 const CONTENT_TYPE_VALUES: ContentType[] = ["movie", "documentary", "short", "animation", "series"];
+const CATALOG_PAGE_SIZE = 24;
 
 const EMPTY_FILTERS: CatalogFilters = {
   genres: [],
@@ -44,8 +45,10 @@ export function SearchPage() {
     countriesScope: "",
   });
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
   const normalizedQuery = deferredQuery.trim();
@@ -113,7 +116,7 @@ export function SearchPage() {
           country: selectedCountry ?? undefined,
           minRating: normalizedMinRating > 0 ? normalizedMinRating : undefined,
           page: 1,
-          pageSize: 100,
+          pageSize: CATALOG_PAGE_SIZE,
         });
 
         if (!active) {
@@ -121,6 +124,7 @@ export function SearchPage() {
         }
 
         setResults(response.items);
+        setPage(1);
         setFilterOptions((previous) => ({
           filters: {
             genres:
@@ -195,6 +199,38 @@ export function SearchPage() {
     setMinRating(0);
   }
 
+  async function loadMore() {
+    if (isLoadingMore || results.length >= total) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    setError(null);
+
+    try {
+      const nextPage = page + 1;
+      const response = await getCatalogPage(currentLanguage.code, {
+        query: normalizedQuery || undefined,
+        type: normalizedType ?? undefined,
+        genre: selectedGenre ?? undefined,
+        access: normalizedAccess ?? undefined,
+        year: selectedYear ?? undefined,
+        country: selectedCountry ?? undefined,
+        minRating: normalizedMinRating > 0 ? normalizedMinRating : undefined,
+        page: nextPage,
+        pageSize: CATALOG_PAGE_SIZE,
+      });
+
+      setResults((current) => [...current, ...response.items]);
+      setPage(nextPage);
+      setTotal(response.total);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Nu am putut încărca catalogul.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
   const activeFilterCount = useMemo(
     () =>
       [
@@ -242,6 +278,7 @@ export function SearchPage() {
     [countryDisplayNames, filterOptions.filters.countries],
   );
   const selectedCountryLabel = countryOptions.find((country) => country.value === selectedCountry)?.label;
+  const canLoadMore = !isLoading && !error && results.length > 0 && results.length < total;
 
   const selectClassName =
     "h-8 min-w-[126px] appearance-none rounded-md border border-white/10 bg-white/[0.03] px-2.5 pr-7 text-[11px] font-semibold text-white outline-none transition hover:border-white/30 hover:bg-white/[0.06] focus:border-white/50";
@@ -434,11 +471,25 @@ export function SearchPage() {
         ) : null}
 
         {!isLoading && !error && results.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-6">
-            {results.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-6">
+              {results.map((movie) => (
+                <MovieCard key={movie.id} movie={movie} />
+              ))}
+            </div>
+            {canLoadMore ? (
+              <div className="mt-10 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  disabled={isLoadingMore}
+                  className="h-10 rounded-md border border-white/15 bg-white px-5 text-sm font-bold text-background transition hover:bg-gray-200 disabled:cursor-wait disabled:opacity-70"
+                >
+                  {isLoadingMore ? t("common.loading") : t("common.load_more")}
+                </button>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         {!isLoading && !error && results.length === 0 ? (

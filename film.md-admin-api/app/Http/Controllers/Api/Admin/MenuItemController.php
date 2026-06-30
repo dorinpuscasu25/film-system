@@ -8,6 +8,7 @@ use App\Models\CmsPage;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use App\Models\Taxonomy;
+use App\Services\StorefrontCacheService;
 use Illuminate\Support\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,9 +17,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class MenuItemController extends ApiController
 {
+    public function __construct(
+        protected StorefrontCacheService $storefrontCache,
+    ) {}
+
     public function store(Request $request, Menu $menu): JsonResponse
     {
         $item = $menu->items()->create($this->validatedPayload($request, $menu));
+        $this->storefrontCache->clear();
 
         return response()->json([
             'item' => self::itemData($item->fresh(['page', 'content']), $this->adminLocale()),
@@ -31,6 +37,7 @@ class MenuItemController extends ApiController
 
         $item->fill($this->validatedPayload($request, $menu, $item))->save();
         $this->updateChildrenDepth($item);
+        $this->storefrontCache->clear();
 
         return response()->json([
             'item' => self::itemData($item->fresh(['page', 'content']), $this->adminLocale()),
@@ -50,6 +57,7 @@ class MenuItemController extends ApiController
         }
 
         $item->delete();
+        $this->storefrontCache->clear();
 
         return response()->json([], Response::HTTP_NO_CONTENT);
     }
@@ -80,6 +88,7 @@ class MenuItemController extends ApiController
                 'depth' => $row['depth'],
             ])->save();
         }
+        $this->storefrontCache->clear();
 
         return response()->json(['items' => $menu->fresh(['items.page', 'items.content'])->items->map(
             fn (MenuItem $item) => self::itemData($item, $this->adminLocale()),

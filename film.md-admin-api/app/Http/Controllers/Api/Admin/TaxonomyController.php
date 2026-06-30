@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreTaxonomyRequest;
 use App\Http\Requests\Admin\UpdateTaxonomyRequest;
 use App\Models\Taxonomy;
 use App\Services\ContentSearchService;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -14,6 +15,7 @@ class TaxonomyController extends ApiController
 {
     public function __construct(
         protected ContentSearchService $contentSearch,
+        protected StorefrontCacheService $storefrontCache,
     ) {}
 
     public function index(): JsonResponse
@@ -46,6 +48,7 @@ class TaxonomyController extends ApiController
     public function store(StoreTaxonomyRequest $request): JsonResponse
     {
         $taxonomy = Taxonomy::query()->create($request->normalizedPayload());
+        $this->storefrontCache->clear();
 
         return response()->json([
             'taxonomy' => $this->taxonomyData($taxonomy, $request->user()?->preferred_locale ?? Taxonomy::LOCALE_RO),
@@ -57,6 +60,7 @@ class TaxonomyController extends ApiController
         $contentIds = $taxonomy->contents()->pluck('contents.id')->all();
         $taxonomy->fill($request->normalizedPayload())->save();
         $this->contentSearch->syncContentIds($contentIds);
+        $this->storefrontCache->clear();
 
         return response()->json([
             'taxonomy' => $this->taxonomyData($taxonomy->fresh(), $request->user()?->preferred_locale ?? Taxonomy::LOCALE_RO),
@@ -68,6 +72,7 @@ class TaxonomyController extends ApiController
         $contentIds = $taxonomy->contents()->pluck('contents.id')->all();
         $taxonomy->delete();
         $this->contentSearch->syncContentIds($contentIds);
+        $this->storefrontCache->clear();
 
         return response()->json([], Response::HTTP_NO_CONTENT);
     }

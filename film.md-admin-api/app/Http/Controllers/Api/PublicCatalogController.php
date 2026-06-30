@@ -9,6 +9,7 @@ use App\Services\ContentSearchService;
 use App\Services\HomePageService;
 use App\Services\IpGeoLocationService;
 use App\Services\PlaybackAccessService;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -21,52 +22,60 @@ class PublicCatalogController extends ApiController
         protected HomePageService $homePageService,
         protected PlaybackAccessService $playbackAccess,
         protected IpGeoLocationService $geoLocation,
+        protected StorefrontCacheService $storefrontCache,
     ) {}
 
     public function home(Request $request): JsonResponse
     {
         $locale = $this->resolveLocale($request);
         $countryCode = $this->geoLocation->resolveCountryCode($request);
-        $legacyData = $this->legacyHomeData($locale, $countryCode);
-        $resolvedSections = $this->homePageService->activeSections();
-        $heroSection = $resolvedSections->firstWhere('section_type', HomePageSection::TYPE_HERO_SLIDER);
-        $heroSlides = $heroSection
-            ? $this->homePageService->resolveHeroSlides($heroSection)
-                ->map(fn (array $slide) => $this->publicHeroSlideData($slide, $locale))
-                ->values()
-            : collect();
-        $carouselSections = $resolvedSections
-            ->where('section_type', HomePageSection::TYPE_CONTENT_CAROUSEL)
-            ->map(function (HomePageSection $section) use ($locale, $countryCode): array {
-                return [
-                    'id' => (string) $section->id,
-                    'name' => $section->name,
-                    'section_type' => $section->section_type,
-                    'source_mode' => $section->source_mode,
-                    'sort_order' => (int) $section->sort_order,
-                    'title' => $section->getTranslation('title', $locale, false)
-                        ?? $section->getTranslation('title', 'ro', false)
-                        ?? $section->name,
-                    'subtitle' => $section->getTranslation('subtitle', $locale, false)
-                        ?? $section->getTranslation('subtitle', 'ro', false),
-                    'items' => $this->homePageService->resolveCarouselItems($section)
-                        ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
-                        ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
-                        ->values()
-                        ->all(),
-                ];
-            })
-            ->filter(fn (array $section): bool => count($section['items']) > 0)
-            ->values();
-        $hero = $heroSlides->first()['content'] ?? $legacyData['hero'];
-
-        return response()->json([
+        $payload = $this->storefrontCache->remember('home', [
             'locale' => $locale,
-            'hero_slides' => $heroSlides->values(),
-            'sections' => $carouselSections,
-            ...$legacyData,
-            'hero' => $hero,
-        ]);
+            'country' => $countryCode ?: 'global',
+        ], function () use ($locale, $countryCode): array {
+            $legacyData = $this->legacyHomeData($locale, $countryCode);
+            $resolvedSections = $this->homePageService->activeSections();
+            $heroSection = $resolvedSections->firstWhere('section_type', HomePageSection::TYPE_HERO_SLIDER);
+            $heroSlides = $heroSection
+                ? $this->homePageService->resolveHeroSlides($heroSection)
+                    ->map(fn (array $slide) => $this->publicHeroSlideData($slide, $locale))
+                    ->values()
+                : collect();
+            $carouselSections = $resolvedSections
+                ->where('section_type', HomePageSection::TYPE_CONTENT_CAROUSEL)
+                ->map(function (HomePageSection $section) use ($locale, $countryCode): array {
+                    return [
+                        'id' => (string) $section->id,
+                        'name' => $section->name,
+                        'section_type' => $section->section_type,
+                        'source_mode' => $section->source_mode,
+                        'sort_order' => (int) $section->sort_order,
+                        'title' => $section->getTranslation('title', $locale, false)
+                            ?? $section->getTranslation('title', 'ro', false)
+                            ?? $section->name,
+                        'subtitle' => $section->getTranslation('subtitle', $locale, false)
+                            ?? $section->getTranslation('subtitle', 'ro', false),
+                        'items' => $this->homePageService->resolveCarouselItems($section)
+                            ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
+                            ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
+                            ->values()
+                            ->all(),
+                    ];
+                })
+                ->filter(fn (array $section): bool => count($section['items']) > 0)
+                ->values();
+            $hero = $heroSlides->first()['content'] ?? $legacyData['hero'];
+
+            return [
+                'locale' => $locale,
+                'hero_slides' => $heroSlides->values()->all(),
+                'sections' => $carouselSections->all(),
+                ...$legacyData,
+                'hero' => $hero,
+            ];
+        });
+
+        return $this->storefrontJson($payload);
     }
 
     public function catalog(Request $request): JsonResponse
@@ -75,7 +84,7 @@ class PublicCatalogController extends ApiController
         $countryCode = $this->geoLocation->resolveCountryCode($request);
         $page = max((int) $request->integer('page', 1), 1);
         $pageSize = min(max((int) $request->integer('page_size', 24), 1), 100);
-        $result = $this->contentSearch->searchCatalog($locale, [
+        $filters = [
             'query' => $request->query('query'),
             'type' => $request->query('type'),
             'genre' => $request->query('genre'),
@@ -85,19 +94,29 @@ class PublicCatalogController extends ApiController
             'min_rating' => $request->query('min_rating'),
             'page' => $page,
             'page_size' => $pageSize,
-        ]);
+        ];
+        $payload = $this->storefrontCache->remember('catalog', [
+            'locale' => $locale,
+            'country' => $countryCode ?: 'global',
+            ...$filters,
+        ], function () use ($locale, $countryCode, $filters, $page, $pageSize): array {
+            $result = $this->contentSearch->searchCatalog($locale, $filters);
 
-        return response()->json([
-            'items' => collect($result['items'] ?? [])
-                ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
-                ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
-                ->values(),
-            'page' => $result['page'] ?? $page,
-            'page_size' => $result['page_size'] ?? $pageSize,
-            'total' => $result['total'] ?? 0,
-            'filters' => $result['filters'] ?? [],
-            'search_engine' => $result['engine'] ?? 'database',
-        ]);
+            return [
+                'items' => collect($result['items'] ?? [])
+                    ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
+                    ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
+                    ->values()
+                    ->all(),
+                'page' => $result['page'] ?? $page,
+                'page_size' => $result['page_size'] ?? $pageSize,
+                'total' => $result['total'] ?? 0,
+                'filters' => $result['filters'] ?? [],
+                'search_engine' => $result['engine'] ?? 'database',
+            ];
+        });
+
+        return $this->storefrontJson($payload);
     }
 
     public function show(Request $request, string $identifier): JsonResponse
@@ -128,7 +147,15 @@ class PublicCatalogController extends ApiController
             ], Response::HTTP_FORBIDDEN);
         }
 
-        return response()->json($this->publicContentDetailData($content, $locale));
+        $payload = $this->storefrontCache->remember('content-detail', [
+            'locale' => $locale,
+            'country' => $countryCode ?: 'global',
+            'identifier' => $identifier,
+            'content_id' => $content->getKey(),
+            'updated_at' => $content->updated_at?->timestamp,
+        ], fn (): array => $this->publicContentDetailData($content, $locale));
+
+        return $this->storefrontJson($payload);
     }
 
     public function sharePreview(Request $request, string $identifier): \Illuminate\Http\Response
@@ -217,7 +244,14 @@ class PublicCatalogController extends ApiController
 
         $nextPremiere = $this->playbackAccess->nextPublicPremiere($content);
 
-        return response()->json([
+        $payload = $this->storefrontCache->remember('premiere', [
+            'locale' => $locale,
+            'country' => $countryCode ?: 'global',
+            'identifier' => $identifier,
+            'content_id' => $content->getKey(),
+            'updated_at' => $content->updated_at?->timestamp,
+        ], function () use ($content, $locale, $nextPremiere): array {
+            return [
             'content' => $this->publicContentCardData($content, $locale),
             'premiere_event' => $nextPremiere ? [
                 'id' => $nextPremiere->id,
@@ -230,7 +264,10 @@ class PublicCatalogController extends ApiController
                 'is_locked' => $nextPremiere !== null,
                 'entry_path' => '/watch/'.$content->slug,
             ],
-        ]);
+            ];
+        });
+
+        return $this->storefrontJson($payload);
     }
 
     protected function resolveLocale(Request $request): string
@@ -367,5 +404,12 @@ class PublicCatalogController extends ApiController
                 ?: data_get($slide, 'secondary_cta_label.ro'),
             'content' => $this->publicContentCardData($content, $locale),
         ];
+    }
+
+    protected function storefrontJson(array $payload): JsonResponse
+    {
+        return response()->json($payload)
+            ->header('Cache-Control', 'private, max-age=60, stale-while-revalidate=300')
+            ->header('X-Storefront-Cache-Version', (string) $this->storefrontCache->version());
     }
 }

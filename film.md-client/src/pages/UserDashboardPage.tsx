@@ -9,6 +9,7 @@ import { Tabs } from "../components/Tabs";
 import { WalletModal } from "../components/WalletModal";
 import { getFullCatalog } from "../lib/storefront";
 import { fetchContinueWatching } from "../lib/session";
+import { resizedImageUrl } from "../lib/images";
 import { Movie } from "../types";
 
 const DASHBOARD_TABS = ["myfilms", "favorites", "wallet", "settings"];
@@ -305,7 +306,7 @@ export function UserDashboardPage() {
                       >
                         <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-surface">
                           {item.posterUrl ? (
-                            <img src={item.posterUrl} alt={item.title} className="h-full w-full object-cover" />
+                            <img src={resizedImageUrl(item.posterUrl, { width: 160, height: 240 })} alt={item.title} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                           ) : null}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -331,7 +332,7 @@ export function UserDashboardPage() {
                     return (
                       <div key={purchase.id} className="group relative overflow-hidden rounded-xl bg-surface">
                         <div className="relative aspect-[2/3]">
-                          <img src={movie.posterUrl} alt={movie.title} className="h-full w-full object-cover" />
+                          <img src={resizedImageUrl(movie.posterUrl, { width: 320, height: 480 })} alt={movie.title} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80" />
                           <div className="absolute right-2 top-2">
                             <span className={`rounded px-2 py-1 text-xs font-bold ${isActive ? "bg-accentGreen text-background" : "border border-white/10 bg-surfaceHover text-gray-400"}`}>
@@ -387,7 +388,7 @@ export function UserDashboardPage() {
                       onClick={() => navigate(`/movie/${movie.id}`)}
                     >
                       <div className="relative aspect-[2/3]">
-                        <img src={movie.posterUrl} alt={movie.title} className="h-full w-full object-cover" />
+                        <img src={resizedImageUrl(movie.posterUrl, { width: 320, height: 480 })} alt={movie.title} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80" />
                         <div className="absolute inset-0 flex flex-col justify-end p-4">
                           <h3 className="mb-1 font-bold text-white">{movie.title}</h3>

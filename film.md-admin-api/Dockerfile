@@ -3,8 +3,9 @@ FROM dunglas/frankenphp:1-php8.3-bookworm
 WORKDIR /var/www/html
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git unzip libpq-dev libzip-dev postgresql-client $PHPIZE_DEPS \
-    && docker-php-ext-install bcmath pcntl pdo_pgsql pgsql zip \
+    && apt-get install -y --no-install-recommends git unzip libpq-dev libzip-dev libjpeg62-turbo-dev libpng-dev libwebp-dev libfreetype6-dev postgresql-client $PHPIZE_DEPS \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-install bcmath gd pcntl pdo_pgsql pgsql zip \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && apt-get purge -y --auto-remove $PHPIZE_DEPS \

@@ -8,6 +8,12 @@
     "logout": "Выйти",
     "language": "Язык"
   },
+  "admin": {
+    "cache": "Кэш",
+    "clear_cache": "Очистить кэш",
+    "cache_cleared": "Кэш очищен",
+    "cache_clear_failed": "Не удалось очистить кэш"
+  },
   "nav": {
     "home": "Главная",
     "movies": "Фильмы",
@@ -20,6 +26,7 @@
   },
   "common": {
     "loading": "Загрузка",
+    "load_more": "Загрузить ещё",
     "loading_title": "Загружаем титул...",
     "watch": "Смотреть",
     "watch_now": "Смотреть сейчас",

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\ApiController;
 use App\Models\CmsPage;
 use App\Models\Taxonomy;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CmsPageController extends ApiController
 {
+    public function __construct(
+        protected StorefrontCacheService $storefrontCache,
+    ) {}
+
     public function index(): JsonResponse
     {
         $locale = $this->adminLocale();
@@ -42,6 +47,7 @@ class CmsPageController extends ApiController
     {
         $payload = $this->validatedPayload($request);
         $page = CmsPage::query()->create($payload);
+        $this->storefrontCache->clear();
 
         return response()->json([
             'page' => $this->pageData($page->fresh(), $this->adminLocale(), true),
@@ -51,6 +57,7 @@ class CmsPageController extends ApiController
     public function update(Request $request, CmsPage $cmsPage): JsonResponse
     {
         $cmsPage->fill($this->validatedPayload($request))->save();
+        $this->storefrontCache->clear();
 
         return response()->json([
             'page' => $this->pageData($cmsPage->fresh(), $this->adminLocale(), true),
@@ -60,6 +67,7 @@ class CmsPageController extends ApiController
     public function destroy(CmsPage $cmsPage): JsonResponse
     {
         $cmsPage->delete();
+        $this->storefrontCache->clear();
 
         return response()->json([], Response::HTTP_NO_CONTENT);
     }

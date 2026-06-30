@@ -8,6 +8,12 @@
     "logout": "Ieșire",
     "language": "Limbă"
   },
+  "admin": {
+    "cache": "Cache",
+    "clear_cache": "Curăță cache",
+    "cache_cleared": "Cache curățat",
+    "cache_clear_failed": "Cache-ul nu a putut fi curățat"
+  },
   "nav": {
     "home": "Acasă",
     "movies": "Filme",
@@ -20,6 +26,7 @@
   },
   "common": {
     "loading": "Se încarcă",
+    "load_more": "Încarcă mai multe",
     "loading_title": "Se încarcă titlul...",
     "watch": "Vizionează",
     "watch_now": "Vizionează acum",

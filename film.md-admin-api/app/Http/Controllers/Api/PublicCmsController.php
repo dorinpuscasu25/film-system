@@ -7,12 +7,17 @@ use App\Models\CmsPage;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use App\Models\Taxonomy;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class PublicCmsController extends ApiController
 {
+    public function __construct(
+        protected StorefrontCacheService $storefrontCache,
+    ) {}
+
     public function page(Request $request, string $slug): JsonResponse
     {
         $locale = $this->resolveLocale($request);
@@ -25,7 +30,12 @@ class PublicCmsController extends ApiController
             return response()->json(['message' => 'Pagina nu a fost găsită.'], Response::HTTP_NOT_FOUND);
         }
 
-        return response()->json([
+        $payload = $this->storefrontCache->remember('cms-page', [
+            'locale' => $locale,
+            'slug' => $slug,
+            'page_id' => $page->getKey(),
+            'updated_at' => $page->updated_at?->timestamp,
+        ], fn (): array => [
             'id' => $page->id,
             'title' => $this->translated($page, 'title', $locale),
             'slug' => $this->translated($page, 'slug', $locale),
@@ -37,39 +47,48 @@ class PublicCmsController extends ApiController
             'canonical_url' => $page->canonical_url,
             'updated_at' => $page->updated_at?->toIso8601String(),
         ]);
+
+        return $this->storefrontJson($payload);
     }
 
     public function menu(Request $request, string $location): JsonResponse
     {
         $locale = $this->resolveLocale($request);
-        $menus = Menu::query()
-            ->with(['items.page', 'items.content'])
-            ->where('location', $location)
-            ->where('active', true)
-            ->orderBy('id')
-            ->get();
-        if ($location !== Menu::LOCATION_FOOTER) {
-            $menus = $menus->take(1);
-        }
+        $payload = $this->storefrontCache->remember('cms-menu', [
+            'locale' => $locale,
+            'location' => $location,
+        ], function () use ($locale, $location): array {
+            $menus = Menu::query()
+                ->with(['items.page', 'items.content'])
+                ->where('location', $location)
+                ->where('active', true)
+                ->orderBy('id')
+                ->get();
+            if ($location !== Menu::LOCATION_FOOTER) {
+                $menus = $menus->take(1);
+            }
 
-        if ($menus->isEmpty()) {
-            return response()->json(['menu' => null, 'menus' => [], 'items' => []]);
-        }
+            if ($menus->isEmpty()) {
+                return ['menu' => null, 'menus' => [], 'items' => []];
+            }
 
-        $items = $menus
-            ->flatMap(fn (Menu $menu) => $this->publicItems($menu, $locale))
-            ->values();
-        $menuData = $menus
-            ->map(fn (Menu $menu) => $this->menuData($menu, $locale))
-            ->values();
+            $items = $menus
+                ->flatMap(fn (Menu $menu) => $this->publicItems($menu, $locale))
+                ->values();
+            $menuData = $menus
+                ->map(fn (Menu $menu) => $this->menuData($menu, $locale))
+                ->values();
 
-        $menu = $menus->first();
+            $menu = $menus->first();
 
-        return response()->json([
-            'menu' => $menu ? $this->menuData($menu, $locale) : null,
-            'menus' => $menuData,
-            'items' => $items,
-        ]);
+            return [
+                'menu' => $menu ? $this->menuData($menu, $locale) : null,
+                'menus' => $menuData->all(),
+                'items' => $items->all(),
+            ];
+        });
+
+        return $this->storefrontJson($payload);
     }
 
     private function publicItems(Menu $menu, string $locale)
@@ -116,5 +135,12 @@ class PublicCmsController extends ApiController
         $locale = (string) $request->query('locale', Taxonomy::LOCALE_RO);
 
         return in_array($locale, Taxonomy::supportedLocales(), true) ? $locale : Taxonomy::LOCALE_RO;
+    }
+
+    private function storefrontJson(array $payload): JsonResponse
+    {
+        return response()->json($payload)
+            ->header('Cache-Control', 'private, max-age=60, stale-while-revalidate=300')
+            ->header('X-Storefront-Cache-Version', (string) $this->storefrontCache->version());
     }
 }

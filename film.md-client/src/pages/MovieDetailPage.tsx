@@ -21,6 +21,7 @@ import { UniversalVideoPlayer } from "../components/UniversalVideoPlayer";
 import { fetchContentReviews, getCatalogPage, getContentDetail } from "../lib/storefront";
 import { fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/session";
 import { applyMovieSeo, movieShareDescription, movieSharePreviewUrl } from "../lib/seo";
+import { imageSrcSet, resizedImageUrl } from "../lib/images";
 import { Movie, Review } from "../types";
 
 function formatCountdown(targetDate: string | undefined, liveLabel: string) {
@@ -580,7 +581,19 @@ export function MovieDetailPage() {
     <div className="min-h-screen bg-background pb-20">
       <div className="group relative h-[70vh] w-full">
         <div className="absolute inset-0">
-          <img src={movie.backdropUrl} alt={movie.title} className="h-full w-full object-cover opacity-60" />
+          <img
+            src={resizedImageUrl(movie.backdropUrl, { width: 1440, height: 810 })}
+            srcSet={imageSrcSet(movie.backdropUrl, [
+              { width: 960, height: 540, descriptor: "960w" },
+              { width: 1440, height: 810, descriptor: "1440w" },
+              { width: 1920, height: 1080, descriptor: "1920w" },
+            ])}
+            sizes="100vw"
+            alt={movie.title}
+            className="h-full w-full object-cover opacity-60"
+            decoding="async"
+            fetchPriority="high"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         </div>
 
@@ -603,7 +616,18 @@ export function MovieDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             className="hidden w-64 flex-shrink-0 md:block"
           >
-            <img src={movie.posterUrl} alt={movie.title} className="w-full rounded-xl border border-white/10 shadow-2xl" />
+            <img
+              src={resizedImageUrl(movie.posterUrl, { width: 480, height: 720 })}
+              srcSet={imageSrcSet(movie.posterUrl, [
+                { width: 320, height: 480, descriptor: "320w" },
+                { width: 480, height: 720, descriptor: "480w" },
+              ])}
+              sizes="256px"
+              alt={movie.title}
+              className="w-full rounded-xl border border-white/10 shadow-2xl"
+              decoding="async"
+              fetchPriority="high"
+            />
           </motion.div>
 
           <motion.div
@@ -798,9 +822,11 @@ export function MovieDetailPage() {
                         >
                           <div className="relative mb-3 aspect-video overflow-hidden rounded-xl border border-white/10">
                             <img
-                              src={episode.thumbnailUrl || episode.backdropUrl || movie.backdropUrl}
+                              src={resizedImageUrl(episode.thumbnailUrl || episode.backdropUrl || movie.backdropUrl, { width: 480, height: 270 })}
                               alt={episode.title}
                               className="h-full w-full object-cover opacity-70 transition-opacity group-hover:opacity-100"
+                              loading="lazy"
+                              decoding="async"
                             />
                             <div className="absolute inset-0 flex items-center justify-center">
                               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-colors group-hover:bg-accent">
@@ -829,10 +855,11 @@ export function MovieDetailPage() {
                         className="group relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-black text-left"
                       >
                         <img
-                          src={image}
+                          src={resizedImageUrl(image, { width: 640, height: 360 })}
                           alt={`${movie.title} - ${t("movie.gallery")} ${index + 1}`}
                           className="h-full w-full object-cover opacity-80 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
                           loading="lazy"
+                          decoding="async"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent opacity-0 transition group-hover:opacity-100" />
                       </button>
@@ -847,7 +874,7 @@ export function MovieDetailPage() {
                     </div>
                     {movie.cast.map((actor) => (
                       <div key={actor.id} className="flex items-center space-x-4">
-                        <img src={actor.avatarUrl} alt={actor.name} className="h-16 w-16 rounded-full object-cover" />
+                        <img src={resizedImageUrl(actor.avatarUrl, { width: 96, height: 96 })} alt={actor.name} className="h-16 w-16 rounded-full object-cover" loading="lazy" decoding="async" />
                         <div>
                           <p className="font-medium text-white">{actor.name}</p>
                           <p className="text-sm text-gray-400">{actor.role}</p>
@@ -861,7 +888,7 @@ export function MovieDetailPage() {
                         </div>
                         {(movie.crew || []).map((member) => (
                           <div key={member.id} className="flex items-center space-x-4">
-                            <img src={member.avatarUrl} alt={member.name} className="h-16 w-16 rounded-full object-cover" />
+                            <img src={resizedImageUrl(member.avatarUrl, { width: 96, height: 96 })} alt={member.name} className="h-16 w-16 rounded-full object-cover" loading="lazy" decoding="async" />
                             <div>
                               <p className="font-medium text-white">{member.name}</p>
                               <p className="text-sm text-gray-400">{member.job}</p>
@@ -882,9 +909,11 @@ export function MovieDetailPage() {
                         onClick={() => openTrailer(video.id)}
                       >
                         <img
-                          src={video.thumbnailUrl || movie.backdropUrl}
+                          src={resizedImageUrl(video.thumbnailUrl || movie.backdropUrl, { width: 640, height: 360 })}
                           alt={video.title}
                           className="h-full w-full object-cover opacity-60"
+                          loading="lazy"
+                          decoding="async"
                         />
                         <div className="absolute inset-0 flex items-center justify-center">
                           <button className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/90 backdrop-blur-md transition-transform group-hover:scale-110 hover:bg-accent">
@@ -997,7 +1026,7 @@ export function MovieDetailPage() {
                 <XIcon className="h-6 w-6" />
               </button>
               <img
-                src={activeGalleryImage}
+                src={resizedImageUrl(activeGalleryImage, { width: 1280 })}
                 alt={`${movie.title} - ${t("movie.gallery")}`}
                 className="max-h-[90vh] w-full object-contain"
               />
@@ -1030,7 +1059,7 @@ export function MovieDetailPage() {
 
               <UniversalVideoPlayer
                 sourceUrl={activeVideo?.videoUrl}
-                posterUrl={activeVideo?.thumbnailUrl || movie.backdropUrl}
+                posterUrl={resizedImageUrl(activeVideo?.thumbnailUrl || movie.backdropUrl, { width: 1280, height: 720 })}
                 title={activeVideo?.title || movie.title}
               />
             </motion.div>

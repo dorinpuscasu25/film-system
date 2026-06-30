@@ -12,6 +12,7 @@ use App\Models\Taxonomy;
 use App\Services\AuditLogService;
 use App\Services\ContentScopeService;
 use App\Services\ContentSearchService;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +23,7 @@ class ContentController extends ApiController
         protected ContentSearchService $contentSearch,
         protected ContentScopeService $contentScope,
         protected AuditLogService $auditLog,
+        protected StorefrontCacheService $storefrontCache,
     ) {}
 
     public function index(): JsonResponse
@@ -86,6 +88,7 @@ class ContentController extends ApiController
         Content::recalculateTaxonomyCounts();
         $freshContent = $content->fresh()->load('taxonomies', 'offers', 'formats', 'rightsWindows', 'subtitleTracks', 'creators', 'premiereEvents');
         $this->contentSearch->syncContent($freshContent);
+        $this->storefrontCache->clear();
         $this->auditLog->record(
             'content.created',
             'content',
@@ -112,6 +115,7 @@ class ContentController extends ApiController
         Content::recalculateTaxonomyCounts();
         $freshContent = $content->fresh()->load('taxonomies', 'offers', 'formats', 'rightsWindows', 'subtitleTracks', 'creators', 'premiereEvents');
         $this->contentSearch->syncContent($freshContent);
+        $this->storefrontCache->clear();
         $this->auditLog->record(
             'content.updated',
             'content',
@@ -138,6 +142,7 @@ class ContentController extends ApiController
         $content->delete();
         Content::recalculateTaxonomyCounts();
         $this->contentSearch->syncContent($contentId);
+        $this->storefrontCache->clear();
         $this->auditLog->record(
             'content.deleted',
             'content',

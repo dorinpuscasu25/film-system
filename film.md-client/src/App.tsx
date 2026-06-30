@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { initGA4 } from './lib/ga4';
 import { AuthProvider } from './contexts/AuthContext';
@@ -7,19 +7,20 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
-import { ProfileSelectPage } from './pages/ProfileSelectPage';
-import { HomePage } from './pages/HomePage';
-import { MovieDetailPage } from './pages/MovieDetailPage';
-import { PlayerPage } from './pages/PlayerPage';
-import { SearchPage } from './pages/SearchPage';
-import { UserDashboardPage } from './pages/UserDashboardPage';
-import { WatchPartyPage } from './pages/WatchPartyPage';
-import { PaymentStatusPage } from './pages/PaymentStatusPage';
-import { CmsPage } from './pages/CmsPage';
-import { DeviceLinkPage } from './pages/DeviceLinkPage';
 import { stripHashRouteFromUrl } from './lib/url';
 import { applyDefaultSeo } from './lib/seo';
 import filmotecaCover from './assets/filmoteca-cover.png';
+
+const HomePage = lazy(() => import('./pages/HomePage').then((module) => ({ default: module.HomePage })));
+const ProfileSelectPage = lazy(() => import('./pages/ProfileSelectPage').then((module) => ({ default: module.ProfileSelectPage })));
+const MovieDetailPage = lazy(() => import('./pages/MovieDetailPage').then((module) => ({ default: module.MovieDetailPage })));
+const PlayerPage = lazy(() => import('./pages/PlayerPage').then((module) => ({ default: module.PlayerPage })));
+const SearchPage = lazy(() => import('./pages/SearchPage').then((module) => ({ default: module.SearchPage })));
+const UserDashboardPage = lazy(() => import('./pages/UserDashboardPage').then((module) => ({ default: module.UserDashboardPage })));
+const WatchPartyPage = lazy(() => import('./pages/WatchPartyPage').then((module) => ({ default: module.WatchPartyPage })));
+const PaymentStatusPage = lazy(() => import('./pages/PaymentStatusPage').then((module) => ({ default: module.PaymentStatusPage })));
+const CmsPage = lazy(() => import('./pages/CmsPage').then((module) => ({ default: module.CmsPage })));
+const DeviceLinkPage = lazy(() => import('./pages/DeviceLinkPage').then((module) => ({ default: module.DeviceLinkPage })));
 
 const MAINTENANCE_PASSWORD = 'superfilm';
 const MAINTENANCE_ACCESS_KEY = 'filmoteca_maintenance_access';
@@ -160,19 +161,21 @@ function AppFrame() {
       {!isPlayerRoute && !isProfileRoute ? <Header /> : null}
       {!isPlayerRoute ? <AuthModal /> : null}
       <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/profiles" element={<ProfileSelectPage />} />
-          <Route path="/movie/:id" element={<MovieDetailPage />} />
-          <Route path="/watch/:id" element={<PlayerPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/page/:slug" element={<CmsPage />} />
-          <Route path="/tv" element={<DeviceLinkPage />} />
-          <Route path="/dashboard" element={<UserDashboardPage />} />
-          <Route path="/payment/success" element={<PaymentStatusPage fallbackStatus="success" />} />
-          <Route path="/payment/failed" element={<PaymentStatusPage fallbackStatus="failed" />} />
-          <Route path="/watch-party/:roomCode" element={<WatchPartyPage />} />
-        </Routes>
+        <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-gray-400">Se încarcă...</div>}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/profiles" element={<ProfileSelectPage />} />
+            <Route path="/movie/:id" element={<MovieDetailPage />} />
+            <Route path="/watch/:id" element={<PlayerPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/page/:slug" element={<CmsPage />} />
+            <Route path="/tv" element={<DeviceLinkPage />} />
+            <Route path="/dashboard" element={<UserDashboardPage />} />
+            <Route path="/payment/success" element={<PaymentStatusPage fallbackStatus="success" />} />
+            <Route path="/payment/failed" element={<PaymentStatusPage fallbackStatus="failed" />} />
+            <Route path="/watch-party/:roomCode" element={<WatchPartyPage />} />
+          </Routes>
+        </Suspense>
       </main>
       {!isPlayerRoute ? <Footer /> : null}
     </div>

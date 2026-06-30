@@ -8,6 +8,12 @@
     "logout": "Sign out",
     "language": "Language"
   },
+  "admin": {
+    "cache": "Cache",
+    "clear_cache": "Clear cache",
+    "cache_cleared": "Cache cleared",
+    "cache_clear_failed": "Cache could not be cleared"
+  },
   "nav": {
     "home": "Home",
     "movies": "Movies",
@@ -20,6 +26,7 @@
   },
   "common": {
     "loading": "Loading",
+    "load_more": "Load more",
     "loading_title": "Loading title...",
     "watch": "Watch",
     "watch_now": "Watch now",

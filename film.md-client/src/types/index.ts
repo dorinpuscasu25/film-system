@@ -127,6 +127,8 @@ export interface User {
   profiles: UserProfile[];
   activeProfileId?: string;
   preferredLocale?: string;
+  adminPanelAccess?: boolean;
+  permissionCodes?: string[];
 }
 
 export interface WalletTransaction {

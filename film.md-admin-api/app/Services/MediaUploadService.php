@@ -156,7 +156,7 @@ final class MediaUploadService
         return Str::ulid()->toBase32() . '.' . strtolower($extension);
     }
 
-    private function publicUrl(string $path): string
+    public function publicUrl(string $path): string
     {
         $cdnBase = rtrim((string) config('filesystems.disks.s3.url'), '/');
 
@@ -167,7 +167,7 @@ final class MediaUploadService
         return Storage::disk(self::DISK)->url($path);
     }
 
-    private function pathFromUrl(string $url): ?string
+    public function pathFromUrl(string $url): ?string
     {
         $cdnBase = rtrim((string) config('filesystems.disks.s3.url'), '/');
 

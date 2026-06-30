@@ -22,6 +22,7 @@ import {
 import { Movie, Season } from '../types';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { resizedImageUrl } from '../lib/images';
 import { isBunnyApiAssetUrl, isDirectMediaUrl, resolveEmbedUrl } from '../lib/videoEmbeds';
 
 interface PlaybackDrmConfig {
@@ -573,7 +574,7 @@ export function VideoPlayer({
             >
               <div className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg bg-white/10">
                 <img
-                  src={episode.thumbnailUrl || episode.backdropUrl || movie.backdropUrl || movie.posterUrl}
+                  src={resizedImageUrl(episode.thumbnailUrl || episode.backdropUrl || movie.backdropUrl || movie.posterUrl, { width: 240, height: 135 })}
                   alt={episode.title}
                   className="h-full w-full object-cover"
                 />

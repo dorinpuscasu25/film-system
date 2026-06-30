@@ -9,6 +9,7 @@ use App\Models\HomePageSection;
 use App\Models\Taxonomy;
 use App\Services\HomePageService;
 use App\Services\MediaUploadService;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 
@@ -17,6 +18,7 @@ class HomeCurationController extends ApiController
     public function __construct(
         protected HomePageService $homePageService,
         protected MediaUploadService $mediaUpload,
+        protected StorefrontCacheService $storefrontCache,
     ) {}
 
     public function index(): JsonResponse
@@ -65,6 +67,7 @@ class HomeCurationController extends ApiController
 
         $normalized = $this->uploadInlineImages($request->normalizedSections());
         $sections = $this->homePageService->replaceSections($normalized);
+        $this->storefrontCache->clear();
 
         return response()->json([
             'sections' => $sections

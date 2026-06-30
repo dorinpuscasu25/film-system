@@ -131,6 +131,8 @@ function mapSessionUser(sessionUser: SessionUserPayload): User {
     email: sessionUser.email,
     name: sessionUser.name,
     preferredLocale: sessionUser.preferred_locale ?? undefined,
+    adminPanelAccess: Boolean(sessionUser.admin_panel_access),
+    permissionCodes: sessionUser.permission_codes ?? [],
     profiles: resolveProfiles(sessionUser),
   };
 }
@@ -170,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: user.email,
       name: user.name,
       preferred_locale: user.preferredLocale as "en" | "ro" | "ru" | undefined,
+      admin_panel_access: user.adminPanelAccess,
+      permission_codes: user.permissionCodes,
       profiles,
     });
     const storedActiveProfileId = preferredActiveProfileId !== undefined && preferredActiveProfileId !== null

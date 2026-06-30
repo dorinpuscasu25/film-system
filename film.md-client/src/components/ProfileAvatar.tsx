@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Edit2Icon } from 'lucide-react';
 import { UserProfile } from '../types';
+import { resizedImageUrl } from '../lib/images';
 interface ProfileAvatarProps {
   profile: UserProfile;
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -44,7 +45,7 @@ export function ProfileAvatar({
         profile.avatarUrl :
 
         <img
-          src={profile.avatarUrl}
+          src={resizedImageUrl(profile.avatarUrl, { width: 128, height: 128 })}
           alt={profile.name}
           className="w-full h-full object-cover" />
 

@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateOfferRequest;
 use App\Models\Content;
 use App\Models\Offer;
 use App\Services\ContentSearchService;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -15,6 +16,7 @@ class OfferController extends ApiController
 {
     public function __construct(
         protected ContentSearchService $contentSearch,
+        protected StorefrontCacheService $storefrontCache,
     ) {}
 
     public function index(): JsonResponse
@@ -63,6 +65,7 @@ class OfferController extends ApiController
         $this->syncContentFreeFlag($content);
         $this->syncContentAvailableQualities($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
+        $this->storefrontCache->clear();
 
         return response()->json([
             'offer' => $this->offerData(
@@ -79,6 +82,7 @@ class OfferController extends ApiController
         $this->syncContentFreeFlag($content);
         $this->syncContentAvailableQualities($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
+        $this->storefrontCache->clear();
 
         return response()->json([
             'offer' => $this->offerData(
@@ -95,6 +99,7 @@ class OfferController extends ApiController
         $this->syncContentFreeFlag($content);
         $this->syncContentAvailableQualities($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
+        $this->storefrontCache->clear();
 
         return response()->json([], Response::HTTP_NO_CONTENT);
     }

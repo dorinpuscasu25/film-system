@@ -5,6 +5,7 @@ import { Movie, Offer } from '../types';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { WalletModal } from './WalletModal';
+import { resizedImageUrl } from '../lib/images';
 
 interface PurchaseModalProps {
   isOpen: boolean;
@@ -153,7 +154,7 @@ export function PurchaseModal({
 
             <div className="absolute inset-0 z-0">
               <img
-              src={movie.backdropUrl}
+              src={resizedImageUrl(movie.backdropUrl, { width: 960, height: 540 })}
               alt={movie.title}
               className="w-full h-full object-cover" />
 

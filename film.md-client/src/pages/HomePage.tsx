@@ -9,6 +9,7 @@ import { Carousel } from "../components/Carousel";
 import { HomeHeroSlide, HomeSections, getHomeSections } from "../lib/storefront";
 import { fetchContinueWatching } from "../lib/session";
 import { HomeSkeleton } from "../components/HomeSkeleton";
+import { imageSrcSet, resizedImageUrl } from "../lib/images";
 
 const EMPTY_HOME: HomeSections = {
   hero: null,
@@ -204,12 +205,24 @@ export function HomePage() {
             <picture>
               <source
                 media="(max-width: 767px)"
-                srcSet={activeHeroSlide?.mobileImageUrl || featuredMovie.heroMobileUrl || featuredMovie.posterUrl}
+                srcSet={imageSrcSet(activeHeroSlide?.mobileImageUrl || featuredMovie.heroMobileUrl || featuredMovie.posterUrl, [
+                  { width: 480, height: 720, descriptor: "480w" },
+                  { width: 720, height: 1080, descriptor: "720w" },
+                ])}
+                sizes="100vw"
               />
               <img
-                src={activeHeroSlide?.desktopImageUrl || featuredMovie.heroDesktopUrl || featuredMovie.backdropUrl}
+                src={resizedImageUrl(activeHeroSlide?.desktopImageUrl || featuredMovie.heroDesktopUrl || featuredMovie.backdropUrl, { width: 1440, height: 810 })}
+                srcSet={imageSrcSet(activeHeroSlide?.desktopImageUrl || featuredMovie.heroDesktopUrl || featuredMovie.backdropUrl, [
+                  { width: 960, height: 540, descriptor: "960w" },
+                  { width: 1440, height: 810, descriptor: "1440w" },
+                  { width: 1920, height: 1080, descriptor: "1920w" },
+                ])}
+                sizes="100vw"
                 alt={activeHeroSlide?.title || featuredMovie.title}
                 className="h-full w-full object-cover"
+                decoding="async"
+                fetchPriority="high"
               />
             </picture>
 
@@ -309,7 +322,13 @@ export function HomePage() {
                   <div className="flex gap-4 p-4">
                     <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-surface">
                       {item.posterUrl ? (
-                        <img src={item.posterUrl} alt={item.title} className="h-full w-full object-cover" />
+                        <img
+                          src={resizedImageUrl(item.posterUrl, { width: 160, height: 240 })}
+                          alt={item.title}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       ) : null}
                     </div>
                     <div className="min-w-0 flex-1">

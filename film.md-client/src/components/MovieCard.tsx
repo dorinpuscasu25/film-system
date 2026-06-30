@@ -7,6 +7,7 @@ import { Badge } from './Badge';
 import { StarRating } from './StarRating';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { imageSrcSet, resizedImageUrl } from '../lib/images';
 interface MovieCardProps {
   movie: Movie;
 }
@@ -48,10 +49,17 @@ export function MovieCard({ movie }: MovieCardProps) {
       onClick={() => navigate(`/movie/${movie.id}`)}>
       
       <img
-        src={movie.posterUrl}
+        src={resizedImageUrl(movie.posterUrl, { width: 320, height: 480 })}
+        srcSet={imageSrcSet(movie.posterUrl, [
+          { width: 240, height: 360, descriptor: '240w' },
+          { width: 320, height: 480, descriptor: '320w' },
+          { width: 480, height: 720, descriptor: '480w' },
+        ])}
+        sizes="(min-width: 768px) 224px, 160px"
         alt={movie.title}
         className="w-full h-full object-cover"
-        loading="lazy" />
+        loading="lazy"
+        decoding="async" />
 
       {previewUrl && isPreviewActive ? (
         <video

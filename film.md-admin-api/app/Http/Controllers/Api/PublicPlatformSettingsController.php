@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\CmsPage;
 use App\Models\PlatformSetting;
 use App\Models\Taxonomy;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -14,11 +15,19 @@ use Illuminate\Http\JsonResponse;
  */
 class PublicPlatformSettingsController extends ApiController
 {
+    public function __construct(
+        protected StorefrontCacheService $storefrontCache,
+    ) {}
+
     public function show(): JsonResponse
     {
-        $termsPage = $this->termsPageData();
+        $locale = (string) request()->query('locale', PlatformSetting::getValue('default_locale', Taxonomy::LOCALE_RO));
+        $payload = $this->storefrontCache->remember('public-settings', [
+            'locale' => $locale,
+        ], function (): array {
+            $termsPage = $this->termsPageData();
 
-        return response()->json([
+            return [
             'ga4_measurement_id' => PlatformSetting::getValue('ga4_measurement_id'),
             'default_locale' => PlatformSetting::getValue('default_locale', 'ro'),
             'available_locales' => PlatformSetting::getValue('available_locales', ['ro', 'ru', 'en']),
@@ -26,7 +35,12 @@ class PublicPlatformSettingsController extends ApiController
             'seo' => PlatformSetting::getValue('seo', []),
             'terms_page' => $termsPage,
             'terms_page_url' => $termsPage['url'] ?? null,
-        ]);
+            ];
+        });
+
+        return response()->json($payload)
+            ->header('Cache-Control', 'private, max-age=60, stale-while-revalidate=300')
+            ->header('X-Storefront-Cache-Version', (string) $this->storefrontCache->version());
     }
 
     private function termsPageData(): ?array

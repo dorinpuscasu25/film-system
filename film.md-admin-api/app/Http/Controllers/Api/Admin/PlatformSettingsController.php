@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\PlatformSetting;
 use App\Services\AuditLogService;
 use App\Services\RegistrationCreditService;
+use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,6 +34,7 @@ class PlatformSettingsController extends ApiController
     public function __construct(
         protected AuditLogService $auditLog,
         protected RegistrationCreditService $registrationCredit,
+        protected StorefrontCacheService $storefrontCache,
     ) {}
 
     public function index(): JsonResponse
@@ -68,6 +70,7 @@ class PlatformSettingsController extends ApiController
         }
 
         $this->auditLog->record('platform_settings.updated', 'platform_settings', null, array_keys($data['settings']), $request->user(), $request);
+        $this->storefrontCache->clear();
 
         return $this->index();
     }
