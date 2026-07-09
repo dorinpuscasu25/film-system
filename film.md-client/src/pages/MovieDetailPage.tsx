@@ -591,7 +591,7 @@ export function MovieDetailPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="group relative h-[70vh] w-full">
+      <div className="group relative h-[62vh] min-h-[520px] w-full md:h-[70vh]">
         <div className="absolute inset-0">
           <img
             src={resizedImageUrl(movie.backdropUrl, { width: 1440, height: 810 })}
@@ -621,7 +621,7 @@ export function MovieDetailPage() {
         ) : null}
       </div>
 
-      <div className="container relative z-20 mx-auto -mt-64 px-4 md:px-8">
+      <div className="container relative z-20 mx-auto -mt-56 px-4 md:-mt-64 md:px-8">
         <div className="flex flex-col gap-8 md:flex-row">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -646,11 +646,11 @@ export function MovieDetailPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="flex-1 pt-8 md:pt-32"
+            className="flex-1 pt-6 md:pt-32"
           >
-            <h1 className="mb-3 text-4xl font-bold text-white md:text-5xl">{movie.title}</h1>
+            <h1 className="mb-3 text-3xl font-bold leading-tight text-white sm:text-4xl md:text-5xl">{movie.title}</h1>
             {movie.tagline ? (
-              <p className="mb-4 max-w-3xl text-xl font-semibold leading-snug text-white md:text-2xl">
+              <p className="mb-4 max-w-3xl text-lg font-semibold leading-snug text-white sm:text-xl md:text-2xl">
                 {movie.tagline}
               </p>
             ) : null}
@@ -658,7 +658,7 @@ export function MovieDetailPage() {
               <p className="mb-6 text-gray-400">{t("movie.original_title", { title: movie.originalTitle })}</p>
             ) : null}
 
-            <div className="mb-8 flex flex-wrap items-center gap-4">
+            <div className="mb-5 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
               <div className="flex items-center space-x-1 rounded-full bg-surfaceHover px-3 py-1 text-sm">
                 <StarIcon className="h-4 w-4 fill-current text-accentGold" />
                 <span className="font-bold text-white">{movie.rating.toFixed(1)}</span>
@@ -681,44 +681,18 @@ export function MovieDetailPage() {
               ) : null}
             </div>
 
-            {movieFacts.length > 0 ? (
-              <dl className="mb-8 grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {movieFacts.map((item) => (
-                  <div key={item.label} className="rounded-lg border border-white/10 bg-surface/70 px-4 py-3">
-                    <dt className="text-xs font-semibold uppercase text-gray-500">{item.label}</dt>
-                    <dd className="mt-1 text-sm font-semibold text-white">{item.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-
-            {movie.premiereEvent ? (
-              <div className="mb-8 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-amber-50">
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">{t("movie.digital_premiere")}</p>
-                <p className="mt-2 text-lg font-semibold">{movie.premiereEvent.title}</p>
-                <p className="mt-1 text-sm text-amber-100/80">
-                  {t("movie.starts_at", { date: new Date(movie.premiereEvent.startsAt).toLocaleString() })}
-                </p>
-                {premiereCountdown ? (
-                  <p className="mt-3 inline-flex rounded-full border border-amber-200/20 bg-black/20 px-3 py-1 text-sm font-medium">
-                    {premiereCountdown}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="mb-12 flex flex-wrap items-center gap-4">
+            <div className="mb-6 flex items-stretch gap-3 sm:mb-8 sm:flex-wrap sm:items-center sm:gap-4">
               {access ? (
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                   <button
                     onClick={handleWatch}
-                    className="flex items-center space-x-2 rounded-lg bg-accent px-8 py-3 font-bold text-white transition-colors hover:bg-red-700"
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 font-bold text-white transition-colors hover:bg-red-700 sm:w-auto sm:px-8"
                   >
                     <PlayIcon className="h-5 w-5 fill-current" />
                     <span>{t("common.watch_now")}</span>
                   </button>
                   {timeRemaining ? (
-                    <div className="flex items-center space-x-2 rounded-lg border border-white/10 bg-surface px-4 py-2 text-sm text-gray-400">
+                    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-surface px-4 py-2 text-sm text-gray-400">
                       <ClockIcon className="h-4 w-4" />
                       <span>
                         {timeRemaining === "Lifetime" ? t("movie.access") : t("movie.access_ends_in")}{" "}
@@ -730,20 +704,20 @@ export function MovieDetailPage() {
               ) : (
                 <button
                   onClick={handleBuyAccess}
-                  className="flex items-center space-x-2 rounded-lg bg-accent px-8 py-3 font-bold text-white transition-colors hover:bg-red-700"
+                  className="flex min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 font-bold text-white transition-colors hover:bg-red-700 sm:flex-none sm:px-8"
                 >
-                  <PlayIcon className="h-5 w-5 fill-current" />
-                  <span>{priceFrom === 0 ? t("common.watch_free") : `${t("common.buy_access")} - ${priceFrom} MDL`}</span>
+                  <PlayIcon className="h-5 w-5 shrink-0 fill-current" />
+                  <span className="truncate">{priceFrom === 0 ? t("common.watch_free") : `${t("common.buy_access")} - ${priceFrom} MDL`}</span>
                 </button>
               )}
 
               <button
                 onClick={handleFavorite}
-                className={`flex h-12 w-12 items-center justify-center rounded-lg border transition-colors ${isFav ? "border-accent bg-accent/20 text-accent" : "border-white/10 bg-surfaceHover text-white hover:bg-white/10"}`}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border transition-colors ${isFav ? "border-accent bg-accent/20 text-accent" : "border-white/10 bg-surfaceHover text-white hover:bg-white/10"}`}
               >
                 <HeartIcon className={`h-6 w-6 ${isFav ? "fill-current" : ""}`} />
               </button>
-              <div className="relative" ref={shareMenuRef}>
+              <div className="relative shrink-0" ref={shareMenuRef}>
                 <button
                   onClick={() => setIsShareOpen((current) => !current)}
                   className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10"
@@ -781,6 +755,32 @@ export function MovieDetailPage() {
                 ) : null}
               </div>
             </div>
+
+            {movieFacts.length > 0 ? (
+              <dl className="mb-6 grid max-w-4xl grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-2 sm:gap-3 xl:grid-cols-5">
+                {movieFacts.map((item) => (
+                  <div key={item.label} className="rounded-lg border border-white/10 bg-surface/70 px-3 py-2.5 sm:px-4 sm:py-3">
+                    <dt className="text-[11px] font-semibold uppercase text-gray-500 sm:text-xs">{item.label}</dt>
+                    <dd className="mt-1 break-words text-sm font-semibold text-white">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+
+            {movie.premiereEvent ? (
+              <div className="mb-8 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-amber-50">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">{t("movie.digital_premiere")}</p>
+                <p className="mt-2 text-lg font-semibold">{movie.premiereEvent.title}</p>
+                <p className="mt-1 text-sm text-amber-100/80">
+                  {t("movie.starts_at", { date: new Date(movie.premiereEvent.startsAt).toLocaleString() })}
+                </p>
+                {premiereCountdown ? (
+                  <p className="mt-3 inline-flex rounded-full border border-amber-200/20 bg-black/20 px-3 py-1 text-sm font-medium">
+                    {premiereCountdown}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="mb-12">
               <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />

@@ -36,7 +36,7 @@ export function MovieCard({ movie }: MovieCardProps) {
   movie.price;
   return (
     <motion.div
-      className="relative group cursor-pointer rounded-lg overflow-hidden flex-shrink-0 w-40 md:w-56 aspect-[2/3] bg-surface"
+      className="relative group cursor-pointer rounded-lg overflow-hidden flex-shrink-0 w-40 sm:w-44 md:w-52 lg:w-56 2xl:w-64 min-[2200px]:w-72 min-[3000px]:w-80 aspect-[2/3] bg-surface"
       whileHover={{
         scale: 1.05,
         zIndex: 10
@@ -55,7 +55,7 @@ export function MovieCard({ movie }: MovieCardProps) {
           { width: 320, height: 480, descriptor: '320w' },
           { width: 480, height: 720, descriptor: '480w' },
         ])}
-        sizes="(min-width: 768px) 224px, 160px"
+        sizes="(min-width: 3000px) 320px, (min-width: 2200px) 288px, (min-width: 1536px) 256px, (min-width: 1024px) 224px, (min-width: 768px) 208px, (min-width: 640px) 176px, 160px"
         alt={movie.title}
         className="w-full h-full object-cover"
         loading="lazy"
@@ -112,8 +112,12 @@ export function MovieCard({ movie }: MovieCardProps) {
           ) : null}
           <div className="flex items-center space-x-2 text-xs text-gray-300 mb-2">
             <span>{movie.year}</span>
-            <span>•</span>
-            <span className="line-clamp-1">{movie.genres[0]}</span>
+            {movie.genres[0] ? (
+              <>
+                <span>•</span>
+                <span className="line-clamp-1">{movie.genres[0]}</span>
+              </>
+            ) : null}
           </div>
           <div className="mb-3">
             <StarRating rating={movie.rating} size="sm" />

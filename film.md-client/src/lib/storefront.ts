@@ -314,8 +314,19 @@ function arrayOf<T>(value: T[] | Record<string, T> | null | undefined): T[] {
   return [];
 }
 
+function isDisplayString(value: string): boolean {
+  const normalized = value.trim();
+
+  return normalized.length > 0
+    && !/Illuminate\\Support\\Collection/i.test(normalized)
+    && !/^\[object\s+Object\]$/i.test(normalized)
+    && !/^collection$/i.test(normalized);
+}
+
 function compactStrings(value: string[] | Record<string, string> | null | undefined): string[] {
-  return arrayOf(value).filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  return arrayOf(value)
+    .filter((item): item is string => typeof item === "string" && isDisplayString(item))
+    .map((item) => item.trim());
 }
 
 async function fetchJson<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {

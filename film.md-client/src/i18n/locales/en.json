@@ -8,12 +8,6 @@
     "logout": "Sign out",
     "language": "Language"
   },
-  "admin": {
-    "cache": "Cache",
-    "clear_cache": "Clear cache",
-    "cache_cleared": "Cache cleared",
-    "cache_clear_failed": "Cache could not be cleared"
-  },
   "nav": {
     "home": "Home",
     "movies": "Movies",
@@ -275,6 +269,7 @@
     "checking_message": "We are waiting for payment provider confirmation. This usually takes a few seconds.",
     "verify_failed": "We could not verify the payment.",
     "start_watching": "Start watching",
+    "continue_movie": "Continue with {{title}}",
     "go_to_films": "Back to films",
     "view_wallet": "View wallet"
   },

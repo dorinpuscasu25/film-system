@@ -255,11 +255,16 @@ class ApiController extends Controller
     protected function taxonomyData(Taxonomy $taxonomy, string $locale = 'ro'): array
     {
         $name = collect(Taxonomy::supportedLocales())
-            ->mapWithKeys(fn (string $locale) => [$locale => (string) ($taxonomy->getTranslation('name', $locale, false) ?? '')])
+            ->mapWithKeys(fn (string $locale) => [$locale => $this->stringValue($taxonomy->getTranslation('name', $locale, false))])
             ->all();
         $description = collect(Taxonomy::supportedLocales())
-            ->mapWithKeys(fn (string $locale) => [$locale => (string) ($taxonomy->getTranslation('description', $locale, false) ?? '')])
+            ->mapWithKeys(fn (string $locale) => [$locale => $this->stringValue($taxonomy->getTranslation('description', $locale, false))])
             ->all();
+        $localizedName = $this->validDisplayString($taxonomy->getTranslation('name', $locale, false))
+            ?? $this->validDisplayString($taxonomy->getTranslation('name', 'ro', false))
+            ?? $taxonomy->slug;
+        $localizedDescription = $this->validDisplayString($taxonomy->getTranslation('description', $locale, false))
+            ?? $this->validDisplayString($taxonomy->getTranslation('description', 'ro', false));
 
         return [
             'id' => $taxonomy->id,
@@ -271,11 +276,8 @@ class ApiController extends Controller
             'sort_order' => $taxonomy->sort_order,
             'name' => $name,
             'description' => $description,
-            'localized_name' => $taxonomy->getTranslation('name', $locale, false)
-                ?? $taxonomy->getTranslation('name', 'ro', false)
-                ?? $taxonomy->slug,
-            'localized_description' => $taxonomy->getTranslation('description', $locale, false)
-                ?? $taxonomy->getTranslation('description', 'ro', false),
+            'localized_name' => $localizedName,
+            'localized_description' => $localizedDescription,
             'created_at' => $taxonomy->created_at?->toIso8601String(),
             'updated_at' => $taxonomy->updated_at?->toIso8601String(),
         ];
@@ -938,6 +940,21 @@ class ApiController extends Controller
         }
 
         return trim((string) $value);
+    }
+
+    protected function validDisplayString(mixed $value): ?string
+    {
+        $stringValue = $this->stringValue($value);
+
+        if ($stringValue === ''
+            || str_contains($stringValue, 'Illuminate\\Support\\Collection')
+            || strcasecmp($stringValue, '[object Object]') === 0
+            || strcasecmp($stringValue, 'collection') === 0
+        ) {
+            return null;
+        }
+
+        return $stringValue;
     }
 
     protected function localizedTitle(Content $content, string $locale, string $fallbackLocale): string

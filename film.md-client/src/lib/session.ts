@@ -374,12 +374,6 @@ export function clearAuthToken() {
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
 }
 
-export async function clearStorefrontCache() {
-  return requestJson<{ message: string; version: number }>("/admin/storefront-cache", {
-    method: "DELETE",
-  }, undefined, true);
-}
-
 export async function loginWithPassword(email: string, password: string) {
   return requestJson<AuthResponsePayload>("/auth/login", {
     method: "POST",

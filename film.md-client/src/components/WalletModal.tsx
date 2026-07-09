@@ -10,6 +10,7 @@ import { fetchPublicPlatformSettings } from '../lib/session';
 import type { StorefrontBillingAddressPayload } from '../lib/session';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
+const TOP_UP_RETURN_CONTEXT_STORAGE_KEY = 'film_topup_return_context';
 const DEFAULT_COUNTRY: CountryCode = 'MD';
 const REQUIRED_BILLING_FIELDS: Array<keyof StorefrontBillingAddressPayload> = [
   'full_name',
@@ -22,9 +23,13 @@ const REQUIRED_BILLING_FIELDS: Array<keyof StorefrontBillingAddressPayload> = [
 interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
+  returnContext?: {
+    movieId: string;
+    movieTitle: string;
+  };
 }
 
-export function WalletModal({ isOpen, onClose }: WalletModalProps) {
+export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps) {
   const { balance, currency, addFunds, billingAddress } = useWallet();
   const { t, currentLanguage } = useLanguage();
   const { user } = useAuth();
@@ -139,6 +144,11 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       }
 
       localStorage.setItem(PENDING_TOP_UP_STORAGE_KEY, topUp.id);
+      if (returnContext) {
+        localStorage.setItem(TOP_UP_RETURN_CONTEXT_STORAGE_KEY, JSON.stringify(returnContext));
+      } else {
+        localStorage.removeItem(TOP_UP_RETURN_CONTEXT_STORAGE_KEY);
+      }
       window.location.href = topUp.payment_url;
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t('wallet.payment_start_failed'));

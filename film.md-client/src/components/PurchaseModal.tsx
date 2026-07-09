@@ -259,6 +259,10 @@ export function PurchaseModal({
           <WalletModal
             isOpen={isWalletModalOpen}
             onClose={() => setIsWalletModalOpen(false)}
+            returnContext={{
+              movieId: movie.id,
+              movieTitle: movie.title,
+            }}
           />
         </div>
       }

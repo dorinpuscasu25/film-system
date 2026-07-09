@@ -828,7 +828,15 @@ class ContentSearchService
 
         $normalized = trim((string) $value);
 
-        return $normalized !== '' ? $normalized : null;
+        if ($normalized === ''
+            || str_contains($normalized, 'Illuminate\\Support\\Collection')
+            || strcasecmp($normalized, '[object Object]') === 0
+            || strcasecmp($normalized, 'collection') === 0
+        ) {
+            return null;
+        }
+
+        return $normalized;
     }
 
     protected function configureIndex(): void

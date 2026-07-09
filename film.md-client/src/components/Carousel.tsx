@@ -25,10 +25,10 @@ export function Carousel({ title, subtitle, movies, onSeeAll }: CarouselProps) {
   };
   if (!movies || movies.length === 0) return null;
   return (
-    <div className="relative py-4 group">
-      <div className="flex items-end justify-between mb-4 px-4 md:px-12">
+    <section className="relative py-5 group">
+      <div className="mx-auto mb-4 flex max-w-[2200px] items-end justify-between px-4 sm:px-6 md:px-10 2xl:px-12">
         <div className="space-y-1">
-          <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
+          <h2 className="text-xl font-bold text-white md:text-2xl 2xl:text-3xl">{title}</h2>
           {subtitle ? <p className="text-sm text-gray-400">{subtitle}</p> : null}
         </div>
         {onSeeAll &&
@@ -41,11 +41,11 @@ export function Carousel({ title, subtitle, movies, onSeeAll }: CarouselProps) {
         }
       </div>
 
-      <div className="relative">
+      <div className="relative mx-auto max-w-[2200px] overflow-hidden">
         {/* Left Arrow */}
         <button
           onClick={() => scroll('left')}
-          className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0">
+          className="absolute left-0 top-0 bottom-0 z-10 hidden w-16 items-center justify-center bg-gradient-to-r from-background to-transparent opacity-0 transition-opacity group-hover:opacity-100 md:flex disabled:opacity-0">
           
           <ChevronLeftIcon className="w-8 h-8 text-white hover:scale-125 transition-transform" />
         </button>
@@ -53,7 +53,7 @@ export function Carousel({ title, subtitle, movies, onSeeAll }: CarouselProps) {
         {/* Scroll Container */}
         <div
           ref={scrollRef}
-          className="flex space-x-4 overflow-x-auto px-4 md:px-12 pb-8 pt-4 hide-scrollbar snap-x"
+          className="flex gap-4 overflow-x-auto px-4 pb-8 pt-4 hide-scrollbar snap-x sm:px-6 md:px-10 2xl:gap-5 2xl:px-12 min-[2200px]:gap-6"
           style={{
             scrollbarWidth: 'none',
             msOverflowStyle: 'none'
@@ -69,11 +69,11 @@ export function Carousel({ title, subtitle, movies, onSeeAll }: CarouselProps) {
         {/* Right Arrow */}
         <button
           onClick={() => scroll('right')}
-          className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          className="absolute right-0 top-0 bottom-0 z-10 hidden w-16 items-center justify-center bg-gradient-to-l from-background to-transparent opacity-0 transition-opacity group-hover:opacity-100 md:flex">
           
           <ChevronRightIcon className="w-8 h-8 text-white hover:scale-125 transition-transform" />
         </button>
       </div>
-    </div>);
+    </section>);
 
 }

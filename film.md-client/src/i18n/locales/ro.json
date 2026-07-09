@@ -8,12 +8,6 @@
     "logout": "Ieșire",
     "language": "Limbă"
   },
-  "admin": {
-    "cache": "Cache",
-    "clear_cache": "Curăță cache",
-    "cache_cleared": "Cache curățat",
-    "cache_clear_failed": "Cache-ul nu a putut fi curățat"
-  },
   "nav": {
     "home": "Acasă",
     "movies": "Filme",
@@ -275,6 +269,7 @@
     "checking_message": "Așteptăm confirmarea providerului de plată. De obicei durează câteva secunde.",
     "verify_failed": "Nu am putut verifica plata.",
     "start_watching": "Descoperă filmele",
+    "continue_movie": "Continuă cu {{title}}",
     "go_to_films": "Înapoi la filme",
     "view_wallet": "Vezi portofelul"
   },

@@ -10,6 +10,12 @@ import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
+const TOP_UP_RETURN_CONTEXT_STORAGE_KEY = 'film_topup_return_context';
+
+interface TopUpReturnContext {
+  movieId: string;
+  movieTitle: string;
+}
 
 interface PaymentStatusPageProps {
   fallbackStatus: 'success' | 'failed';
@@ -21,8 +27,31 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
   const { refreshWallet } = useWallet();
   const { t } = useLanguage();
   const [topUp, setTopUp] = useState<StorefrontTopUpPayload | null>(null);
+  const [returnContext, setReturnContext] = useState<TopUpReturnContext | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const rawContext = localStorage.getItem(TOP_UP_RETURN_CONTEXT_STORAGE_KEY);
+    if (!rawContext) {
+      setReturnContext(null);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(rawContext) as Partial<TopUpReturnContext>;
+      setReturnContext(
+        typeof parsed.movieId === 'string' && parsed.movieId !== '' && typeof parsed.movieTitle === 'string'
+          ? {
+              movieId: parsed.movieId,
+              movieTitle: parsed.movieTitle,
+            }
+          : null,
+      );
+    } catch {
+      setReturnContext(null);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -88,6 +117,7 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
   const isPending = topUp && ['pending', 'redirect_created', 'processing'].includes(topUp.status);
   const isChecking = fallbackStatus !== 'success' && Boolean(isLoading || isPending);
   const isSuccessView = !isChecking && isPaid && !isFailed;
+  const movieReturnUrl = returnContext ? `/movie/${returnContext.movieId}` : '/search';
   const Icon = isChecking ? Loader2Icon : isSuccessView ? CheckCircle2Icon : XCircleIcon;
 
   return (
@@ -143,9 +173,21 @@ export function PaymentStatusPage({ fallbackStatus }: PaymentStatusPageProps) {
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Link to="/search" className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200">
+          <Link
+            to={isSuccessView ? movieReturnUrl : '/search'}
+            onClick={() => {
+              if (isSuccessView && returnContext) {
+                localStorage.removeItem(TOP_UP_RETURN_CONTEXT_STORAGE_KEY);
+              }
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200"
+          >
             <ClapperboardIcon className="h-5 w-5" />
-            {isSuccessView ? t('payment.start_watching') : t('payment.go_to_films')}
+            {isSuccessView && returnContext
+              ? t('payment.continue_movie', { title: returnContext.movieTitle })
+              : isSuccessView
+                ? t('payment.start_watching')
+                : t('payment.go_to_films')}
           </Link>
           <Link to="/dashboard?tab=wallet" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-5 py-3 font-bold text-white transition hover:bg-white/10">
             <RotateCcwIcon className="h-5 w-5" />

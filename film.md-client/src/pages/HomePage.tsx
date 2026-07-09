@@ -22,6 +22,30 @@ const EMPTY_HOME: HomeSections = {
   series: [],
 };
 
+function labelKey(label?: string | null): string {
+  return (label ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function heroGenreLabels(movie: HomeHeroSlide["content"]): string[] {
+  const typeLabel = labelKey(movie.typeLabel);
+  const type = labelKey(movie.type);
+  const seen = new Set<string>();
+
+  return movie.genres.filter((genre) => {
+    const key = labelKey(genre);
+    if (!key || key === typeLabel || key === type || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
 export function HomePage() {
   const { isAuthenticated, openAuthModal } = useAuth();
   const { t, currentLanguage } = useLanguage();
@@ -180,6 +204,7 @@ export function HomePage() {
   const featuredPrice = featuredMovie.offers && featuredMovie.offers.length > 0
     ? Math.min(...featuredMovie.offers.map((offer) => offer.price))
     : featuredMovie.price;
+  const featuredGenres = heroGenreLabels(featuredMovie);
 
   const handlePrimaryAction = () => {
     if (!isAuthenticated && featuredPrice > 0) {
@@ -192,7 +217,7 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="relative h-[85vh] w-full overflow-hidden">
+      <div className="relative h-[82vh] min-h-[640px] w-full overflow-hidden min-[2200px]:min-h-[820px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeHeroSlide?.id ?? currentHeroIndex}
@@ -231,13 +256,14 @@ export function HomePage() {
           </motion.div>
         </AnimatePresence>
 
-        <div className="absolute bottom-0 left-0 z-10 w-full px-4 pb-32 pt-32 md:px-12">
+        <div className="absolute inset-x-0 bottom-0 z-10 w-full">
+          <div className="mx-auto max-w-[2200px] px-4 pb-28 pt-32 sm:px-6 md:px-10 md:pb-32 2xl:px-12 min-[2200px]:pb-40">
           <motion.div
             key={`content-${activeHeroSlide?.id ?? currentHeroIndex}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="max-w-2xl"
+            className="max-w-2xl 2xl:max-w-3xl min-[2200px]:max-w-4xl"
           >
             <div className="mb-4 flex flex-wrap items-center gap-3">
               {activeHeroSlide?.eyebrow ? <Badge variant="new" text={activeHeroSlide.eyebrow} /> : null}
@@ -246,20 +272,20 @@ export function HomePage() {
               <Badge variant="price" text={featuredPrice === 0 ? t("common.free") : `${featuredPrice} MDL`} />
             </div>
 
-            <h1 className="mb-4 text-5xl font-bold leading-tight text-white drop-shadow-lg md:text-7xl">
+            <h1 className="mb-4 text-4xl font-bold leading-tight text-white drop-shadow-lg sm:text-5xl md:text-7xl 2xl:text-8xl min-[2200px]:text-9xl">
               {activeHeroSlide?.title || featuredMovie.title}
             </h1>
 
             {featuredMovie.tagline ? (
-              <p className="mb-5 max-w-xl text-xl font-semibold leading-snug text-white drop-shadow md:text-2xl">
+              <p className="mb-5 max-w-xl text-xl font-semibold leading-snug text-white drop-shadow md:text-2xl 2xl:max-w-2xl min-[2200px]:max-w-3xl min-[2200px]:text-3xl">
                 {featuredMovie.tagline}
               </p>
             ) : null}
 
-            <div className="mb-6 flex flex-wrap items-center gap-4 text-sm font-medium text-gray-300 md:text-base">
+            <div className="mb-6 flex flex-wrap items-center gap-4 text-sm font-medium text-gray-300 md:text-base min-[2200px]:text-lg">
               <span className="font-bold text-accentGold drop-shadow">★ {featuredMovie.rating.toFixed(1)}</span>
               <span>{featuredMovie.year}</span>
-              <span>{featuredMovie.genres.join(" • ")}</span>
+              {featuredGenres.length > 0 ? <span>{featuredGenres.join(" • ")}</span> : null}
               {featuredMovie.offers?.[0]?.quality ? (
                 <span className="rounded border border-gray-500 bg-black/50 px-1.5 text-xs">
                   {featuredMovie.offers[0].quality}
@@ -267,14 +293,14 @@ export function HomePage() {
               ) : null}
             </div>
 
-            <p className="mb-8 max-w-xl line-clamp-3 text-lg text-gray-300 drop-shadow">
+            <p className="mb-8 max-w-xl line-clamp-3 text-lg text-gray-300 drop-shadow 2xl:max-w-2xl min-[2200px]:max-w-3xl min-[2200px]:text-2xl">
               {activeHeroSlide?.description || featuredMovie.shortDescription || featuredMovie.description}
             </p>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <button
                 onClick={handlePrimaryAction}
-                className="flex items-center space-x-2 rounded-lg bg-accent px-8 py-3 font-bold text-white shadow-lg shadow-accent/20 transition-colors hover:bg-red-700"
+                className="flex items-center space-x-2 rounded-lg bg-accent px-6 py-3 font-bold text-white shadow-lg shadow-accent/20 transition-colors hover:bg-red-700 sm:px-8 min-[2200px]:px-10 min-[2200px]:py-4 min-[2200px]:text-lg"
               >
                 <PlayIcon className="h-5 w-5 fill-current" />
                 <span>
@@ -283,16 +309,18 @@ export function HomePage() {
               </button>
               <button
                 onClick={() => navigate(`/movie/${featuredMovie.id}`)}
-                className="flex items-center space-x-2 rounded-lg bg-white/20 px-8 py-3 font-bold text-white backdrop-blur-md transition-colors hover:bg-white/30"
+                className="flex items-center space-x-2 rounded-lg bg-white/20 px-6 py-3 font-bold text-white backdrop-blur-md transition-colors hover:bg-white/30 sm:px-8 min-[2200px]:px-10 min-[2200px]:py-4 min-[2200px]:text-lg"
               >
                 <InfoIcon className="h-5 w-5" />
                 <span>{activeHeroSlide?.secondaryCtaLabel || t("common.more_info")}</span>
               </button>
             </div>
           </motion.div>
+          </div>
         </div>
 
-        <div className="absolute bottom-12 right-12 z-20 flex space-x-2">
+        <div className="absolute inset-x-0 bottom-12 z-20 hidden px-4 sm:block sm:px-6 md:px-10 2xl:px-12">
+          <div className="mx-auto flex max-w-[2200px] justify-end space-x-2">
           {heroSlides.map((slide, index) => (
             <button
               key={slide.id}
@@ -300,19 +328,20 @@ export function HomePage() {
               className={`h-1.5 rounded-full transition-all duration-300 ${index === currentHeroIndex ? "w-8 bg-accent" : "w-4 bg-white/30 hover:bg-white/50"}`}
             />
           ))}
+          </div>
         </div>
       </div>
 
       <div className="relative z-10 mt-12 space-y-10">
         {continueWatching.length > 0 ? (
-          <section className="px-4 md:px-8">
+          <section className="mx-auto max-w-[2200px] px-4 sm:px-6 md:px-10 2xl:px-12">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-white">{t("movie.continue_watching")}</h2>
+                <h2 className="text-2xl font-bold text-white 2xl:text-3xl">{t("movie.continue_watching")}</h2>
                 <p className="text-sm text-gray-400">{t("movie.continue_hint")}</p>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5 min-[2200px]:grid-cols-6">
               {continueWatching.map((item) => (
                 <button
                   key={item.contentSlug}

@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { HeartIcon, SearchIcon, WalletIcon, MenuIcon, XIcon, TvIcon, RefreshCwIcon } from 'lucide-react';
+import { HeartIcon, SearchIcon, WalletIcon, MenuIcon, XIcon, TvIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { WalletModal } from './WalletModal';
 import { getPublicMenu, PublicMenuItem } from '../lib/storefront';
-import { clearStorefrontCache } from '../lib/session';
 
 type MenuNode = PublicMenuItem & { children: MenuNode[] };
 
@@ -117,12 +116,7 @@ export function Header() {
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [menuItems, setMenuItems] = useState<MenuNode[]>([]);
-  const [isCacheClearing, setIsCacheClearing] = useState(false);
-  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-  const canClearStorefrontCache = Boolean(
-    user?.adminPanelAccess || user?.permissionCodes?.includes('settings.edit_home_curation'),
-  );
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -171,26 +165,6 @@ export function Header() {
   useEffect(() => {
     setShowProfileMenu(false);
   }, [location.pathname]);
-
-  async function handleClearCache() {
-    if (isCacheClearing) {
-      return;
-    }
-
-    setIsCacheClearing(true);
-    setCacheMessage(null);
-
-    try {
-      await clearStorefrontCache();
-      setCacheMessage(t('admin.cache_cleared'));
-      window.setTimeout(() => setCacheMessage(null), 2500);
-    } catch {
-      setCacheMessage(t('admin.cache_clear_failed'));
-      window.setTimeout(() => setCacheMessage(null), 3000);
-    } finally {
-      setIsCacheClearing(false);
-    }
-  }
 
   // Don't show header on player page
   if (location.pathname.startsWith('/watch')) return null;
@@ -262,19 +236,6 @@ export function Header() {
             {isAuthLoading ? null :
             isAuthenticated ?
             <>
-                {canClearStorefrontCache ? (
-                  <button
-                    type="button"
-                    onClick={handleClearCache}
-                    disabled={isCacheClearing}
-                    className="hidden h-9 items-center gap-2 rounded-full border border-white/10 bg-surfaceHover px-3 text-xs font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-60 md:flex"
-                    aria-label={t('admin.clear_cache')}
-                    title={cacheMessage ?? t('admin.clear_cache')}
-                  >
-                    <RefreshCwIcon className={`h-4 w-4 text-accentCyan ${isCacheClearing ? 'animate-spin' : ''}`} />
-                    <span>{t('admin.cache')}</span>
-                  </button>
-                ) : null}
                 {/* Wallet */}
                 <button
                 onClick={() => setIsWalletModalOpen(true)}
@@ -437,19 +398,6 @@ export function Header() {
               {isAuthenticated ?
             <>
                 <div className="my-2 border-t border-white/10" />
-                {canClearStorefrontCache ? (
-                  <button
-                    onClick={() => {
-                      void handleClearCache();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    disabled={isCacheClearing}
-                    className="flex items-center gap-2 rounded-lg px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
-                  >
-                    <RefreshCwIcon className={`h-5 w-5 text-accentCyan ${isCacheClearing ? 'animate-spin' : ''}`} />
-                    <span>{cacheMessage ?? t('admin.clear_cache')}</span>
-                  </button>
-                ) : null}
                 <button
                   onClick={() => {
                     setIsWalletModalOpen(true);
