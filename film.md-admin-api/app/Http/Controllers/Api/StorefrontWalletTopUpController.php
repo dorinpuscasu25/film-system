@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\PaymentTopUp;
+use App\Services\BillingAddressService;
 use App\Services\PayFilmotecaPaymentService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class StorefrontWalletTopUpController extends ApiController
     public function __construct(
         protected WalletService $wallets,
         protected PayFilmotecaPaymentService $payments,
+        protected BillingAddressService $billingAddresses,
     ) {}
 
     public function store(Request $request): JsonResponse
@@ -54,6 +56,15 @@ class StorefrontWalletTopUpController extends ApiController
                         }
                     },
                 ],
+                'billing_address' => ['required', 'array'],
+                'billing_address.id' => ['nullable', 'integer'],
+                'billing_address.full_name' => ['required', 'string', 'min:2', 'max:255'],
+                'billing_address.country_code' => ['required', 'string', 'size:2', 'regex:/^[A-Za-z]{2}$/'],
+                'billing_address.administrative_area' => ['nullable', 'string', 'max:255'],
+                'billing_address.city' => ['required', 'string', 'min:2', 'max:255'],
+                'billing_address.postal_code' => ['required', 'string', 'min:2', 'max:32', 'regex:/^[A-Za-z0-9][A-Za-z0-9\\-\\s]{1,31}$/'],
+                'billing_address.address_line1' => ['required', 'string', 'min:3', 'max:255'],
+                'billing_address.address_line2' => ['nullable', 'string', 'max:255'],
                 'locale' => ['nullable', 'string', Rule::in(['ro', 'en', 'ru'])],
             ]);
         } catch (ValidationException $exception) {
@@ -65,6 +76,7 @@ class StorefrontWalletTopUpController extends ApiController
                 'request_currency' => $request->input('currency'),
                 'request_locale' => $request->input('locale'),
                 'has_phone' => filled($request->input('phone')),
+                'has_billing_address' => filled($request->input('billing_address')),
             ]);
 
             throw $exception;
@@ -81,6 +93,7 @@ class StorefrontWalletTopUpController extends ApiController
             'wallet_currency' => $wallet->currency,
             'locale' => $data['locale'] ?? null,
             'has_phone' => ! empty($data['phone'] ?? null),
+            'billing_country_code' => strtoupper((string) ($data['billing_address']['country_code'] ?? '')),
         ]);
 
         if ($data['currency'] !== $wallet->currency) {
@@ -98,6 +111,10 @@ class StorefrontWalletTopUpController extends ApiController
                 ],
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+
+        $billingAddress = $this->billingAddresses->upsertDefault($user, $data['billing_address']);
+        $data['billing_address_id'] = $billingAddress->id;
+        $data['billing_address'] = $this->billingAddresses->snapshot($billingAddress);
 
         $topUp = $this->payments->initiateTopUp($user, $wallet, $data, $request);
 

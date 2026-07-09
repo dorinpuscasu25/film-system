@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'uuid',
     'user_id',
     'wallet_id',
+    'billing_address_id',
     'subscriber_id',
     'amount',
     'currency',
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'provider_payment_url',
     'provider_status',
     'description',
+    'billing_address',
     'raw_request',
     'raw_response',
     'raw_callback',
@@ -52,6 +54,11 @@ class PaymentTopUp extends Model
         return $this->belongsTo(Wallet::class);
     }
 
+    public function billingAddress(): BelongsTo
+    {
+        return $this->belongsTo(BillingAddress::class);
+    }
+
     public function refunds(): HasMany
     {
         return $this->hasMany(PaymentRefund::class);
@@ -71,6 +78,7 @@ class PaymentTopUp extends Model
     {
         return [
             'amount' => 'float',
+            'billing_address' => 'array',
             'raw_request' => 'array',
             'raw_response' => 'array',
             'raw_callback' => 'array',

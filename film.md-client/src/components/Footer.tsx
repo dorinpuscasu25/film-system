@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, HeartIcon } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPublicMenu, PublicMenuItem, PublicMenuSummary } from '../lib/storefront';
 import amexLogo from '../assets/payment/amex.png';
@@ -194,8 +194,9 @@ export function Footer() {
               />
             ))}
           </div>
-          <p className="max-w-xs text-center text-[11px] font-medium text-gray-500 md:text-right">
+          <p className="flex max-w-xs items-center justify-center gap-1.5 text-center text-[11px] font-medium text-gray-500 md:justify-end md:text-right">
             {t('footer.support_message')}
+            <HeartIcon className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden="true" />
           </p>
         </div>
       </div>

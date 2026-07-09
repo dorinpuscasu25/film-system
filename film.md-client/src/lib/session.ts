@@ -26,6 +26,7 @@ export interface SessionUserPayload {
     currency: string;
     balance_amount: number;
   } | null;
+  billing_address?: StorefrontBillingAddressPayload | null;
   profiles?: SessionProfilePayload[];
 }
 
@@ -81,6 +82,7 @@ export interface StorefrontAccountPayload {
     currency: string;
     balance_amount: number;
   };
+  billing_address?: StorefrontBillingAddressPayload | null;
   transactions: StorefrontTransactionPayload[];
   library: StorefrontLibraryItemPayload[];
   favorites_by_profile: Record<string, string[]>;
@@ -108,13 +110,29 @@ export interface StorefrontTopUpPayload {
   provider_checkout_id?: string | null;
   provider_rrn?: string | null;
   payment_url?: string | null;
+  billing_address_id?: string | number | null;
   credited_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  billing_address?: Omit<StorefrontBillingAddressPayload, "id" | "is_default" | "created_at" | "updated_at"> | null;
 }
 
 export interface StorefrontTopUpResponsePayload {
   top_up: StorefrontTopUpPayload;
+}
+
+export interface StorefrontBillingAddressPayload {
+  id?: string | number;
+  full_name: string;
+  country_code: string;
+  administrative_area?: string | null;
+  city: string;
+  postal_code: string;
+  address_line1: string;
+  address_line2?: string | null;
+  is_default?: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface PublicPlatformSettingsPayload {
@@ -507,6 +525,7 @@ export async function createStorefrontWalletTopUp(payload: {
   amount: number;
   currency: string;
   phone?: string;
+  billing_address: StorefrontBillingAddressPayload;
   locale?: "en" | "ro" | "ru";
 }) {
   return requestJson<StorefrontTopUpResponsePayload>("/storefront/wallet/top-ups", {

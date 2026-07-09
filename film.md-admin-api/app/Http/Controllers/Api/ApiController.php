@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccountProfile;
+use App\Models\BillingAddress;
 use App\Models\Content;
 use App\Models\ContentEntitlement;
 use App\Models\Invitation;
@@ -22,7 +23,7 @@ class ApiController extends Controller
 {
     protected function userData(User $user): array
     {
-        $user->loadMissing('roles.permissions', 'contentAccesses.content');
+        $user->loadMissing('roles.permissions', 'contentAccesses.content', 'defaultBillingAddress');
 
         return [
             'id' => $user->id,
@@ -50,7 +51,31 @@ class ApiController extends Controller
             'wallet' => $user->relationLoaded('wallet') && $user->wallet !== null
                 ? $this->walletSummaryData($user->wallet)
                 : null,
+            'billing_address' => $user->relationLoaded('defaultBillingAddress')
+                ? $this->billingAddressData($user->defaultBillingAddress)
+                : null,
             'profiles' => $this->accountProfilesData($user),
+        ];
+    }
+
+    protected function billingAddressData(?BillingAddress $address): ?array
+    {
+        if ($address === null) {
+            return null;
+        }
+
+        return [
+            'id' => $address->id,
+            'full_name' => $address->full_name,
+            'country_code' => $address->country_code,
+            'administrative_area' => $address->administrative_area,
+            'city' => $address->city,
+            'postal_code' => $address->postal_code,
+            'address_line1' => $address->address_line1,
+            'address_line2' => $address->address_line2,
+            'is_default' => (bool) $address->is_default,
+            'created_at' => $address->created_at?->toIso8601String(),
+            'updated_at' => $address->updated_at?->toIso8601String(),
         ];
     }
 

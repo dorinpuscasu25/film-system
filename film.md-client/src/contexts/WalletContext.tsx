@@ -9,7 +9,7 @@ import {
   purchaseStorefrontOffer,
   unfavoriteStorefrontContent,
 } from "../lib/session";
-import type { StorefrontTopUpPayload } from "../lib/session";
+import type { StorefrontBillingAddressPayload, StorefrontTopUpPayload } from "../lib/session";
 
 interface WalletContextType {
   balance: number;
@@ -17,8 +17,9 @@ interface WalletContextType {
   transactions: WalletTransaction[];
   purchases: Purchase[];
   favorites: string[];
+  billingAddress: StorefrontBillingAddressPayload | null;
   isLoading: boolean;
-  addFunds: (amount: number, options?: { phone?: string }) => Promise<StorefrontTopUpPayload>;
+  addFunds: (amount: number, options: { phone?: string; billingAddress: StorefrontBillingAddressPayload }) => Promise<StorefrontTopUpPayload>;
   purchaseAccess: (offerId: string) => Promise<void>;
   hasAccess: (movieId: string) => boolean;
   getTimeRemaining: (movieId: string) => string | null;
@@ -71,6 +72,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [favoritesByProfile, setFavoritesByProfile] = useState<Record<string, string[]>>({});
+  const [billingAddress, setBillingAddress] = useState<StorefrontBillingAddressPayload | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const favorites = useMemo(() => {
@@ -88,6 +90,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
+      setBillingAddress(null);
       return;
     }
 
@@ -100,12 +103,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions((response.transactions ?? []).map(mapTransaction));
       setPurchases((response.library ?? []).map(mapPurchase));
       setFavoritesByProfile(response.favorites_by_profile ?? {});
+      setBillingAddress(response.billing_address ?? response.user.billing_address ?? null);
     } catch {
       setBalance(0);
       setCurrency("MDL");
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
+      setBillingAddress(null);
     } finally {
       setIsLoading(false);
     }
@@ -122,19 +127,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
+      setBillingAddress(null);
       return;
     }
 
     void loadAccount();
   }, [currentLanguage.code, isAuthenticated, isAuthLoading, user?.id]);
 
-  const addFunds = async (amount: number, options?: { phone?: string }) => {
+  const addFunds = async (amount: number, options: { phone?: string; billingAddress: StorefrontBillingAddressPayload }) => {
     const response = await createStorefrontWalletTopUp({
       amount,
       currency,
       phone: options?.phone,
+      billing_address: options.billingAddress,
       locale: currentLanguage.code,
     });
+
+    if (response.top_up.billing_address) {
+      setBillingAddress({
+        ...options.billingAddress,
+        id: response.top_up.billing_address_id ?? options.billingAddress.id,
+        ...response.top_up.billing_address,
+      });
+    } else {
+      setBillingAddress(options.billingAddress);
+    }
 
     return response.top_up;
   };
@@ -213,6 +230,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         transactions,
         purchases,
         favorites,
+        billingAddress,
         isLoading,
         addFunds,
         purchaseAccess,

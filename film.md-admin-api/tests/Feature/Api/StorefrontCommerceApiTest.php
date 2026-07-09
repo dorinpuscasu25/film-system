@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Services\RegistrationCreditService;
 use App\Services\AccountProfileService;
+use App\Services\BillingAddressService;
 use App\Services\WalletService;
 use Database\Seeders\AccessControlSeeder;
 use Database\Seeders\ContentSeeder;
@@ -89,6 +90,46 @@ class StorefrontCommerceApiTest extends TestCase
             ->assertJsonPath('wallet.balance_amount', 20)
             ->assertJsonCount(1, 'transactions')
             ->assertJsonCount(0, 'library');
+    }
+
+    public function test_wallet_top_up_requires_billing_address(): void
+    {
+        $token = $this->registerViewerAndReturnToken('billing-required@example.com');
+
+        $this->postJson('/api/v1/storefront/wallet/top-ups', [
+            'amount' => 200,
+            'currency' => 'MDL',
+            'phone' => '+37379018018',
+            'locale' => 'ro',
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('billing_address');
+    }
+
+    public function test_storefront_account_returns_saved_default_billing_address(): void
+    {
+        $user = $this->createActiveViewer('billing-account@example.com');
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+
+        app(BillingAddressService::class)->upsertDefault($user, [
+            'full_name' => 'Buyer User',
+            'country_code' => 'md',
+            'city' => 'Chisinau',
+            'postal_code' => 'MD-2001',
+            'address_line1' => 'Strada Test 10',
+            'address_line2' => 'Apt. 4',
+        ]);
+
+        $this->getJson('/api/v1/storefront/account?locale=en', [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertOk()
+            ->assertJsonPath('billing_address.full_name', 'Buyer User')
+            ->assertJsonPath('billing_address.country_code', 'MD')
+            ->assertJsonPath('billing_address.city', 'Chisinau')
+            ->assertJsonPath('user.billing_address.address_line1', 'Strada Test 10');
     }
 
     public function test_purchase_deducts_wallet_and_adds_library_entry(): void

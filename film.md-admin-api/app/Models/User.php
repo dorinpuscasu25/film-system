@@ -47,6 +47,16 @@ class User extends Authenticatable
         return $this->hasMany(PaymentTopUp::class);
     }
 
+    public function billingAddresses(): HasMany
+    {
+        return $this->hasMany(BillingAddress::class);
+    }
+
+    public function defaultBillingAddress(): HasOne
+    {
+        return $this->hasOne(BillingAddress::class)->where('is_default', true)->latestOfMany();
+    }
+
     public function entitlements(): HasMany
     {
         return $this->hasMany(ContentEntitlement::class);

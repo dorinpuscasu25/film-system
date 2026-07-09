@@ -212,7 +212,21 @@
     "continue_payment": "Continuă spre plată",
     "view_transactions": "Vezi tranzacțiile",
     "provider_missing_url": "Providerul nu a returnat URL-ul de plată.",
-    "payment_start_failed": "Nu am putut porni plata."
+    "payment_start_failed": "Nu am putut porni plata.",
+    "billing_address": "Adresă de facturare",
+    "billing_address_hint": "Necesară pentru prima plată și salvată pentru următoarele.",
+    "edit_billing_address": "Editează",
+    "billing_address_required": "Completează adresa de facturare pentru a continua.",
+    "billing_full_name": "Nume pentru facturare",
+    "billing_country": "Țară",
+    "billing_address_line1": "Adresă",
+    "billing_address_line1_placeholder": "Stradă și număr",
+    "billing_address_line2": "Apartament, bloc, scară",
+    "billing_address_line2_placeholder": "Opțional",
+    "billing_city": "Oraș",
+    "billing_postal_code": "Cod poștal",
+    "billing_region": "Regiune / stat",
+    "billing_region_placeholder": "Opțional"
   },
   "player": {
     "watch_party": "Premieră digitală",
@@ -246,7 +260,7 @@
     "privacy": "Politica de confidențialitate",
     "cookies": "Politica cookies",
     "rights": "Toate drepturile rezervate.",
-    "support_message": "Mulțumim pentru susținere 😀"
+    "support_message": "Mulțumim pentru susținere"
   },
   "payment": {
     "paid_title": "Plata a fost efectuată cu succes",
@@ -317,7 +331,7 @@
     "standard": "Standard",
     "default": "Implicit",
     "billing_library": "Plăți și bibliotecă",
-    "owned_titles": "Titluri deținute",
+    "owned_titles": "Titluri procurate",
     "favorites_active": "Favorite pe profilul activ"
   },
   "profiles": {

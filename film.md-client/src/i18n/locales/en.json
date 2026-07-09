@@ -212,7 +212,21 @@
     "continue_payment": "Continue to payment",
     "view_transactions": "View transactions",
     "provider_missing_url": "The provider did not return a payment URL.",
-    "payment_start_failed": "We could not start the payment."
+    "payment_start_failed": "We could not start the payment.",
+    "billing_address": "Billing address",
+    "billing_address_hint": "Required for the first payment and saved for next time.",
+    "edit_billing_address": "Edit",
+    "billing_address_required": "Complete the billing address to continue.",
+    "billing_full_name": "Billing name",
+    "billing_country": "Country",
+    "billing_address_line1": "Address",
+    "billing_address_line1_placeholder": "Street and number",
+    "billing_address_line2": "Apartment, suite, building",
+    "billing_address_line2_placeholder": "Optional",
+    "billing_city": "City",
+    "billing_postal_code": "Postal code",
+    "billing_region": "Region / state",
+    "billing_region_placeholder": "Optional"
   },
   "player": {
     "watch_party": "Digital premiere",
@@ -246,7 +260,7 @@
     "privacy": "Privacy policy",
     "cookies": "Cookie policy",
     "rights": "All rights reserved.",
-    "support_message": "Thank you for your support 😀"
+    "support_message": "Thank you for your support"
   },
   "payment": {
     "paid_title": "Payment completed successfully",
@@ -317,7 +331,7 @@
     "standard": "Standard",
     "default": "Default",
     "billing_library": "Billing & library",
-    "owned_titles": "Owned titles",
+    "owned_titles": "Purchased titles",
     "favorites_active": "Favorites on active profile"
   },
   "profiles": {

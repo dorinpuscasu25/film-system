@@ -61,6 +61,14 @@ function contentTypeLabel(movie: Movie, t: (key: string) => string) {
   return t(`content_types.${movie.type}`) || movie.type;
 }
 
+function comparableLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
+}
+
 function formatRuntime(minutes?: number) {
   if (!minutes || minutes <= 0) {
     return null;
@@ -569,6 +577,10 @@ export function MovieDetailPage() {
   const ageRatingLabel = formatAgeRating(movie.ageRating, movie.ageRatingLabel);
   const audioLabel = formatLocaleList(movie.audioLocales, currentLanguage.code);
   const subtitleLabel = formatLocaleList(movie.subtitleLocales, currentLanguage.code);
+  const typeLabel = contentTypeLabel(movie, t);
+  const typeComparableLabel = comparableLabel(typeLabel);
+  const genreLabels = Array.from(new Set(movie.genres))
+    .filter((genre) => comparableLabel(genre) !== typeComparableLabel);
   const movieFacts = [
     runtimeLabel ? { label: t("movie.duration"), value: runtimeLabel } : null,
     ageRatingLabel ? { label: t("movie.age_rating"), value: ageRatingLabel } : null,
@@ -654,15 +666,19 @@ export function MovieDetailPage() {
               </div>
               <span className="text-gray-300">{movie.year}</span>
               <span className="text-gray-500">•</span>
-              <span className="text-gray-300">{contentTypeLabel(movie, t)}</span>
-              <span className="text-gray-500">•</span>
-              <div className="flex flex-wrap gap-2">
-                {movie.genres.map((genre) => (
-                  <span key={genre} className="rounded border border-white/20 px-2 py-0.5 text-sm text-gray-300">
-                    {genre}
-                  </span>
-                ))}
-              </div>
+              <span className="text-gray-300">{typeLabel}</span>
+              {genreLabels.length > 0 ? (
+                <>
+                  <span className="text-gray-500">•</span>
+                  <div className="flex flex-wrap gap-2">
+                    {genreLabels.map((genre) => (
+                      <span key={genre} className="rounded border border-white/20 px-2 py-0.5 text-sm text-gray-300">
+                        {genre}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : null}
             </div>
 
             {movieFacts.length > 0 ? (

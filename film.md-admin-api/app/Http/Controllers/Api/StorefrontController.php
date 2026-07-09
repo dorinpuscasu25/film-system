@@ -54,7 +54,7 @@ class StorefrontController extends ApiController
                 return $topUp->isTerminal() ? $topUp : $this->payments->refreshStatus($topUp);
             });
         $library = $this->resolveLibraryItems($user, $locale);
-        $user->loadMissing('roles.permissions', 'wallet', 'profiles.favorites');
+        $user->loadMissing('roles.permissions', 'wallet', 'profiles.favorites', 'defaultBillingAddress');
         $transactionHistory = $transactions
             ->map(fn (WalletTransaction $transaction): array => $this->walletTransactionData($transaction))
             ->merge($topUps->map(fn (PaymentTopUp $topUp): array => $this->walletTopUpHistoryData($topUp)))
@@ -65,6 +65,7 @@ class StorefrontController extends ApiController
         return response()->json([
             'user' => $this->userData($user),
             'wallet' => $this->walletSummaryData($wallet->fresh()),
+            'billing_address' => $this->billingAddressData($user->defaultBillingAddress),
             'transactions' => $transactionHistory,
             'library' => $library,
             'favorites_by_profile' => $this->favoriteMapData($user->profiles),

@@ -51,11 +51,13 @@ class PayFilmotecaPaymentService
             'uuid' => (string) Str::uuid(),
             'user_id' => $user->id,
             'wallet_id' => $wallet->id,
+            'billing_address_id' => $payload['billing_address_id'] ?? null,
             'subscriber_id' => $subscriberId,
             'amount' => $amount,
             'currency' => $currency,
             'status' => PaymentTopUp::STATUS_PENDING,
             'description' => $description,
+            'billing_address' => $payload['billing_address'] ?? null,
         ]);
 
         Log::channel('payments')->info('PayFilmoteca top-up record created', [
@@ -615,9 +617,11 @@ class PayFilmotecaPaymentService
             'provider_checkout_id' => $topUp->provider_checkout_id,
             'provider_rrn' => $topUp->provider_rrn,
             'payment_url' => $topUp->provider_payment_url,
+            'billing_address_id' => $topUp->billing_address_id,
             'credited_at' => $topUp->credited_at?->toIso8601String(),
             'created_at' => $topUp->created_at?->toIso8601String(),
             'updated_at' => $topUp->updated_at?->toIso8601String(),
+            'billing_address' => $topUp->billing_address,
         ];
     }
 
@@ -680,7 +684,6 @@ class PayFilmotecaPaymentService
         }
 
         $providerPayload = [
-            'order_id' => $orderId !== '' ? $orderId : $checkoutId,
             'refund_total' => number_format($amount, 2, '.', ''),
             'currency' => $topUp->currency ?: Wallet::DEFAULT_CURRENCY,
             'refund_reason' => $reason,
@@ -715,23 +718,19 @@ class PayFilmotecaPaymentService
         ]);
 
         try {
-            $refundOrderIds = array_values(array_unique(array_filter([
-                $orderId,
-                $checkoutId,
-            ], fn (string $value): bool => trim($value) !== '')));
+            $refundPayloads = $this->refundRequestPayloads($providerPayload, $orderId, $checkoutId);
             $rawResponse = null;
             $successfulPayload = null;
             $attempts = [];
 
-            foreach ($refundOrderIds as $refundOrderId) {
-                $attemptPayload = [
-                    ...$providerPayload,
-                    'order_id' => $refundOrderId,
-                ];
+            foreach ($refundPayloads as $attemptPayload) {
                 $response = $this->providerPost('refund-request', $attemptPayload);
                 $attemptResponse = $this->responsePayload($response);
+                $attemptIdentifierKey = array_key_exists('checkout_id', $attemptPayload) ? 'checkout_id' : 'order_id';
+                $attemptIdentifier = (string) ($attemptPayload[$attemptIdentifierKey] ?? '');
                 $attempts[] = [
-                    'order_id' => $refundOrderId,
+                    'identifier_key' => $attemptIdentifierKey,
+                    'identifier' => $attemptIdentifier,
                     'http_status' => $response->status(),
                     'response' => $attemptResponse,
                 ];
@@ -739,7 +738,8 @@ class PayFilmotecaPaymentService
                 Log::channel('payments')->info('PayFilmoteca refund request attempt completed', [
                     'payment_refund_uuid' => $refund->uuid,
                     'top_up_uuid' => $topUp->uuid,
-                    'refund_order_id' => $refundOrderId,
+                    'identifier_key' => $attemptIdentifierKey,
+                    'identifier' => $attemptIdentifier,
                     'http_status' => $response->status(),
                     'successful' => $response->successful(),
                     'accepted' => $this->providerResponseAccepted($response, $attemptResponse),
@@ -759,7 +759,7 @@ class PayFilmotecaPaymentService
                     'status' => PaymentRefund::STATUS_FAILED,
                     'provider_status' => 'request_failed',
                     'raw_request' => [
-                        'attempted_order_ids' => $refundOrderIds,
+                        'attempted_payloads' => $refundPayloads,
                         'payload' => $providerPayload,
                     ],
                     'raw_response' => [
@@ -772,7 +772,7 @@ class PayFilmotecaPaymentService
                 Log::channel('payments')->error('PayFilmoteca refund request rejected by provider', [
                     'payment_refund_uuid' => $refund->uuid,
                     'top_up_uuid' => $topUp->uuid,
-                    'attempted_order_ids' => $refundOrderIds,
+                    'attempted_payloads' => $refundPayloads,
                     'provider_response' => $rawResponse,
                 ]);
 
@@ -785,7 +785,8 @@ class PayFilmotecaPaymentService
                 'raw_request' => $successfulPayload,
                 'raw_response' => [
                     'attempts' => $attempts,
-                    'successful_order_id' => $successfulPayload['order_id'],
+                    'successful_identifier_key' => array_key_exists('checkout_id', $successfulPayload) ? 'checkout_id' : 'order_id',
+                    'successful_identifier' => $successfulPayload['checkout_id'] ?? $successfulPayload['order_id'] ?? null,
                     'last_response' => $rawResponse,
                 ],
             ])->save();
@@ -915,6 +916,40 @@ class PayFilmotecaPaymentService
         $meta = $wallet->meta ?? [];
 
         return round((float) ($meta['own_credit_balance'] ?? $wallet->balance_amount ?? 0), 2);
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    protected function refundRequestPayloads(array $basePayload, string $orderId, string $checkoutId): array
+    {
+        $payloads = [];
+
+        if ($orderId !== '') {
+            $payloads[] = [
+                ...$basePayload,
+                'order_id' => $orderId,
+            ];
+        }
+
+        if ($checkoutId !== '') {
+            $payloads[] = [
+                ...$basePayload,
+                'checkout_id' => $checkoutId,
+            ];
+        }
+
+        if ($checkoutId !== '' && $checkoutId !== $orderId) {
+            $payloads[] = [
+                ...$basePayload,
+                'order_id' => $checkoutId,
+            ];
+        }
+
+        return collect($payloads)
+            ->unique(fn (array $payload): string => md5(json_encode($payload, JSON_THROW_ON_ERROR)))
+            ->values()
+            ->all();
     }
 
     protected function creditWallet(PaymentTopUp $topUp, array $details, ?string $providerStatus): void

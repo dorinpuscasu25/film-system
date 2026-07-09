@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Edit2Icon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, Edit2Icon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { ProfileAvatar } from "../components/ProfileAvatar";
@@ -154,6 +154,14 @@ export function ProfileSelectPage() {
           filmoteca<span className="text-accent">.</span>md
         </h1>
       </div>
+      <button
+        type="button"
+        onClick={() => navigate("/")}
+        className="absolute right-4 top-4 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10 sm:right-8 sm:top-8"
+      >
+        <ArrowLeftIcon className="h-4 w-4" />
+        {t("common.back")}
+      </button>
 
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-12 text-center">
         <h2 className="text-4xl font-medium text-white md:text-5xl">{isManaging ? t("profiles.manage") : t("profiles.who")}</h2>

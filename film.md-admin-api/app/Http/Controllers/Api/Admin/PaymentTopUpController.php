@@ -107,6 +107,7 @@ class PaymentTopUpController extends ApiController
             'provider_order_id' => $topUp->provider_order_id,
             'provider_checkout_id' => $topUp->provider_checkout_id,
             'provider_rrn' => $topUp->provider_rrn,
+            'billing_address' => $topUp->billing_address,
             'refunded_amount' => $this->payments->refundedAmount($topUp),
             'refundable_amount' => $this->payments->refundableAmount($topUp),
             'own_credit_balance' => $this->payments->ownCreditBalance($topUp->wallet),
