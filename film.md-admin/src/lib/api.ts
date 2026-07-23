@@ -1,4 +1,6 @@
 import {
+  AccountingFilters,
+  AccountingTransactionsResponse,
   AdminInvitation,
   AdminAdCampaign,
   AuditLogsResponse,
@@ -15,6 +17,8 @@ import {
   AdminUser,
   AdCampaignPayload,
   AdCampaignsResponse,
+  AnalyticsFilters,
+  AnalyticsResponse,
   ContentFinancialsResponse,
   ContentPayload,
   FinancialSummaryResponse,
@@ -236,6 +240,35 @@ export const adminApi = {
   getDashboard(range?: "7days" | "30days" | "3months") {
     const query = range ? `?range=${range}` : "";
     return request<DashboardResponse>("GET", `/admin/dashboard${query}`);
+  },
+
+  getAnalytics(filters: AnalyticsFilters = {}) {
+    const searchParams = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        searchParams.set(key, String(value));
+      }
+    });
+
+    const query = searchParams.toString();
+    return request<AnalyticsResponse>("GET", `/admin/analytics${query ? `?${query}` : ""}`);
+  },
+
+  getAccountingTransactions(filters: AccountingFilters = {}) {
+    const searchParams = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        searchParams.set(key, String(value));
+      }
+    });
+
+    const query = searchParams.toString();
+    return request<AccountingTransactionsResponse>(
+      "GET",
+      `/admin/accounting/transactions${query ? `?${query}` : ""}`,
+    );
   },
 
   getCostSettings() {

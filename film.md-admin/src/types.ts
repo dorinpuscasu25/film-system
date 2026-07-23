@@ -194,6 +194,106 @@ export interface DashboardResponse {
   cost_overview: DashboardCostOverview;
 }
 
+export interface AnalyticsFilters {
+  range?: "7days" | "30days" | "3months";
+  from?: string;
+  to?: string;
+  content_id?: number | null;
+  genre_id?: number | null;
+  country_code?: string;
+  administrative_area?: string;
+  group_by?: "day" | "month";
+}
+
+export interface AnalyticsFilterOption {
+  value: number | string;
+  label: string;
+}
+
+export interface AnalyticsTimelinePoint {
+  period: string;
+  label: string;
+  revenue_amount: number;
+  sales_count: number;
+  orders_count: number;
+  views_count: number;
+  sessions_count: number;
+  watch_time_seconds: number;
+}
+
+export interface AnalyticsContentPerformance {
+  content_id: number;
+  slug: string | null;
+  title: string;
+  type: AdminContentType;
+  poster_url: string | null;
+  genres: string[];
+  revenue_amount: number;
+  sales_count: number;
+  orders_count: number;
+  free_claims_count: number;
+  unique_buyers_count: number;
+  views_count: number;
+  sessions_count: number;
+  unique_viewers_count: number;
+  watch_time_seconds: number;
+  bandwidth_gb: number;
+}
+
+export interface AnalyticsCountryBreakdown {
+  country_code: string;
+  views_count: number;
+  watch_time_seconds: number;
+  bandwidth_gb: number;
+  sales_count: number;
+  revenue_amount: number;
+}
+
+export interface AnalyticsResponse {
+  range: {
+    value: "7days" | "30days" | "3months" | "custom";
+    from: string;
+    to: string;
+    group_by: "day" | "month";
+    days: number;
+  };
+  stats: {
+    revenue_amount: number;
+    sales_count: number;
+    orders_count: number;
+    free_claims_count: number;
+    unique_buyers_count: number;
+    views_count: number;
+    sessions_count: number;
+    unique_viewers_count: number;
+    watch_time_seconds: number;
+    bandwidth_gb: number;
+    content_count: number;
+  };
+  timeline: AnalyticsTimelinePoint[];
+  content_performance: AnalyticsContentPerformance[];
+  country_breakdown: AnalyticsCountryBreakdown[];
+  filters: {
+    applied: {
+      content_id: number | null;
+      genre_id: number | null;
+      country_code: string | null;
+      administrative_area: string | null;
+    };
+    options: {
+      contents: AnalyticsFilterOption[];
+      genres: AnalyticsFilterOption[];
+      countries: AnalyticsFilterOption[];
+      regions: AnalyticsFilterOption[];
+    };
+  };
+  currency: string;
+  scope: {
+    is_content_scoped: boolean;
+    content_ids: number[];
+  };
+}
+
 export interface CostSettingsVersion {
   id: number;
   storage_cost_per_gb_day: number;
@@ -388,6 +488,15 @@ export interface PaymentTopUpItem {
   provider_order_id: string | null;
   provider_checkout_id: string | null;
   provider_rrn: string | null;
+  billing_address: {
+    full_name?: string | null;
+    country_code?: string | null;
+    administrative_area?: string | null;
+    city?: string | null;
+    postal_code?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+  } | null;
   refunded_amount: number;
   refundable_amount: number;
   own_credit_balance: number;
@@ -404,6 +513,78 @@ export interface PaymentTopUpItem {
 
 export interface PaymentTopUpsResponse {
   items: PaymentTopUpItem[];
+}
+
+export interface AccountingFilters {
+  from?: string;
+  to?: string;
+  country_code?: string;
+  administrative_area?: string;
+  market?: "all" | "domestic" | "international";
+  direction?: "all" | "inflow" | "outflow";
+  status?: string;
+  search?: string;
+  page?: number;
+  per_page?: number;
+}
+
+export interface AccountingTransactionItem {
+  id: string;
+  source_id: string;
+  source_type: "top_up" | "refund";
+  direction: "inflow" | "outflow";
+  direction_label: string;
+  status: string;
+  is_accounted: boolean;
+  amount: number;
+  signed_amount: number;
+  currency: string;
+  processed_at: string | null;
+  description: string | null;
+  provider_order_id: string | null;
+  provider_checkout_id: string | null;
+  provider_rrn: string | null;
+  user: {
+    id: number | null;
+    name: string | null;
+    email: string | null;
+  };
+  billing: {
+    full_name: string | null;
+    country_code: string | null;
+    administrative_area: string | null;
+    city: string | null;
+    postal_code: string | null;
+    address_line1: string | null;
+    address_line2: string | null;
+    market: "domestic" | "international" | "unknown";
+    market_label: string;
+  };
+}
+
+export interface AccountingTransactionsResponse {
+  items: AccountingTransactionItem[];
+  summary: {
+    gross_inflow: number;
+    refunds: number;
+    net_inflow: number;
+    accounted_transactions: number;
+    domestic_transactions: number;
+    international_transactions: number;
+    currency: string;
+  };
+  options: {
+    countries: AnalyticsFilterOption[];
+    regions: AnalyticsFilterOption[];
+    statuses: AnalyticsFilterOption[];
+  };
+  pagination: {
+    page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  };
+  applied_filters: AccountingFilters;
 }
 
 export interface PaymentRefundPayload {

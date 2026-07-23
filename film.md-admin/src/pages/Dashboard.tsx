@@ -1,577 +1,780 @@
 import React from "react";
 import {
-  AlertCircleIcon,
-  CreditCardIcon,
+  BarChart3Icon,
+  Clock3Icon,
   DollarSignIcon,
+  EyeIcon,
   FilmIcon,
-  PlusIcon,
+  FilterIcon,
+  Globe2Icon,
+  RotateCcwIcon,
   ShoppingCartIcon,
   UsersIcon,
-  WalletIcon,
 } from "lucide-react";
-import { StatsCard } from "../components/shared/StatsCard";
-import { SalesTimeline } from "../components/shared/SalesTimeline";
-import { TransactionTypeBadge } from "../components/shared/TransactionTypeBadge";
+import { Tabs } from "../components/shared/Tabs";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { Tabs } from "../components/shared/Tabs";
-import { adminApi } from "../lib/api";
-import { DashboardResponse, FinancialSummaryResponse } from "../types";
+import { Input } from "../components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { useAdmin } from "../hooks/useAdmin";
+import { adminApi } from "../lib/api";
+import {
+  AnalyticsContentPerformance,
+  AnalyticsFilters,
+  AnalyticsResponse,
+  AnalyticsTimelinePoint,
+} from "../types";
 
-type RangeValue = "7days" | "30days" | "3months";
+type DashboardTab = "overview" | "content" | "audience";
+type TimelineMetric = "revenue" | "sales" | "views" | "sessions";
 
-const EMPTY_DASHBOARD: DashboardResponse = {
-  range: {
-    value: "30days",
-    label: "Ultimele 30 de zile",
-    days: 30,
-    from: "",
-    to: "",
-  },
-  stats: {
-    users_total: 0,
-    admins_total: 0,
-    roles_total: 0,
-    pending_invitations: 0,
-    total_revenue_amount: 0,
-    period_revenue_amount: 0,
-    orders_total: 0,
-    period_orders_count: 0,
-    paid_orders_count: 0,
-    free_claims_count: 0,
-    unique_buyers_count: 0,
-    average_order_value: 0,
-    active_entitlements_count: 0,
-    wallet_balance_total: 0,
-    total_views: 0,
-    total_watch_time_seconds: 0,
-    total_bandwidth_gb: 0,
-    current_month_costs_usd: 0,
-    current_month_profit_usd: 0,
-  },
-  breakdown: {
-    rental_orders_count: 0,
-    lifetime_orders_count: 0,
-    free_orders_count: 0,
-    rental_revenue_amount: 0,
-    lifetime_revenue_amount: 0,
-  },
-  sales_timeline: [],
-  recent_transactions: [],
-  recent_sales: [],
-  top_titles: [],
-  summary: {
-    catalog_titles_total: 0,
-    published_titles_total: 0,
-    buyers_total: 0,
-  },
-  analytics_timeline: [],
-  country_breakdown: [],
-  cost_overview: {
-    storage_cost_usd: 0,
-    delivery_cost_usd: 0,
-    drm_cost_usd: 0,
-    revenue_usd: 0,
-    profit_usd: 0,
-  },
-};
+const SELECT_CLASS =
+  "h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
-function safeNumber(value: number | null | undefined) {
-  return Number.isFinite(value) ? Number(value) : 0;
+function localDate(daysAgo = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return date.toISOString().slice(0, 10);
 }
 
-function normalizeDashboard(response: Partial<DashboardResponse> | null | undefined): DashboardResponse {
+function defaultFilters(): AnalyticsFilters {
   return {
-    ...EMPTY_DASHBOARD,
-    ...response,
-    range: {
-      ...EMPTY_DASHBOARD.range,
-      ...(response?.range ?? {}),
-    },
-    stats: {
-      ...EMPTY_DASHBOARD.stats,
-      ...(response?.stats ?? {}),
-    },
-    breakdown: {
-      ...EMPTY_DASHBOARD.breakdown,
-      ...(response?.breakdown ?? {}),
-    },
-    summary: {
-      ...EMPTY_DASHBOARD.summary,
-      ...(response?.summary ?? {}),
-    },
-    cost_overview: {
-      ...EMPTY_DASHBOARD.cost_overview,
-      ...(response?.cost_overview ?? {}),
-    },
-    sales_timeline: Array.isArray(response?.sales_timeline) ? response.sales_timeline : EMPTY_DASHBOARD.sales_timeline,
-    recent_transactions: Array.isArray(response?.recent_transactions) ? response.recent_transactions : EMPTY_DASHBOARD.recent_transactions,
-    recent_sales: Array.isArray(response?.recent_sales) ? response.recent_sales : EMPTY_DASHBOARD.recent_sales,
-    top_titles: Array.isArray(response?.top_titles) ? response.top_titles : EMPTY_DASHBOARD.top_titles,
-    analytics_timeline: Array.isArray(response?.analytics_timeline) ? response.analytics_timeline : EMPTY_DASHBOARD.analytics_timeline,
-    country_breakdown: Array.isArray(response?.country_breakdown) ? response.country_breakdown : EMPTY_DASHBOARD.country_breakdown,
+    from: localDate(29),
+    to: localDate(),
+    group_by: "day",
   };
 }
 
-function formatCurrency(amount: number | null | undefined, currency = "USD") {
-  return `${currency} ${safeNumber(amount).toFixed(2)}`;
+function formatCurrency(amount: number, currency = "MDL") {
+  return new Intl.NumberFormat("ro-MD", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(amount) ? amount : 0);
 }
 
-function formatDecimal(value: number | null | undefined, digits = 2) {
-  return safeNumber(value).toFixed(digits);
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("ro-MD").format(Number.isFinite(value) ? value : 0);
 }
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Fără dată";
+function formatDuration(seconds: number) {
+  const normalized = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
+  const hours = Math.floor(normalized / 3600);
+  const minutes = Math.floor((normalized % 3600) / 60);
+
+  return hours > 0 ? `${formatNumber(hours)}h ${minutes}m` : `${minutes}m`;
+}
+
+function countryFlag(code: string) {
+  if (!/^[A-Z]{2}$/.test(code)) {
+    return "🌐";
   }
 
-  return new Date(value).toLocaleString();
+  return String.fromCodePoint(...code.split("").map((letter) => 127397 + letter.charCodeAt(0)));
 }
 
-function formatDuration(seconds: number | null | undefined) {
-  const normalizedSeconds = Math.max(0, safeNumber(seconds));
-  const hours = Math.floor(normalizedSeconds / 3600);
-  const minutes = Math.floor((normalizedSeconds % 3600) / 60);
-
-  if (hours <= 0) {
-    return `${minutes}m`;
-  }
-
-  return `${hours}h ${minutes}m`;
+function quickRange(days: number): AnalyticsFilters {
+  return {
+    from: localDate(days - 1),
+    to: localDate(),
+    group_by: days > 62 ? "month" : "day",
+  };
 }
 
 export function Dashboard() {
   const { navigate, can, currentUser } = useAdmin();
-  const isContentScoped = currentUser?.content_scope_assigned ?? false;
-  const canViewBilling = can("commerce.view_billing");
-  const [range, setRange] = React.useState<RangeValue>("30days");
-  const [dashboard, setDashboard] = React.useState<DashboardResponse>(EMPTY_DASHBOARD);
-  const [financial, setFinancial] = React.useState<FinancialSummaryResponse | null>(null);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<DashboardTab>("overview");
+  const [draftFilters, setDraftFilters] = React.useState<AnalyticsFilters>(defaultFilters);
+  const [appliedFilters, setAppliedFilters] = React.useState<AnalyticsFilters>(defaultFilters);
+  const [analytics, setAnalytics] = React.useState<AnalyticsResponse | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
+    setIsLoading(true);
+    setError(null);
 
-    async function loadDashboard() {
-      setIsLoading(true);
-
-      try {
-        const response = await adminApi.getDashboard(range);
+    adminApi
+      .getAnalytics(appliedFilters)
+      .then((response) => {
         if (!cancelled) {
-          setDashboard(normalizeDashboard(response));
+          setAnalytics(response);
         }
-      } catch {
+      })
+      .catch((requestError) => {
         if (!cancelled) {
-          setDashboard(EMPTY_DASHBOARD);
+          setError(requestError instanceof Error ? requestError.message : "Statisticile nu au putut fi încărcate.");
         }
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) {
           setIsLoading(false);
         }
-      }
-    }
-
-    void loadDashboard();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [range]);
-
-  React.useEffect(() => {
-    if (!canViewBilling) {
-      setFinancial(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    adminApi
-      .getFinancialSummary()
-      .then((response) => {
-        if (!cancelled) setFinancial(response);
-      })
-      .catch(() => {
-        if (!cancelled) setFinancial(null);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [canViewBilling]);
+  }, [appliedFilters]);
+
+  const applyQuickRange = (days: number) => {
+    const next = { ...draftFilters, ...quickRange(days) };
+    setDraftFilters(next);
+    setAppliedFilters(next);
+  };
+
+  const resetFilters = () => {
+    const next = defaultFilters();
+    setDraftFilters(next);
+    setAppliedFilters(next);
+  };
+
+  const options = analytics?.filters.options;
+  const currency = analytics?.currency ?? "MDL";
+  const isScoped = analytics?.scope.is_content_scoped ?? currentUser?.content_scope_assigned ?? false;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="page-header">
-          <h1 className="page-title">Panou</h1>
+          <h1 className="page-title">Statistici</h1>
           <p className="page-description">
-            Venituri, istoric de tranzacții și performanța catalogului pentru intervalul selectat.
+            Vânzări, vizionări, audiență și venituri analizate separat, pentru perioada și conținutul ales.
           </p>
+          {isScoped ? (
+            <p className="mt-2 inline-flex rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-700 dark:text-sky-300">
+              Vezi exclusiv datele filmelor care ți-au fost atribuite.
+            </p>
+          ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {canViewBilling ? (
-            <Button variant="outline" onClick={() => navigate("billing", null, ["Facturare"])}>
-              Facturare
-            </Button>
-          ) : null}
-          {can("content.create") ? (
-            <Button onClick={() => navigate("editor", "new", ["Catalog", "Adaugă titlu"])}>
-              <PlusIcon className="mr-2 h-4 w-4" />
-              Adăugare rapidă
-            </Button>
-          ) : null}
-        </div>
+        {can("commerce.view_billing") ? (
+          <Button variant="outline" onClick={() => navigate("billing", null, ["Facturare"])}>
+            <DollarSignIcon className="h-4 w-4" />
+            Deschide finanțele
+          </Button>
+        ) : null}
       </div>
 
-      {financial ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">Costuri {financial.current_month.label}</CardDescription>
-              <CardTitle className="text-2xl">
-                {financial.current_month.cost_mdl.toFixed(2)} MDL
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">Luna curentă</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">Costuri {financial.previous_month.label}</CardDescription>
-              <CardTitle className="text-2xl">
-                {financial.previous_month.cost_mdl.toFixed(2)} MDL
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">Luna precedentă</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">Costuri totale</CardDescription>
-              <CardTitle className="text-2xl">{financial.total_costs_mdl.toFixed(2)} MDL</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Venit total: {financial.total_revenue_mdl.toFixed(2)} MDL
-              </p>
-            </CardContent>
-          </Card>
-          <Card className={financial.total_profit_mdl >= 0 ? "border-emerald-500/40" : "border-destructive/40"}>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">Profit total</CardDescription>
-              <CardTitle
-                className={`text-2xl ${financial.total_profit_mdl >= 0 ? "text-emerald-500" : "text-destructive"}`}
-              >
-                {financial.total_profit_mdl.toFixed(2)} MDL
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Curs USD/MDL: {financial.usd_to_mdl_rate.toFixed(2)}
-              </p>
-            </CardContent>
-          </Card>
+      <Tabs
+        tabs={[
+          { id: "overview", label: "Prezentare generală", icon: BarChart3Icon },
+          { id: "content", label: "Performanță filme", icon: FilmIcon },
+          { id: "audience", label: "Audiență și țări", icon: Globe2Icon },
+        ]}
+        activeTab={activeTab}
+        onChange={(value) => setActiveTab(value as DashboardTab)}
+      />
+
+      <AnalyticsFiltersCard
+        filters={draftFilters}
+        options={options}
+        loading={isLoading}
+        onChange={setDraftFilters}
+        onApply={() => setAppliedFilters({ ...draftFilters })}
+        onReset={resetFilters}
+        onQuickRange={applyQuickRange}
+      />
+
+      {error ? (
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
+          {error}
         </div>
       ) : null}
 
+      {activeTab === "overview" ? (
+        <OverviewTab analytics={analytics} loading={isLoading} currency={currency} />
+      ) : null}
+
+      {activeTab === "content" ? (
+        <ContentPerformanceTab analytics={analytics} loading={isLoading} currency={currency} />
+      ) : null}
+
+      {activeTab === "audience" ? (
+        <AudienceTab analytics={analytics} loading={isLoading} currency={currency} />
+      ) : null}
+    </div>
+  );
+}
+
+function AnalyticsFiltersCard({
+  filters,
+  options,
+  loading,
+  onChange,
+  onApply,
+  onReset,
+  onQuickRange,
+}: {
+  filters: AnalyticsFilters;
+  options: AnalyticsResponse["filters"]["options"] | undefined;
+  loading: boolean;
+  onChange: React.Dispatch<React.SetStateAction<AnalyticsFilters>>;
+  onApply: () => void;
+  onReset: () => void;
+  onQuickRange: (days: number) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FilterIcon className="h-4 w-4" />
+              Filtre analiză
+            </CardTitle>
+            <CardDescription>
+              Toți indicatorii și toate taburile folosesc simultan filtrele de mai jos.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => onQuickRange(7)}>
+              7 zile
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onQuickRange(30)}>
+              30 zile
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onQuickRange(90)}>
+              3 luni
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <FilterField label="De la">
+            <Input
+              type="date"
+              value={filters.from ?? ""}
+              onChange={(event) => onChange((current) => ({ ...current, from: event.target.value }))}
+            />
+          </FilterField>
+          <FilterField label="Până la">
+            <Input
+              type="date"
+              value={filters.to ?? ""}
+              onChange={(event) => onChange((current) => ({ ...current, to: event.target.value }))}
+            />
+          </FilterField>
+          <FilterField label="Film">
+            <select
+              className={SELECT_CLASS}
+              value={filters.content_id ?? ""}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  content_id: event.target.value ? Number(event.target.value) : null,
+                }))
+              }
+            >
+              <option value="">Toate filmele</option>
+              {(options?.contents ?? []).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+          <FilterField label="Gen">
+            <select
+              className={SELECT_CLASS}
+              value={filters.genre_id ?? ""}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  genre_id: event.target.value ? Number(event.target.value) : null,
+                }))
+              }
+            >
+              <option value="">Toate genurile</option>
+              {(options?.genres ?? []).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+          <FilterField label="Țară">
+            <select
+              className={SELECT_CLASS}
+              value={filters.country_code ?? ""}
+              onChange={(event) => onChange((current) => ({ ...current, country_code: event.target.value }))}
+            >
+              <option value="">Toate țările</option>
+              {(options?.countries ?? []).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+          <FilterField label="Regiune de facturare">
+            <select
+              className={SELECT_CLASS}
+              value={filters.administrative_area ?? ""}
+              onChange={(event) =>
+                onChange((current) => ({ ...current, administrative_area: event.target.value }))
+              }
+            >
+              <option value="">Toate regiunile</option>
+              {(options?.regions ?? []).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+          <FilterField label="Grupare grafic">
+            <select
+              className={SELECT_CLASS}
+              value={filters.group_by ?? "day"}
+              onChange={(event) =>
+                onChange((current) => ({ ...current, group_by: event.target.value as "day" | "month" }))
+              }
+            >
+              <option value="day">Pe zile</option>
+              <option value="month">Pe luni</option>
+            </select>
+          </FilterField>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+          <Button variant="ghost" onClick={onReset}>
+            <RotateCcwIcon className="h-4 w-4" />
+            Resetează
+          </Button>
+          <Button onClick={onApply} disabled={loading}>
+            <FilterIcon className="h-4 w-4" />
+            {loading ? "Se aplică..." : "Aplică filtrele"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="space-y-2 text-sm">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function OverviewTab({
+  analytics,
+  loading,
+  currency,
+}: {
+  analytics: AnalyticsResponse | null;
+  loading: boolean;
+  currency: string;
+}) {
+  const stats = analytics?.stats;
+
+  return (
+    <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          title={`Venit ${dashboard.range.label}`}
-          value={formatCurrency(dashboard.stats.period_revenue_amount)}
+        <MetricCard
+          label="Venit din vânzări"
+          value={formatCurrency(stats?.revenue_amount ?? 0, currency)}
+          detail={`${formatNumber(stats?.sales_count ?? 0)} vânzări plătite`}
           icon={DollarSignIcon}
-          trendLabel={`${dashboard.stats.paid_orders_count} comenzi plătite`}
-          colorClass="bg-muted"
+          tone="positive"
         />
-        <StatsCard
-          title="Comenzi"
-          value={dashboard.stats.period_orders_count}
+        <MetricCard
+          label="Vizionări"
+          value={formatNumber(stats?.views_count ?? 0)}
+          detail={`${formatNumber(stats?.sessions_count ?? 0)} sesiuni pornite`}
+          icon={EyeIcon}
+          tone="info"
+        />
+        <MetricCard
+          label="Timp vizionat"
+          value={formatDuration(stats?.watch_time_seconds ?? 0)}
+          detail={`${formatNumber(stats?.unique_viewers_count ?? 0)} spectatori unici`}
+          icon={Clock3Icon}
+          tone="warning"
+        />
+        <MetricCard
+          label="Comenzi"
+          value={formatNumber(stats?.orders_count ?? 0)}
+          detail={`${formatNumber(stats?.free_claims_count ?? 0)} accesări gratuite`}
           icon={ShoppingCartIcon}
-          trendLabel={`${dashboard.stats.free_claims_count} accesări gratuite`}
-          colorClass="bg-muted"
-        />
-        <StatsCard
-          title="Cumpărători unici"
-          value={dashboard.stats.unique_buyers_count}
-          icon={UsersIcon}
-          trendLabel={`${formatCurrency(dashboard.stats.average_order_value)} medie per comandă`}
-          colorClass="bg-muted"
-        />
-        <StatsCard
-          title={isContentScoped ? "Accesări active" : "Expunere sold wallet"}
-          value={isContentScoped
-            ? dashboard.stats.active_entitlements_count
-            : formatCurrency(dashboard.stats.wallet_balance_total)}
-          icon={WalletIcon}
-          trendLabel={isContentScoped
-            ? "Pentru filmele atribuite"
-            : `${dashboard.stats.active_entitlements_count} accesări active`}
-          colorClass="bg-muted"
+          tone="neutral"
         />
       </div>
 
-      {!isContentScoped ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          title="Views tracking"
-          value={dashboard.stats.total_views}
-          icon={FilmIcon}
-          trendLabel={`${formatDuration(dashboard.stats.total_watch_time_seconds)} watch time`}
-          colorClass="bg-muted"
-        />
-        <StatsCard
-          title="Bandwidth"
-          value={`${formatDecimal(dashboard.stats.total_bandwidth_gb)} GB`}
-          icon={WalletIcon}
-          trendLabel="Trafic agregat din analytics"
-          colorClass="bg-muted"
-        />
-        <StatsCard
-          title="Costuri lună curentă"
-          value={formatCurrency(dashboard.stats.current_month_costs_usd)}
-          icon={DollarSignIcon}
-          trendLabel={`${formatCurrency(dashboard.cost_overview.delivery_cost_usd)} delivery`}
-          colorClass="bg-muted"
-        />
-        <StatsCard
-          title="Profit lună curentă"
-          value={formatCurrency(dashboard.stats.current_month_profit_usd)}
-          icon={DollarSignIcon}
-          trendLabel={`${formatCurrency(dashboard.cost_overview.storage_cost_usd)} storage`}
-          colorClass="bg-muted"
-        />
-      </div> : null}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Evoluție în timp</CardTitle>
+            <CardDescription>
+              {analytics
+                ? `${analytics.range.from} — ${analytics.range.to}, grupare pe ${
+                    analytics.range.group_by === "month" ? "luni" : "zile"
+                  }.`
+                : "Venituri, vânzări și consum pentru intervalul selectat."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PerformanceTimeline
+              points={analytics?.timeline ?? []}
+              currency={currency}
+              loading={loading}
+            />
+          </CardContent>
+        </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          title="Titluri publicate"
-          value={dashboard.summary.published_titles_total}
-          icon={FilmIcon}
-          trendLabel={`${dashboard.summary.catalog_titles_total} în catalog`}
-          colorClass="bg-muted"
+        <Card>
+          <CardHeader>
+            <CardTitle>Top filme</CardTitle>
+            <CardDescription>Clasare după venit, apoi după vizionări.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(analytics?.content_performance ?? []).slice(0, 5).map((content, index) => (
+              <div key={content.content_id} className="rounded-lg border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{content.title}</p>
+                    <p className="text-xs text-muted-foreground">{content.genres.join(", ") || "Fără gen"}</p>
+                  </div>
+                  <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">#{index + 1}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Venit</p>
+                    <p className="font-semibold text-emerald-600">
+                      +{formatCurrency(content.revenue_amount, currency)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Vizionări</p>
+                    <p className="font-semibold text-sky-600">{formatNumber(content.views_count)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!loading && (analytics?.content_performance.length ?? 0) === 0 ? (
+              <EmptyState label="Nu există date pentru filtrele selectate." />
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ContentPerformanceTab({
+  analytics,
+  loading,
+  currency,
+}: {
+  analytics: AnalyticsResponse | null;
+  loading: boolean;
+  currency: string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Performanță pe film</CardTitle>
+        <CardDescription>
+          Compară direct câte vânzări, vizionări și minute de consum a produs fiecare titlu.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Film</TableHead>
+                <TableHead className="text-right">Vânzări</TableHead>
+                <TableHead className="text-right">Venit</TableHead>
+                <TableHead className="text-right">Vizionări</TableHead>
+                <TableHead className="text-right">Sesiuni</TableHead>
+                <TableHead className="text-right">Spectatori</TableHead>
+                <TableHead className="text-right">Timp vizionat</TableHead>
+                <TableHead className="text-right">Trafic</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(analytics?.content_performance ?? []).map((content) => (
+                <ContentPerformanceRow key={content.content_id} content={content} currency={currency} />
+              ))}
+              {(analytics?.content_performance.length ?? 0) === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                    {loading ? "Se încarcă performanța filmelor..." : "Nu există rezultate pentru filtrele curente."}
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ContentPerformanceRow({
+  content,
+  currency,
+}: {
+  content: AnalyticsContentPerformance;
+  currency: string;
+}) {
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="max-w-[280px]">
+          <p className="truncate font-medium">{content.title}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {content.genres.join(", ") || "Fără gen"} · {content.type}
+          </p>
+        </div>
+      </TableCell>
+      <TableCell className="text-right font-medium">{formatNumber(content.sales_count)}</TableCell>
+      <TableCell className="text-right font-semibold text-emerald-600">
+        +{formatCurrency(content.revenue_amount, currency)}
+      </TableCell>
+      <TableCell className="text-right font-medium text-sky-600">{formatNumber(content.views_count)}</TableCell>
+      <TableCell className="text-right">{formatNumber(content.sessions_count)}</TableCell>
+      <TableCell className="text-right">{formatNumber(content.unique_viewers_count)}</TableCell>
+      <TableCell className="text-right">{formatDuration(content.watch_time_seconds)}</TableCell>
+      <TableCell className="text-right">{content.bandwidth_gb.toFixed(2)} GB</TableCell>
+    </TableRow>
+  );
+}
+
+function AudienceTab({
+  analytics,
+  loading,
+  currency,
+}: {
+  analytics: AnalyticsResponse | null;
+  loading: boolean;
+  currency: string;
+}) {
+  const countries = analytics?.country_breakdown ?? [];
+  const totalViews = Math.max(1, countries.reduce((sum, row) => sum + row.views_count, 0));
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          label="Țări active"
+          value={formatNumber(countries.length)}
+          detail="Cu vizionări sau cumpărări în interval"
+          icon={Globe2Icon}
+          tone="info"
         />
-        <StatsCard
-          title="Total cumpărători"
-          value={dashboard.summary.buyers_total}
-          icon={CreditCardIcon}
-          trendLabel={`${formatCurrency(dashboard.stats.total_revenue_amount)} total`}
-          colorClass="bg-muted"
-        />
-        <StatsCard
-          title="Conturi admin"
-          value={dashboard.stats.admins_total}
+        <MetricCard
+          label="Spectatori unici"
+          value={formatNumber(analytics?.stats.unique_viewers_count ?? 0)}
+          detail={`${formatNumber(analytics?.stats.sessions_count ?? 0)} sesiuni`}
           icon={UsersIcon}
-          trendLabel={`${dashboard.stats.roles_total} roluri configurate`}
-          colorClass="bg-muted"
+          tone="neutral"
         />
-        <StatsCard
-          title="Invitații în așteptare"
-          value={dashboard.stats.pending_invitations}
-          icon={AlertCircleIcon}
-          trendLabel={`${dashboard.stats.users_total} utilizatori total`}
-          colorClass="bg-muted"
+        <MetricCard
+          label="Trafic video"
+          value={`${(analytics?.stats.bandwidth_gb ?? 0).toFixed(2)} GB`}
+          detail={formatDuration(analytics?.stats.watch_time_seconds ?? 0)}
+          icon={EyeIcon}
+          tone="warning"
         />
       </div>
 
       <Card>
-        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <CardTitle>Performanță vânzări</CardTitle>
-            <CardDescription>
-              Comenzi și venituri din {dashboard.range.from || "intervalul selectat"} până în {dashboard.range.to || "astăzi"}.
-            </CardDescription>
-          </div>
-          <Tabs
-            tabs={[
-              { id: "3months", label: "Ultimele 3 luni" },
-              { id: "30days", label: "Ultimele 30 de zile" },
-              { id: "7days", label: "Ultimele 7 zile" },
-            ]}
-            activeTab={range}
-            onChange={(value) => setRange(value as RangeValue)}
-          />
+        <CardHeader>
+          <CardTitle>Distribuție geografică</CardTitle>
+          <CardDescription>
+            Vizionările folosesc țara sesiunii video; venitul folosește țara din adresa de facturare.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-lg border bg-background p-4">
-            {dashboard.sales_timeline.length > 0 ? (
-              <SalesTimeline points={dashboard.sales_timeline} metric="revenue" />
-            ) : (
-              <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                {isLoading ? "Se încarcă evoluția vânzărilor..." : "Nu există încă tranzacții în acest interval."}
-              </div>
-            )}
-          </div>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Țară</TableHead>
+                  <TableHead className="text-right">Vizionări</TableHead>
+                  <TableHead className="text-right">Pondere</TableHead>
+                  <TableHead className="text-right">Timp vizionat</TableHead>
+                  <TableHead className="text-right">Vânzări</TableHead>
+                  <TableHead className="text-right">Venit</TableHead>
+                  <TableHead className="w-[24%]">Distribuție</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {countries.map((country) => {
+                  const share = (country.views_count / totalViews) * 100;
 
-          <div className="space-y-4">
-            {canViewBilling ? <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Venit din închirieri</p>
-              <p className="mt-2 text-2xl font-semibold">
-                {formatCurrency(dashboard.breakdown.rental_revenue_amount)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {dashboard.breakdown.rental_orders_count} comenzi de închiriere
-              </p>
-            </div> : null}
-
-            <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Venit din acces permanent</p>
-              <p className="mt-2 text-2xl font-semibold">
-                {formatCurrency(dashboard.breakdown.lifetime_revenue_amount)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {dashboard.breakdown.lifetime_orders_count} cumpărări permanente
-              </p>
-            </div>
-
-            <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Accesări gratuite</p>
-              <p className="mt-2 text-2xl font-semibold">{dashboard.breakdown.free_orders_count}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Titluri deblocate prin acces gratuit sau oferte cu preț zero
-              </p>
-            </div>
+                  return (
+                    <TableRow key={country.country_code}>
+                      <TableCell>
+                        <span className="mr-2 text-lg">{countryFlag(country.country_code)}</span>
+                        <span className="font-medium">{country.country_code}</span>
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-sky-600">
+                        {formatNumber(country.views_count)}
+                      </TableCell>
+                      <TableCell className="text-right">{share.toFixed(1)}%</TableCell>
+                      <TableCell className="text-right">{formatDuration(country.watch_time_seconds)}</TableCell>
+                      <TableCell className="text-right">{formatNumber(country.sales_count)}</TableCell>
+                      <TableCell className="text-right font-semibold text-emerald-600">
+                        +{formatCurrency(country.revenue_amount, currency)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-sky-500"
+                            style={{ width: `${Math.min(100, share)}%` }}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {countries.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                      {loading ? "Se încarcă audiența..." : "Nu există date geografice pentru filtrele curente."}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tranzacții recente</CardTitle>
-            <CardDescription>Ultimele evenimente de wallet și cumpărare din storefront.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {dashboard.recent_sales.length > 0 ? (
-              dashboard.recent_sales.map((transaction) => (
-                <div key={transaction.id} className="flex flex-col gap-3 rounded-lg border bg-background px-4 py-3 md:flex-row md:items-center md:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <TransactionTypeBadge
-                        type={transaction.type}
-                        amount={transaction.amount}
-                        label={transaction.type_label}
-                      />
-                      <span className="text-sm font-medium">{transaction.user.name ?? "Utilizator necunoscut"}</span>
-                    </div>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {transaction.content?.title ?? transaction.description ?? "Tranzacție platformă"}
-                      {transaction.offer.name ? ` • ${transaction.offer.name}` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{formatDate(transaction.processed_at)}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-sm font-semibold ${transaction.amount < 0 ? "text-foreground" : "text-emerald-600"}`}>
-                      {transaction.amount > 0 ? "+" : ""}
-                      {formatCurrency(transaction.amount_absolute, transaction.currency)}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Sold după {formatCurrency(transaction.balance_after, transaction.currency)}
-                    </p>
-                    {transaction.funding_source ? (
-                      <p className="text-xs text-muted-foreground">
-                        {transaction.funding_source === "platform"
-                          ? "100% platformă"
-                          : transaction.funding_source === "mixed"
-                            ? `${transaction.platform_percent}% platformă`
-                            : "Bani proprii"}
-                      </p>
-                    ) : null}
-                  </div>
+function MetricCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: React.ElementType;
+  tone: "positive" | "info" | "warning" | "neutral";
+}) {
+  const classes = {
+    positive: "border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400",
+    info: "border-sky-500/30 bg-sky-500/5 text-sky-600 dark:text-sky-400",
+    warning: "border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400",
+    neutral: "border-border bg-card text-foreground",
+  }[tone];
+
+  return (
+    <Card className={classes}>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+        <div>
+          <CardDescription>{label}</CardDescription>
+          <CardTitle className="mt-2 text-2xl">{value}</CardTitle>
+        </div>
+        <div className="rounded-lg border border-current/20 bg-background/70 p-2">
+          <Icon className="h-5 w-5" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PerformanceTimeline({
+  points,
+  currency,
+  loading,
+}: {
+  points: AnalyticsTimelinePoint[];
+  currency: string;
+  loading: boolean;
+}) {
+  const [metric, setMetric] = React.useState<TimelineMetric>("revenue");
+  const valueFor = (point: AnalyticsTimelinePoint) => {
+    if (metric === "revenue") return point.revenue_amount;
+    if (metric === "sales") return point.sales_count;
+    if (metric === "views") return point.views_count;
+    return point.sessions_count;
+  };
+  const maxValue = Math.max(1, ...points.map(valueFor));
+  const minWidth = Math.max(600, points.length * 34);
+
+  if (points.length === 0) {
+    return <EmptyState label={loading ? "Se încarcă evoluția..." : "Nu există date pentru intervalul selectat."} />;
+  }
+
+  return (
+    <div className="space-y-5">
+      <Tabs
+        tabs={[
+          { id: "revenue", label: "Venit" },
+          { id: "sales", label: "Vânzări" },
+          { id: "views", label: "Vizionări" },
+          { id: "sessions", label: "Sesiuni" },
+        ]}
+        activeTab={metric}
+        onChange={(value) => setMetric(value as TimelineMetric)}
+      />
+
+      <div className="overflow-x-auto pb-2">
+        <div
+          className="grid h-72 items-end gap-2"
+          style={{
+            minWidth,
+            gridTemplateColumns: `repeat(${points.length}, minmax(22px, 1fr))`,
+          }}
+        >
+          {points.map((point) => {
+            const value = valueFor(point);
+            const height = Math.max(2, (value / maxValue) * 100);
+            const displayValue =
+              metric === "revenue" ? formatCurrency(value, currency) : formatNumber(value);
+
+            return (
+              <div key={point.period} className="group flex h-full min-w-0 flex-col justify-end gap-2">
+                <div className="invisible rounded-md border bg-popover px-2 py-1 text-center text-[11px] shadow-sm group-hover:visible">
+                  <p className="font-semibold">{displayValue}</p>
+                  <p className="text-muted-foreground">{point.label}</p>
                 </div>
-              ))
-            ) : (
-              <div className="flex h-48 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
-                Nu există cumpărări înregistrate în acest interval.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Top titluri</CardTitle>
-            <CardDescription>Conținutul cu cea mai bună performanță în intervalul selectat.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {dashboard.top_titles.length > 0 ? (
-              dashboard.top_titles.map((title, index) => (
-                <div key={title.slug ?? `title-${index}`} className="flex items-center gap-3 rounded-lg border bg-background p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-muted text-sm font-semibold">
-                    #{index + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{title.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {title.orders_count} comenzi • {title.unique_buyers_count} cumpărători
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{formatCurrency(title.revenue_amount)}</p>
-                    <p className="text-xs text-muted-foreground">{title.free_claims_count} gratuite</p>
-                  </div>
+                <div className="flex flex-1 items-end">
+                  <div
+                    className={`w-full rounded-t-sm ${
+                      metric === "revenue"
+                        ? "bg-emerald-500"
+                        : metric === "views"
+                          ? "bg-sky-500"
+                          : metric === "sales"
+                            ? "bg-violet-500"
+                            : "bg-amber-500"
+                    }`}
+                    style={{ height: `${height}%` }}
+                  />
                 </div>
-              ))
-            ) : (
-              <div className="flex h-48 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
-                Nu există încă date de performanță pentru titluri.
+                <p className="truncate text-center text-[10px] text-muted-foreground">{point.label}</p>
               </div>
-            )}
-
-            <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm text-muted-foreground">Ai nevoie de mai mult detaliu?</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Deschide facturarea ca să vezi istoricul complet de tranzacții și cele mai noi activități comerciale.
-              </p>
-              <Button variant="outline" className="mt-4 w-full" onClick={() => navigate("billing", null, ["Facturare"])}>
-                Deschide facturarea
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            );
+          })}
+        </div>
       </div>
+    </div>
+  );
+}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Country analytics</CardTitle>
-            <CardDescription>Top țări după views și trafic agregat din analytics.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {dashboard.country_breakdown.length === 0 ? (
-              <div className="text-sm text-muted-foreground">Nu există încă date agregate pe țări.</div>
-            ) : dashboard.country_breakdown.map((row) => (
-              <div key={row.country_code} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <div className="font-medium">{row.country_code}</div>
-                  <div className="text-sm text-muted-foreground">{row.views} views</div>
-                </div>
-                <div className="text-right text-sm text-muted-foreground">
-                  <div>{formatDuration(row.watch_time_seconds)}</div>
-                  <div>{formatDecimal(row.bandwidth_gb)} GB</div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Cost overview</CardTitle>
-            <CardDescription>Snapshot pentru luna curentă pe storage, delivery, DRM și profit.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between text-sm"><span>Storage</span><span>{formatCurrency(dashboard.cost_overview.storage_cost_usd)}</span></div>
-            <div className="flex items-center justify-between text-sm"><span>Delivery</span><span>{formatCurrency(dashboard.cost_overview.delivery_cost_usd)}</span></div>
-            <div className="flex items-center justify-between text-sm"><span>DRM</span><span>{formatCurrency(dashboard.cost_overview.drm_cost_usd)}</span></div>
-            <div className="flex items-center justify-between text-sm"><span>Revenue</span><span>{formatCurrency(dashboard.cost_overview.revenue_usd)}</span></div>
-            <div className="flex items-center justify-between text-sm font-semibold"><span>Profit</span><span>{formatCurrency(dashboard.cost_overview.profit_usd)}</span></div>
-          </CardContent>
-        </Card>
-      </div>
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+      {label}
     </div>
   );
 }

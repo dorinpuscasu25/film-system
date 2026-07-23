@@ -32,6 +32,7 @@ class ExportGenerationService
 
     public function __construct(
         protected ContentScopeService $contentScope,
+        protected AccountingLedgerService $accountingLedger,
     ) {}
 
     public function generate(ExportJob $job, ?User $actor = null): ExportJob
@@ -76,10 +77,65 @@ class ExportGenerationService
     {
         return match ($job->scope) {
             'billing' => $this->buildBillingExport($job, $actor),
+            'accounting' => $this->buildAccountingExport($job),
             'creator-statements' => $this->buildCreatorStatementsExport($job, $actor),
             'full-platform' => $this->buildFullPlatformExport($job, $actor),
             default => throw new \RuntimeException('Unsupported export scope.'),
         };
+    }
+
+    /**
+     * @return array{0:string,1:string,2:string,3:array<string,mixed>}
+     */
+    protected function buildAccountingExport(ExportJob $job): array
+    {
+        $result = $this->accountingLedger->build($job->filters ?? []);
+        $rows = $result['items']->map(function (array $row): array {
+            $billing = is_array($row['billing'] ?? null) ? $row['billing'] : [];
+            $user = is_array($row['user'] ?? null) ? $row['user'] : [];
+
+            return [
+                'transaction_id' => $row['id'] ?? null,
+                'source_id' => $row['source_id'] ?? null,
+                'processed_at' => $row['processed_at'] ?? null,
+                'direction' => $row['direction'] ?? null,
+                'direction_label' => $row['direction_label'] ?? null,
+                'status' => $row['status'] ?? null,
+                'is_accounted' => (bool) ($row['is_accounted'] ?? false),
+                'signed_amount' => round((float) ($row['signed_amount'] ?? 0), 2),
+                'amount' => round((float) ($row['amount'] ?? 0), 2),
+                'currency' => $row['currency'] ?? null,
+                'user_name' => $user['name'] ?? null,
+                'user_email' => $user['email'] ?? null,
+                'provider_order_id' => $row['provider_order_id'] ?? null,
+                'provider_checkout_id' => $row['provider_checkout_id'] ?? null,
+                'provider_rrn' => $row['provider_rrn'] ?? null,
+                'billing_full_name' => $billing['full_name'] ?? null,
+                'billing_country_code' => $billing['country_code'] ?? null,
+                'billing_market' => $billing['market_label'] ?? null,
+                'billing_administrative_area' => $billing['administrative_area'] ?? null,
+                'billing_city' => $billing['city'] ?? null,
+                'billing_postal_code' => $billing['postal_code'] ?? null,
+                'billing_address_line1' => $billing['address_line1'] ?? null,
+                'billing_address_line2' => $billing['address_line2'] ?? null,
+                'description' => $row['description'] ?? null,
+            ];
+        });
+
+        $isExcel = in_array($job->format, ['excel', 'xlsx'], true);
+
+        return [
+            $isExcel ? $this->toXlsx($rows) : $this->toCsv($rows),
+            $isExcel ? 'xlsx' : 'csv',
+            $isExcel ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv',
+            [
+                'row_count' => $rows->count(),
+                'gross_inflow' => $result['summary']['gross_inflow'],
+                'refunds' => $result['summary']['refunds'],
+                'net_inflow' => $result['summary']['net_inflow'],
+                'filters' => $job->filters ?? [],
+            ],
+        ];
     }
 
     /**

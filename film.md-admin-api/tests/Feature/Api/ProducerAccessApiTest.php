@@ -15,6 +15,7 @@ use Database\Seeders\TaxonomySeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -80,6 +81,36 @@ class ProducerAccessApiTest extends TestCase
 
         $this->getJson("/api/v1/admin/content/{$this->foreignContent->id}", $headers)
             ->assertForbidden();
+    }
+
+    public function test_producer_analytics_only_contains_assigned_films(): void
+    {
+        DB::connection('analytics')->table('video_daily_aggregates')->insert([
+            [
+                'content_id' => $this->assignedContent->id,
+                'date' => now()->toDateString(),
+                'country_code' => 'MD',
+                'views' => 7,
+                'watch_time_seconds' => 700,
+                'bandwidth_gb' => 0.7,
+            ],
+            [
+                'content_id' => $this->foreignContent->id,
+                'date' => now()->toDateString(),
+                'country_code' => 'RO',
+                'views' => 99,
+                'watch_time_seconds' => 9900,
+                'bandwidth_gb' => 9.9,
+            ],
+        ]);
+
+        $this->getJson('/api/v1/admin/analytics?range=7days', $this->authHeaders())
+            ->assertOk()
+            ->assertJsonPath('scope.is_content_scoped', true)
+            ->assertJsonPath('stats.views_count', 7)
+            ->assertJsonPath('content_performance.0.content_id', $this->assignedContent->id)
+            ->assertJsonCount(1, 'content_performance')
+            ->assertJsonCount(1, 'filters.options.contents');
     }
 
     public function test_producer_can_view_only_assigned_content_financials_without_global_billing_access(): void

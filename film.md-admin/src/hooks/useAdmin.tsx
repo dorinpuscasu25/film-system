@@ -1,4 +1,4 @@
-import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { ReactNode, createContext, useContext, useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation, useNavigate as useRouterNavigate } from 'react-router-dom';
 import { adminApi, setAccessTokenGetter } from '../lib/api';
 import { AdminUser } from '../types';
@@ -221,7 +221,7 @@ export function AdminProvider({ children }: {children: ReactNode;}) {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setAccessTokenGetter(() => accessToken);
   }, [accessToken]);
 

@@ -20,6 +20,12 @@ const REQUIRED_BILLING_FIELDS: Array<keyof StorefrontBillingAddressPayload> = [
   'address_line1',
 ];
 
+function countryFlag(country: CountryCode): string {
+  return String.fromCodePoint(
+    ...country.split('').map((character) => 127397 + character.charCodeAt(0)),
+  );
+}
+
 interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -284,11 +290,11 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                       setErrorMessage(null);
                     }}
                     aria-label={t('wallet.country_code')}
-                    className="max-w-[42%] rounded-l-lg border-r border-white/10 bg-surface px-3 py-3 text-sm text-white outline-none"
+                    className="w-[112px] shrink-0 rounded-l-lg border-r border-white/10 bg-surface px-3 py-3 text-sm text-white outline-none"
                   >
-                    {countryOptions.map(({ country, callingCode, name }) => (
+                    {countryOptions.map(({ country, callingCode }) => (
                       <option key={country} value={country} className="bg-surface text-white">
-                        {name} +{callingCode}
+                        {countryFlag(country)} +{callingCode}
                       </option>
                     ))}
                   </select>

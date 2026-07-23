@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\Admin\AdCampaignController;
 use App\Http\Controllers\Api\Admin\AdStatsController;
 use App\Http\Controllers\Api\Admin\AdTestController;
+use App\Http\Controllers\Api\Admin\AccountingTransactionController;
+use App\Http\Controllers\Api\Admin\AnalyticsController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
 use App\Http\Controllers\Api\Admin\BunnyHealthController;
@@ -154,6 +156,8 @@ Route::prefix('v1')->group(function (): void {
 
         Route::prefix('admin')->middleware('admin.panel')->group(function (): void {
             Route::get('dashboard', [DashboardController::class, 'index']);
+            Route::get('analytics', [AnalyticsController::class, 'index']);
+            Route::get('accounting/transactions', [AccountingTransactionController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::get('financial-summary', [FinancialSummaryController::class, 'show'])->middleware('permission:commerce.view_billing');
             Route::get('payments/top-ups', [PaymentTopUpController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::post('payments/top-ups/{topUp}/refunds', [PaymentTopUpController::class, 'refund'])->middleware('permission:commerce.process_refunds');
