@@ -21,6 +21,9 @@ class ContentReviewController extends ApiController
     {
         $user = $request->user();
         $routeContent = $request->route('content');
+        if ($routeContent instanceof Content) {
+            $this->contentScope->assertCanAccessContent($user, $routeContent);
+        }
         $contentId = $routeContent instanceof Content
             ? $routeContent->id
             : ($request->integer('content_id') ?: null);

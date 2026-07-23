@@ -9,12 +9,16 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsurePermission
 {
-    public function handle(Request $request, Closure $next, string $permission): Response
+    public function handle(Request $request, Closure $next, string ...$permissionArguments): Response
     {
         $user = $request->user();
-        $permissions = array_filter(array_map('trim', explode(',', $permission)));
+        $permissions = collect($permissionArguments)
+            ->flatMap(fn (string $argument): array => explode(',', $argument))
+            ->map(fn (string $permission): string => trim($permission))
+            ->filter()
+            ->values();
 
-        if ($user === null || ! collect($permissions)->contains(fn (string $code): bool => $user->hasPermission($code))) {
+        if ($user === null || ! $permissions->contains(fn (string $code): bool => $user->hasPermission($code))) {
             return new JsonResponse([
                 'message' => 'You do not have permission to perform this action.',
             ], Response::HTTP_FORBIDDEN);

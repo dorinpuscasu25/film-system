@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\ContentScopeService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -106,6 +107,10 @@ class DashboardController extends ApiController
             $costRowsQuery->whereIn('content_id', $assignedContentIds);
         }
         $costRows = collect($costRowsQuery->get());
+        $activeEntitlementsCount = $this->contentScope
+            ->scopeContentQuery($user, ContentEntitlement::query(), 'content_entitlements.content_id')
+            ->active()
+            ->count();
         $costOverview = [
             'storage_cost_usd' => round((float) $costRows->sum('storage_cost_usd'), 2),
             'delivery_cost_usd' => round((float) $costRows->sum('delivery_cost_usd'), 2),
@@ -125,18 +130,22 @@ class DashboardController extends ApiController
                 'to' => $rangeEnd->toDateString(),
             ],
             'stats' => [
-                'users_total' => User::query()->count(),
-                'admins_total' => User::query()
-                    ->whereHas('roles', fn ($query) => $query->where('admin_panel_access', true))
-                    ->count(),
-                'roles_total' => Role::query()->count(),
-                'pending_invitations' => Invitation::query()
-                    ->where('status', 'pending')
-                    ->where(function ($query): void {
-                        $query->whereNull('expires_at')
-                            ->orWhere('expires_at', '>', now());
-                    })
-                    ->count(),
+                'users_total' => $isScoped ? 0 : User::query()->count(),
+                'admins_total' => $isScoped
+                    ? 0
+                    : User::query()
+                        ->whereHas('roles', fn ($query) => $query->where('admin_panel_access', true))
+                        ->count(),
+                'roles_total' => $isScoped ? 0 : Role::query()->count(),
+                'pending_invitations' => $isScoped
+                    ? 0
+                    : Invitation::query()
+                        ->where('status', 'pending')
+                        ->where(function ($query): void {
+                            $query->whereNull('expires_at')
+                                ->orWhere('expires_at', '>', now());
+                        })
+                        ->count(),
                 'total_revenue_amount' => round($allTimePaidRevenue, 2),
                 'period_revenue_amount' => round(abs((float) $paidPeriodTransactions->sum('amount')), 2),
                 'orders_total' => $allTimeOrders,
@@ -147,8 +156,8 @@ class DashboardController extends ApiController
                 'average_order_value' => $paidPeriodTransactions->count() > 0
                     ? round(abs((float) $paidPeriodTransactions->sum('amount')) / $paidPeriodTransactions->count(), 2)
                     : 0,
-                'active_entitlements_count' => ContentEntitlement::query()->active()->count(),
-                'wallet_balance_total' => round((float) Wallet::query()->sum('balance_amount'), 2),
+                'active_entitlements_count' => $activeEntitlementsCount,
+                'wallet_balance_total' => $isScoped ? 0 : round((float) Wallet::query()->sum('balance_amount'), 2),
                 'total_views' => (int) $analyticsDaily->sum('views'),
                 'total_watch_time_seconds' => (int) $analyticsDaily->sum('watch_time_seconds'),
                 'total_bandwidth_gb' => round((float) $analyticsDaily->sum('bandwidth_gb'), 2),
@@ -240,7 +249,7 @@ class DashboardController extends ApiController
     }
 
     /**
-     * @return array{0: \Illuminate\Support\Collection<string, Content>, 1: \Illuminate\Support\Collection<int, Offer>}
+     * @return array{0: Collection<string, Content>, 1: Collection<int, Offer>}
      */
     protected function resolveTransactionContext(Collection $transactions): array
     {
@@ -306,7 +315,7 @@ class DashboardController extends ApiController
         return $entitlements
             ->groupBy('content_id')
             ->map(function (Collection $group): array {
-                /** @var \App\Models\ContentEntitlement $sample */
+                /** @var ContentEntitlement $sample */
                 $sample = $group->first();
                 $content = $sample->content;
 
@@ -329,7 +338,7 @@ class DashboardController extends ApiController
                     return $revenueComparison;
                 }
 
-                return ($right['orders_count'] <=> $left['orders_count']);
+                return $right['orders_count'] <=> $left['orders_count'];
             })
             ->take(5)
             ->values()
@@ -337,8 +346,8 @@ class DashboardController extends ApiController
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<string, Content>  $contentsBySlug
-     * @param  \Illuminate\Support\Collection<int, Offer>  $offersById
+     * @param  Collection<string, Content>  $contentsBySlug
+     * @param  Collection<int, Offer>  $offersById
      * @return array<string, mixed>
      */
     protected function transactionData(WalletTransaction $transaction, Collection $contentsBySlug, Collection $offersById): array
@@ -346,9 +355,9 @@ class DashboardController extends ApiController
         $contentSlug = data_get($transaction->meta ?? [], 'content_slug');
         $offerId = data_get($transaction->meta ?? [], 'offer_id');
 
-        /** @var \App\Models\Content|null $content */
+        /** @var Content|null $content */
         $content = is_string($contentSlug) ? $contentsBySlug->get($contentSlug) : null;
-        /** @var \App\Models\Offer|null $offer */
+        /** @var Offer|null $offer */
         $offer = is_numeric($offerId) ? $offersById->get((int) $offerId) : null;
 
         return [
@@ -410,7 +419,7 @@ class DashboardController extends ApiController
 
                 return [
                     'date' => $date,
-                    'label' => \Carbon\Carbon::parse($date)->format('M j'),
+                    'label' => Carbon::parse($date)->format('M j'),
                     'views' => (int) $bucket->sum('views'),
                     'watch_time_seconds' => (int) $bucket->sum('watch_time_seconds'),
                     'bandwidth_gb' => round((float) $bucket->sum('bandwidth_gb'), 2),

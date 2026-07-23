@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['email', 'name', 'token_hash', 'role_ids', 'status', 'invited_by', 'expires_at', 'accepted_at'])]
+#[Fillable(['email', 'name', 'token_hash', 'role_ids', 'assigned_content_ids', 'status', 'invited_by', 'expires_at', 'accepted_at'])]
 class Invitation extends Model
 {
     public function inviter(): BelongsTo
@@ -30,6 +30,7 @@ class Invitation extends Model
     {
         return [
             'role_ids' => 'array',
+            'assigned_content_ids' => 'array',
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
         ];

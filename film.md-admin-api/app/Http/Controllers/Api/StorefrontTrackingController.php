@@ -218,12 +218,47 @@ class StorefrontTrackingController extends ApiController
 
     public function continueWatching(Request $request): JsonResponse
     {
-        $items = WatchProgress::query()
-            ->with('content')
-            ->where('user_id', $request->user()?->id)
-            ->latest('last_watched_at')
+        $user = $request->user();
+        $profileId = $request->integer('account_profile_id') ?: null;
+
+        if ($profileId !== null && ! $user->profiles()->whereKey($profileId)->exists()) {
+            return response()->json([
+                'message' => 'The requested profile was not found.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        $freeContentCutoff = now()->subDays(7);
+        $progressQuery = WatchProgress::query()
+            ->where('user_id', $user->id)
+            ->when($profileId !== null, fn ($query) => $query->where('account_profile_id', $profileId))
+            ->where('is_completed', false)
+            ->where(function ($query) use ($freeContentCutoff): void {
+                $query
+                    ->where('last_watched_at', '>=', $freeContentCutoff)
+                    ->orWhereHas('content', function ($contentQuery): void {
+                        $contentQuery
+                            ->where('is_free', false)
+                            ->orWhereNull('is_free');
+                    });
+            });
+
+        $latestContentIds = (clone $progressQuery)
+            ->select('content_id')
+            ->selectRaw('MAX(last_watched_at) AS latest_watch')
+            ->groupBy('content_id')
+            ->orderByDesc('latest_watch')
             ->limit(12)
-            ->get();
+            ->get()
+            ->pluck('content_id');
+
+        $items = (clone $progressQuery)
+            ->with('content')
+            ->whereIn('content_id', $latestContentIds)
+            ->latest('last_watched_at')
+            ->get()
+            ->unique('content_id')
+            ->take(12)
+            ->values();
 
         return response()->json([
             'items' => $items->map(fn (WatchProgress $item) => [

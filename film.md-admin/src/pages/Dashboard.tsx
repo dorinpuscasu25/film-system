@@ -143,7 +143,9 @@ function formatDuration(seconds: number | null | undefined) {
 }
 
 export function Dashboard() {
-  const { navigate } = useAdmin();
+  const { navigate, can, currentUser } = useAdmin();
+  const isContentScoped = currentUser?.content_scope_assigned ?? false;
+  const canViewBilling = can("commerce.view_billing");
   const [range, setRange] = React.useState<RangeValue>("30days");
   const [dashboard, setDashboard] = React.useState<DashboardResponse>(EMPTY_DASHBOARD);
   const [financial, setFinancial] = React.useState<FinancialSummaryResponse | null>(null);
@@ -179,6 +181,11 @@ export function Dashboard() {
   }, [range]);
 
   React.useEffect(() => {
+    if (!canViewBilling) {
+      setFinancial(null);
+      return;
+    }
+
     let cancelled = false;
 
     adminApi
@@ -193,7 +200,7 @@ export function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canViewBilling]);
 
   return (
     <div className="space-y-6">
@@ -206,13 +213,17 @@ export function Dashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => navigate("billing", null, ["Facturare"])}>
-            Facturare
-          </Button>
-          <Button onClick={() => navigate("editor", "new", ["Catalog", "Adaugă titlu"])}>
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Adăugare rapidă
-          </Button>
+          {canViewBilling ? (
+            <Button variant="outline" onClick={() => navigate("billing", null, ["Facturare"])}>
+              Facturare
+            </Button>
+          ) : null}
+          {can("content.create") ? (
+            <Button onClick={() => navigate("editor", "new", ["Catalog", "Adaugă titlu"])}>
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Adăugare rapidă
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -292,15 +303,19 @@ export function Dashboard() {
           colorClass="bg-muted"
         />
         <StatsCard
-          title="Expunere sold wallet"
-          value={formatCurrency(dashboard.stats.wallet_balance_total)}
+          title={isContentScoped ? "Accesări active" : "Expunere sold wallet"}
+          value={isContentScoped
+            ? dashboard.stats.active_entitlements_count
+            : formatCurrency(dashboard.stats.wallet_balance_total)}
           icon={WalletIcon}
-          trendLabel={`${dashboard.stats.active_entitlements_count} accesări active`}
+          trendLabel={isContentScoped
+            ? "Pentru filmele atribuite"
+            : `${dashboard.stats.active_entitlements_count} accesări active`}
           colorClass="bg-muted"
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {!isContentScoped ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard
           title="Views tracking"
           value={dashboard.stats.total_views}
@@ -329,7 +344,7 @@ export function Dashboard() {
           trendLabel={`${formatCurrency(dashboard.cost_overview.storage_cost_usd)} storage`}
           colorClass="bg-muted"
         />
-      </div>
+      </div> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard
@@ -392,7 +407,7 @@ export function Dashboard() {
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-lg border bg-background p-4">
+            {canViewBilling ? <div className="rounded-lg border bg-background p-4">
               <p className="text-sm text-muted-foreground">Venit din închirieri</p>
               <p className="mt-2 text-2xl font-semibold">
                 {formatCurrency(dashboard.breakdown.rental_revenue_amount)}
@@ -400,7 +415,7 @@ export function Dashboard() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {dashboard.breakdown.rental_orders_count} comenzi de închiriere
               </p>
-            </div>
+            </div> : null}
 
             <div className="rounded-lg border bg-background p-4">
               <p className="text-sm text-muted-foreground">Venit din acces permanent</p>

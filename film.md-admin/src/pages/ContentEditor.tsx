@@ -811,10 +811,13 @@ function TaxonomyPicker({
 }
 
 export function ContentEditor({ contentId }: { contentId?: string | null } = {}) {
-  const { currentUser, selectedContentId: contextSelectedContentId, navigate } = useAdmin();
+  const { currentUser, selectedContentId: contextSelectedContentId, navigate, can } = useAdmin();
   const selectedContentId = contentId ?? contextSelectedContentId;
   const isNew = selectedContentId === "new" || !selectedContentId;
   const numericContentId = !isNew && selectedContentId ? Number(selectedContentId) : null;
+  const canCreateContent = can("content.create");
+  const canEditContent = can("content.edit");
+  const isReadOnly = !isNew && !canEditContent;
   const [editorTab, setEditorTab] = useState("general");
   const [localeTab, setLocaleTab] = useState<TaxonomyLocale>(currentUser?.preferred_locale ?? "ro");
   const [options, setOptions] = useState<AdminContentOptions>(FALLBACK_OPTIONS);
@@ -1748,10 +1751,41 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
   );
   const activeSeason = formState.seasons[activeSeasonIndex] ?? null;
 
+  function preventReadOnlyInteraction(event: React.SyntheticEvent<HTMLElement>) {
+    if (!isReadOnly) {
+      return;
+    }
+
+    const target = event.target;
+    if (
+      target instanceof HTMLElement
+      && target.closest("button, input, textarea, select, label, [role='button'], [contenteditable='true']")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
   if (isLoading) {
     return (
       <Card>
         <CardContent className="p-10 text-center text-sm text-muted-foreground">Se încarcă editorul...</CardContent>
+      </Card>
+    );
+  }
+
+  if (isNew && !canCreateContent) {
+    return (
+      <Card>
+        <CardContent className="space-y-4 p-10 text-center">
+          <p className="font-medium">Nu ai permisiunea de a crea un film nou.</p>
+          <p className="text-sm text-muted-foreground">
+            Poți deschide și consulta toate datele filmelor care ți-au fost atribuite.
+          </p>
+          <Button variant="outline" onClick={() => navigate("catalog")}>
+            Înapoi la catalog
+          </Button>
+        </CardContent>
       </Card>
     );
   }
@@ -1785,12 +1819,20 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
           <Button variant="outline" onClick={() => navigate("catalog")}>
             Înapoi la catalog
           </Button>
-          <Button onClick={() => void handleSave()} disabled={isSubmitting}>
-            <SaveIcon className="h-4 w-4" />
-            {isSubmitting ? "Se salvează..." : "Salvează titlul"}
-          </Button>
+          {!isReadOnly ? (
+            <Button onClick={() => void handleSave()} disabled={isSubmitting}>
+              <SaveIcon className="h-4 w-4" />
+              {isSubmitting ? "Se salvează..." : "Salvează titlul"}
+            </Button>
+          ) : null}
         </div>
       </div>
+
+      {isReadOnly ? (
+        <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          Mod consultare: poți vedea toate datele acestui film, dar nu le poți modifica.
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-md border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -1861,6 +1903,12 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
           </TabsTrigger>
         </TabsList>
 
+        <div
+          onClickCapture={preventReadOnlyInteraction}
+          onChangeCapture={preventReadOnlyInteraction}
+          onInputCapture={preventReadOnlyInteraction}
+          onKeyDownCapture={preventReadOnlyInteraction}
+        >
         <TabsContent value="general" className="space-y-4">
           <Card>
             <CardHeader>
@@ -3584,6 +3632,7 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
             </Card>
           )}
         </TabsContent>
+        </div>
       </Tabs>
     </div>
   );

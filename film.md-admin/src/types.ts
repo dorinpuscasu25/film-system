@@ -30,6 +30,7 @@ export interface AdminUser {
   roles: AdminRole[];
   permission_codes: string[];
   admin_panel_access: boolean;
+  content_scope_assigned: boolean;
   assigned_content_ids: number[];
   assigned_contents: Array<{
     id: number;
@@ -45,6 +46,7 @@ export interface AdminInvitation {
   status: "pending" | "accepted" | "expired";
   role_ids: number[];
   role_names: string[];
+  assigned_content_ids: number[];
   expires_at: string | null;
   accepted_at: string | null;
   created_at: string | null;

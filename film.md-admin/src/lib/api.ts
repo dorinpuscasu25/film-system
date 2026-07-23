@@ -588,6 +588,7 @@ export const adminApi = {
     email: string;
     name?: string;
     role_ids: number[];
+    assigned_content_ids?: number[];
     expires_in_hours?: number;
   }) {
     return request<{ invitation: AdminInvitation; accept_url: string }>(

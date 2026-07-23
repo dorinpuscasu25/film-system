@@ -47,7 +47,7 @@ function heroGenreLabels(movie: HomeHeroSlide["content"]): string[] {
 }
 
 export function HomePage() {
-  const { isAuthenticated, openAuthModal } = useAuth();
+  const { isAuthenticated, activeProfile, openAuthModal } = useAuth();
   const { t, currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
@@ -99,7 +99,7 @@ export function HomePage() {
   }, [currentLanguage.code]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !activeProfile) {
       setContinueWatching([]);
       return;
     }
@@ -108,7 +108,7 @@ export function HomePage() {
 
     async function loadContinueWatching() {
       try {
-        const response = await fetchContinueWatching(currentLanguage.code);
+        const response = await fetchContinueWatching(currentLanguage.code, activeProfile.id);
         if (!active) {
           return;
         }
@@ -135,7 +135,7 @@ export function HomePage() {
     return () => {
       active = false;
     };
-  }, [currentLanguage.code, isAuthenticated]);
+  }, [activeProfile, currentLanguage.code, isAuthenticated]);
 
   const heroSlides = useMemo<HomeHeroSlide[]>(() => {
     if (homeSections.heroSlides.length > 0) {

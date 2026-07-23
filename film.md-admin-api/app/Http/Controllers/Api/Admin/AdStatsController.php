@@ -9,6 +9,8 @@ use App\Models\AdCampaign;
 use App\Models\AdEvent;
 use App\Models\AdEventAggregate;
 use App\Services\AdEventTrackingService;
+use App\Services\ContentScopeService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,14 +23,25 @@ use Illuminate\Http\Request;
  */
 class AdStatsController extends ApiController
 {
+    public function __construct(
+        protected ContentScopeService $contentScope,
+    ) {}
+
     public function show(Request $request, AdCampaign $campaign): JsonResponse
     {
+        $user = $request->user();
+        $this->contentScope->assertCanAccessAdCampaign($user, $campaign);
+        $isScoped = $this->contentScope->isScoped($user);
         $daysBack = max(1, min(90, (int) $request->integer('days', 30)));
         $cutoff = now()->subDays($daysBack)->toDateString();
 
         $aggregates = AdEventAggregate::query()
             ->where('ad_campaign_id', $campaign->id)
             ->where('date', '>=', $cutoff)
+            ->when(
+                $isScoped,
+                fn ($query) => $query->whereIn('content_id', $this->contentScope->assignedContentIds($user)),
+            )
             ->get();
 
         $byEvent = $aggregates->groupBy('event_type')->map(fn ($rows) => (int) $rows->sum('count'));
@@ -53,9 +66,9 @@ class AdStatsController extends ApiController
             'percent' => round(($count / $totalCountryCount) * 100, 2),
         ])->values();
 
-        $byDay = $aggregates->groupBy(fn ($row) => $row->date instanceof \Carbon\Carbon ? $row->date->toDateString() : (string) $row->date)
+        $byDay = $aggregates->groupBy(fn ($row) => $row->date instanceof Carbon ? $row->date->toDateString() : (string) $row->date)
             ->map(fn ($rows) => [
-                'date' => $rows->first()->date instanceof \Carbon\Carbon ? $rows->first()->date->toDateString() : (string) $rows->first()->date,
+                'date' => $rows->first()->date instanceof Carbon ? $rows->first()->date->toDateString() : (string) $rows->first()->date,
                 'impressions' => (int) $rows->where('event_type', AdEventTrackingService::EVENT_IMPRESSION)->sum('count'),
                 'completes' => (int) $rows->where('event_type', AdEventTrackingService::EVENT_COMPLETE)->sum('count'),
                 'clicks' => (int) $rows->where('event_type', AdEventTrackingService::EVENT_CLICK)->sum('count'),
@@ -64,6 +77,18 @@ class AdStatsController extends ApiController
             ->values()
             ->sortBy('date')
             ->values();
+        $impressions = $isScoped
+            ? (int) ($byEvent[AdEventTrackingService::EVENT_IMPRESSION] ?? 0)
+            : (int) $campaign->impressions_count;
+        $completes = $isScoped
+            ? (int) ($byEvent[AdEventTrackingService::EVENT_COMPLETE] ?? 0)
+            : (int) $campaign->completes_count;
+        $clicks = $isScoped
+            ? (int) ($byEvent[AdEventTrackingService::EVENT_CLICK] ?? 0)
+            : (int) $campaign->clicks_count;
+        $skips = $isScoped
+            ? (int) ($byEvent[AdEventTrackingService::EVENT_SKIP] ?? 0)
+            : (int) $campaign->skips_count;
 
         return response()->json([
             'campaign' => [
@@ -78,15 +103,15 @@ class AdStatsController extends ApiController
                 'starts_at' => $campaign->starts_at?->toIso8601String(),
                 'ends_at' => $campaign->ends_at?->toIso8601String(),
                 'rollups' => [
-                    'impressions' => (int) $campaign->impressions_count,
-                    'completes' => (int) $campaign->completes_count,
-                    'clicks' => (int) $campaign->clicks_count,
-                    'skips' => (int) $campaign->skips_count,
-                    'ctr' => $campaign->impressions_count > 0
-                        ? round(($campaign->clicks_count / $campaign->impressions_count) * 100, 2)
+                    'impressions' => $impressions,
+                    'completes' => $completes,
+                    'clicks' => $clicks,
+                    'skips' => $skips,
+                    'ctr' => $impressions > 0
+                        ? round(($clicks / $impressions) * 100, 2)
                         : 0,
-                    'completion_rate' => $campaign->impressions_count > 0
-                        ? round(($campaign->completes_count / $campaign->impressions_count) * 100, 2)
+                    'completion_rate' => $impressions > 0
+                        ? round(($completes / $impressions) * 100, 2)
                         : 0,
                 ],
             ],
@@ -101,9 +126,15 @@ class AdStatsController extends ApiController
 
     public function events(Request $request, AdCampaign $campaign): JsonResponse
     {
+        $user = $request->user();
+        $this->contentScope->assertCanAccessAdCampaign($user, $campaign);
         $perPage = max(10, min(200, (int) $request->integer('per_page', 50)));
         $events = AdEvent::query()
             ->where('ad_campaign_id', $campaign->id)
+            ->when(
+                $this->contentScope->isScoped($user),
+                fn ($query) => $query->whereIn('content_id', $this->contentScope->assignedContentIds($user)),
+            )
             ->when($request->query('event_type'), fn ($q, $t) => $q->where('event_type', $t))
             ->when($request->query('country_code'), fn ($q, $cc) => $q->where('country_code', $cc))
             ->orderByDesc('occurred_at')

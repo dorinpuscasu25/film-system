@@ -20,8 +20,7 @@ class InvitationController extends ApiController
     public function __construct(
         protected AccountProfileService $profiles,
         protected WalletService $wallets,
-    ) {
-    }
+    ) {}
 
     public function show(string $token): JsonResponse
     {
@@ -87,6 +86,7 @@ class InvitationController extends ApiController
             }
 
             $user->roles()->syncWithoutDetaching($roleIds);
+            $user->syncAssignedContentIds($invitation->assigned_content_ids ?? []);
 
             $invitation->forceFill([
                 'status' => 'accepted',

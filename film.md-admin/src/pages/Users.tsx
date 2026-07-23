@@ -24,6 +24,7 @@ interface InviteFormState {
   name: string;
   email: string;
   role_ids: number[];
+  assigned_content_ids: number[];
   expires_in_hours: number;
 }
 
@@ -52,6 +53,7 @@ export function Users() {
     name: "",
     email: "",
     role_ids: [],
+    assigned_content_ids: [],
     expires_in_hours: 72,
   });
   const [editState, setEditState] = useState<EditFormState>({
@@ -142,7 +144,9 @@ export function Users() {
               </Badge>
             ))
           ) : (
-            <span className="text-xs text-muted-foreground">Toate filmele</span>
+            <span className="text-xs text-muted-foreground">
+              {user.content_scope_assigned ? "Niciun film atribuit" : "Toate filmele"}
+            </span>
           )}
           {user.assigned_contents.length > 4 ? (
             <Badge variant="draft">+{user.assigned_contents.length - 4}</Badge>
@@ -208,6 +212,7 @@ export function Users() {
         name: "",
         email: "",
         role_ids: roles.slice(0, 1).map((role) => role.id),
+        assigned_content_ids: [],
         expires_in_hours: 72,
       });
       await loadData();
@@ -400,9 +405,9 @@ export function Users() {
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-input"
-                    checked={editState.assigned_content_ids.includes(content.id)}
+                    checked={inviteState.assigned_content_ids.includes(content.id)}
                     onChange={() =>
-                      setEditState((current) => ({
+                      setInviteState((current) => ({
                         ...current,
                         assigned_content_ids: toggleSelection(current.assigned_content_ids, content.id),
                       }))
@@ -504,6 +509,35 @@ export function Users() {
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Filme atribuite</p>
+            <div className="admin-scrollbar max-h-64 space-y-2 overflow-y-auto rounded-md border p-4">
+              {contentOptions.map((content) => (
+                <label key={content.id} className="flex items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input"
+                    checked={editState.assigned_content_ids.includes(content.id)}
+                    onChange={() =>
+                      setEditState((current) => ({
+                        ...current,
+                        assigned_content_ids: toggleSelection(current.assigned_content_ids, content.id),
+                      }))
+                    }
+                  />
+                  <span>{content.title}</span>
+                  <span className="text-xs text-muted-foreground">/{content.slug}</span>
+                </label>
+              ))}
+              {contentOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nu există filme disponibile pentru asignare.</p>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Pentru rolul Producer, utilizatorul va vedea numai filmele bifate.
+            </p>
           </div>
         </div>
       </Modal>

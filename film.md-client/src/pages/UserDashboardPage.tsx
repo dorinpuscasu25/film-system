@@ -70,7 +70,7 @@ export function UserDashboardPage() {
   }, [currentLanguage.code]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !activeProfile) {
       setContinueWatching([]);
       return;
     }
@@ -79,7 +79,7 @@ export function UserDashboardPage() {
 
     async function loadContinueWatching() {
       try {
-        const response = await fetchContinueWatching(currentLanguage.code);
+        const response = await fetchContinueWatching(currentLanguage.code, activeProfile.id);
         if (!active) {
           return;
         }
@@ -104,7 +104,7 @@ export function UserDashboardPage() {
     return () => {
       active = false;
     };
-  }, [currentLanguage.code, user]);
+  }, [activeProfile, currentLanguage.code, user]);
 
   useEffect(() => {
     const tab = new URLSearchParams(location.search).get("tab");

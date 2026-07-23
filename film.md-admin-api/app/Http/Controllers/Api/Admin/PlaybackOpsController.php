@@ -28,11 +28,15 @@ class PlaybackOpsController extends ApiController
             ->latest('started_at')
             ->limit(50)
             ->get();
+        $completedToday = PlaybackSession::query()
+            ->whereDate('ended_at', today())
+            ->when($isScoped, fn ($query) => $query->whereIn('content_id', $assignedContentIds))
+            ->count();
 
         return response()->json([
             'stats' => [
                 'active_streams' => $sessions->whereIn('status', [PlaybackSession::STATUS_STARTED, PlaybackSession::STATUS_PAUSED])->count(),
-                'completed_today' => PlaybackSession::query()->whereDate('ended_at', today())->count(),
+                'completed_today' => $completedToday,
                 'total_watch_time_seconds' => (int) $sessions->sum('watch_time_seconds'),
             ],
             'sessions' => $sessions->map(fn (PlaybackSession $session) => [

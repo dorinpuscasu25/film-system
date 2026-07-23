@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\AdCampaign;
 use App\Models\Content;
 use App\Services\AdTargetingService;
+use App\Services\ContentScopeService;
 use App\Services\VastService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class AdTestController extends ApiController
     public function __construct(
         protected AdTargetingService $targeting,
         protected VastService $vast,
+        protected ContentScopeService $contentScope,
     ) {}
 
     public function resolve(Request $request): JsonResponse
@@ -37,10 +39,14 @@ class AdTestController extends ApiController
         ]);
 
         $content = Content::query()->findOrFail($data['content_id']);
+        $this->contentScope->assertCanAccessContent($request->user(), $content);
         $country = isset($data['country_code']) ? strtoupper((string) $data['country_code']) : null;
         $group = (string) ($data['group'] ?? 'movies');
 
-        $eligible = $this->targeting->eligibleCampaigns($data['placement'], $content, $country, $group);
+        $eligible = $this->targeting
+            ->eligibleCampaigns($data['placement'], $content, $country, $group)
+            ->filter(fn (AdCampaign $campaign): bool => $this->contentScope->canAccessAdCampaign($request->user(), $campaign))
+            ->values();
         $chosen = $this->targeting->pickForSession(
             $data['placement'],
             $content,
@@ -49,12 +55,17 @@ class AdTestController extends ApiController
             $data['session_id'] ?? null,
             $data['user_id'] ?? null,
         );
+        if ($chosen !== null && ! $this->contentScope->canAccessAdCampaign($request->user(), $chosen)) {
+            $chosen = null;
+        }
 
         $allCandidates = AdCampaign::query()
             ->with('creatives')
             ->where('placement', $data['placement'])
             ->orderByDesc('bid_amount')
-            ->get();
+            ->get()
+            ->filter(fn (AdCampaign $campaign): bool => $this->contentScope->canAccessAdCampaign($request->user(), $campaign))
+            ->values();
 
         $breakdown = $allCandidates->map(function (AdCampaign $c) use ($eligible, $chosen, $country, $group, $content) {
             $reasons = [];

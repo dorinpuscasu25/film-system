@@ -68,6 +68,8 @@ class UserController extends ApiController
             'name' => ['nullable', 'string', 'max:255'],
             'role_ids' => ['required', 'array', 'min:1'],
             'role_ids.*' => ['integer', Rule::exists('roles', 'id')],
+            'assigned_content_ids' => ['nullable', 'array'],
+            'assigned_content_ids.*' => ['integer', Rule::exists('contents', 'id')],
             'expires_in_hours' => ['nullable', 'integer', 'min:1', 'max:720'],
         ]);
 
@@ -81,12 +83,18 @@ class UserController extends ApiController
         $roles = Role::query()
             ->whereIn('id', $roleIds)
             ->get();
+        $assignedContentIds = collect($validated['assigned_content_ids'] ?? [])
+            ->map(fn (mixed $contentId): int => (int) $contentId)
+            ->unique()
+            ->values()
+            ->all();
 
         $invitation = Invitation::query()->create([
             'email' => strtolower($validated['email']),
             'name' => $validated['name'] ?? null,
             'token_hash' => hash('sha256', $plainTextToken),
             'role_ids' => $roleIds,
+            'assigned_content_ids' => $assignedContentIds,
             'status' => 'pending',
             'invited_by' => $request->user()->id,
             'expires_at' => now()->addHours($validated['expires_in_hours'] ?? 72),
@@ -107,7 +115,11 @@ class UserController extends ApiController
             'user.invited',
             'invitation',
             $invitation->id,
-            ['email' => $invitation->email, 'role_ids' => $roleIds],
+            [
+                'email' => $invitation->email,
+                'role_ids' => $roleIds,
+                'assigned_content_ids' => $assignedContentIds,
+            ],
             $request->user(),
             $request,
         );

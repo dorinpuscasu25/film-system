@@ -3,16 +3,16 @@
 use App\Http\Controllers\Api\Admin\AdCampaignController;
 use App\Http\Controllers\Api\Admin\AdStatsController;
 use App\Http\Controllers\Api\Admin\AdTestController;
-use App\Http\Controllers\Api\Admin\BunnyHealthController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
+use App\Http\Controllers\Api\Admin\BunnyHealthController;
+use App\Http\Controllers\Api\Admin\CmsPageController;
 use App\Http\Controllers\Api\Admin\ContentController;
 use App\Http\Controllers\Api\Admin\ContentCreatorController;
 use App\Http\Controllers\Api\Admin\ContentFinancialsController;
 use App\Http\Controllers\Api\Admin\ContentReviewController as AdminContentReviewController;
 use App\Http\Controllers\Api\Admin\CostSettingsController;
 use App\Http\Controllers\Api\Admin\CouponController;
-use App\Http\Controllers\Api\Admin\CmsPageController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ExportController;
 use App\Http\Controllers\Api\Admin\FinancialSummaryController;
@@ -39,8 +39,8 @@ use App\Http\Controllers\Api\BunnyWebhookController;
 use App\Http\Controllers\Api\ContentReviewController;
 use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\PayFilmotecaCallbackController;
-use App\Http\Controllers\Api\PublicCmsController;
 use App\Http\Controllers\Api\PublicCatalogController;
+use App\Http\Controllers\Api\PublicCmsController;
 use App\Http\Controllers\Api\PublicImageController;
 use App\Http\Controllers\Api\PublicPlatformSettingsController;
 use App\Http\Controllers\Api\SettingsController;
@@ -54,18 +54,18 @@ use App\Http\Controllers\Api\StorefrontWalletTopUpController;
 use App\Http\Controllers\Api\StorefrontWatchPartyController;
 use Illuminate\Support\Facades\Route;
 
-    Route::prefix('v1')->group(function (): void {
-        Route::prefix('auth')->group(function (): void {
-            Route::post('register', [AuthController::class, 'register']);
-            Route::post('register/verify', [AuthController::class, 'verifyRegistration']);
-            Route::post('register/resend', [AuthController::class, 'resendRegistrationCode']);
-            Route::post('login', [AuthController::class, 'login']);
-            Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+Route::prefix('v1')->group(function (): void {
+    Route::prefix('auth')->group(function (): void {
+        Route::post('register', [AuthController::class, 'register']);
+        Route::post('register/verify', [AuthController::class, 'verifyRegistration']);
+        Route::post('register/resend', [AuthController::class, 'resendRegistrationCode']);
+        Route::post('login', [AuthController::class, 'login']);
+        Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
 
-            // Device pairing (TV "log in with a code", RFC 8628)
-            Route::post('device/code', [DeviceAuthController::class, 'requestCode'])->middleware('throttle:30,1');
-            Route::post('device/token', [DeviceAuthController::class, 'pollToken'])->middleware('throttle:240,1');
-        });
+        // Device pairing (TV "log in with a code", RFC 8628)
+        Route::post('device/code', [DeviceAuthController::class, 'requestCode'])->middleware('throttle:30,1');
+        Route::post('device/token', [DeviceAuthController::class, 'pollToken'])->middleware('throttle:240,1');
+    });
 
     Route::prefix('invites')->group(function (): void {
         Route::get('{token}', [InvitationController::class, 'show']);
@@ -255,7 +255,7 @@ use Illuminate\Support\Facades\Route;
             Route::get('content', [ContentController::class, 'index'])->middleware('permission:content.view');
             Route::get('content/options', [ContentController::class, 'options'])->middleware('permission:content.view');
             Route::get('content/{content}', [ContentController::class, 'show'])->middleware('permission:content.view');
-            Route::get('content/{content}/financials', [ContentFinancialsController::class, 'show'])->middleware('permission:commerce.view_billing');
+            Route::get('content/{content}/financials', [ContentFinancialsController::class, 'show'])->middleware('permission:commerce.view_billing,content.view_financials');
             Route::get('content/{content}/reviews', [AdminContentReviewController::class, 'index'])->middleware('permission:content.view');
             Route::post('content', [ContentController::class, 'store'])->middleware('permission:content.create');
             Route::patch('content/{content}', [ContentController::class, 'update'])->middleware('permission:content.edit');

@@ -131,7 +131,7 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
   const mapping: Partial<Record<AdminPage, string>> = {
     catalog: 'content.view',
     reviews: 'content.view',
-    editor: 'content.create',
+    editor: 'content.view',
     media: 'media.view',
     taxonomies: 'taxonomies.view',
     collections: 'taxonomies.view',

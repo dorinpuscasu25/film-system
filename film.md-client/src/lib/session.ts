@@ -615,9 +615,13 @@ export async function updateStorefrontWatchProgress(payload: {
   );
 }
 
-export async function fetchContinueWatching(locale?: "en" | "ro" | "ru") {
+export async function fetchContinueWatching(
+  locale?: "en" | "ro" | "ru",
+  accountProfileId?: string | number | null,
+) {
   return requestJson<ContinueWatchingResponsePayload>("/storefront/continue-watching", {}, {
     locale,
+    account_profile_id: accountProfileId ?? undefined,
   }, true);
 }
 

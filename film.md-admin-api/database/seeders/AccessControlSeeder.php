@@ -22,6 +22,7 @@ class AccessControlSeeder extends Seeder
         ['code' => 'profile.manage', 'name' => 'Manage own profile', 'group' => 'account', 'description' => 'Allows editing personal settings.'],
         ['code' => 'content.view', 'name' => 'View content', 'group' => 'content', 'description' => 'View content catalog in admin.'],
         ['code' => 'content.scope_assigned', 'name' => 'View only assigned content', 'group' => 'content', 'description' => 'Limit admin visibility to explicitly assigned titles only.'],
+        ['code' => 'content.view_financials', 'name' => 'View assigned content financials', 'group' => 'content', 'description' => 'View costs, revenue and sales for accessible titles without access to platform-wide billing.'],
         ['code' => 'content.create', 'name' => 'Create content', 'group' => 'content', 'description' => 'Create new titles.'],
         ['code' => 'content.edit', 'name' => 'Edit content', 'group' => 'content', 'description' => 'Edit existing titles.'],
         ['code' => 'content.publish', 'name' => 'Publish content', 'group' => 'content', 'description' => 'Publish titles to the storefront.'],
@@ -173,7 +174,7 @@ class AccessControlSeeder extends Seeder
                         'admin.access',
                         'content.view',
                         'content.scope_assigned',
-                        'commerce.view_billing',
+                        'content.view_financials',
                         'playback.view_sessions',
                         'advertising.view',
                     ])

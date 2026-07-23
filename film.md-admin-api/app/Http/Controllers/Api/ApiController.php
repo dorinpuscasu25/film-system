@@ -37,6 +37,7 @@ class ApiController extends Controller
             'roles' => $user->roles->map(fn (Role $role) => $this->roleData($role))->values(),
             'permission_codes' => $user->permissionCodes(),
             'admin_panel_access' => $user->hasAdminPanelAccess(),
+            'content_scope_assigned' => $user->hasScopedContentAccess(),
             'assigned_content_ids' => $user->assignedContentIds(),
             'assigned_contents' => $user->relationLoaded('contentAccesses')
                 ? $user->contentAccesses
@@ -246,6 +247,9 @@ class ApiController extends Controller
             'status' => $invitation->status,
             'role_ids' => $roles->pluck('id')->values(),
             'role_names' => $roles->pluck('name')->values(),
+            'assigned_content_ids' => collect($invitation->assigned_content_ids ?? [])
+                ->map(fn (mixed $contentId): int => (int) $contentId)
+                ->values(),
             'expires_at' => $invitation->expires_at?->toIso8601String(),
             'accepted_at' => $invitation->accepted_at?->toIso8601String(),
             'created_at' => $invitation->created_at?->toIso8601String(),

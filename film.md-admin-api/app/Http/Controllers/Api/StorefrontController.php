@@ -279,7 +279,7 @@ class StorefrontController extends ApiController
                 'session_token' => $playbackSession->session_token,
             ],
             'subtitles' => $playback['subtitles'],
-            'continue_watching' => $this->continueWatchingData($user?->id, $content->id, $resolvedEpisodeId),
+            'continue_watching' => $this->continueWatchingData($user?->id, $profile?->id, $content->id, $resolvedEpisodeId),
         ]);
     }
 
@@ -584,7 +584,7 @@ class StorefrontController extends ApiController
         return $value;
     }
 
-    protected function continueWatchingData(?int $userId, int $contentId, ?string $episodeId): ?array
+    protected function continueWatchingData(?int $userId, ?int $profileId, int $contentId, ?string $episodeId): ?array
     {
         if ($userId === null) {
             return null;
@@ -592,6 +592,7 @@ class StorefrontController extends ApiController
 
         $progress = \App\Models\WatchProgress::query()
             ->where('user_id', $userId)
+            ->where('account_profile_id', $profileId)
             ->where('content_id', $contentId)
             ->where('episode_id', $episodeId)
             ->latest('last_watched_at')

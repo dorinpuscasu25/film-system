@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreOfferRequest;
 use App\Http\Requests\Admin\UpdateOfferRequest;
 use App\Models\Content;
 use App\Models\Offer;
+use App\Services\ContentScopeService;
 use App\Services\ContentSearchService;
 use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
@@ -17,12 +18,15 @@ class OfferController extends ApiController
     public function __construct(
         protected ContentSearchService $contentSearch,
         protected StorefrontCacheService $storefrontCache,
+        protected ContentScopeService $contentScope,
     ) {}
 
     public function index(): JsonResponse
     {
         $locale = request()->user()?->preferred_locale ?? Content::supportedLocales()[0];
-        $offers = Offer::query()
+        $user = request()->user();
+        $offers = $this->contentScope
+            ->scopeContentQuery($user, Offer::query(), 'offers.content_id')
             ->with('content')
             ->orderByDesc('is_active')
             ->orderBy('sort_order')
@@ -46,6 +50,10 @@ class OfferController extends ApiController
                     ->map(fn (string $quality) => ['value' => $quality, 'label' => $quality])
                     ->values(),
                 'contents' => Content::query()
+                    ->when(
+                        $this->contentScope->isScoped($user),
+                        fn ($query) => $query->whereIn('id', $this->contentScope->assignedContentIds($user)),
+                    )
                     ->orderBy('original_title')
                     ->get()
                     ->map(fn (Content $content) => [
@@ -60,7 +68,9 @@ class OfferController extends ApiController
 
     public function store(StoreOfferRequest $request): JsonResponse
     {
-        $offer = Offer::query()->create($request->normalizedPayload());
+        $payload = $request->normalizedPayload();
+        $this->contentScope->assertCanAccessContent($request->user(), (int) $payload['content_id']);
+        $offer = Offer::query()->create($payload);
         $content = $offer->content()->first();
         $this->syncContentFreeFlag($content);
         $this->syncContentAvailableQualities($content);
@@ -77,7 +87,10 @@ class OfferController extends ApiController
 
     public function update(UpdateOfferRequest $request, Offer $offer): JsonResponse
     {
-        $offer->fill($request->normalizedPayload())->save();
+        $payload = $request->normalizedPayload();
+        $this->contentScope->assertCanAccessContent($request->user(), $offer->content_id);
+        $this->contentScope->assertCanAccessContent($request->user(), (int) $payload['content_id']);
+        $offer->fill($payload)->save();
         $content = $offer->content()->first();
         $this->syncContentFreeFlag($content);
         $this->syncContentAvailableQualities($content);
@@ -94,6 +107,7 @@ class OfferController extends ApiController
 
     public function destroy(Offer $offer): JsonResponse
     {
+        $this->contentScope->assertCanAccessContent(request()->user(), $offer->content_id);
         $content = $offer->content()->first();
         $offer->delete();
         $this->syncContentFreeFlag($content);

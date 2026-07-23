@@ -30,6 +30,12 @@ class AuthenticateApiToken
         }
 
         $user = $accessToken->user;
+        if ($user->status !== 'active') {
+            return new JsonResponse([
+                'message' => 'This account is not active.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         $request->attributes->set('currentAccessToken', $accessToken);
         $request->setUserResolver(fn () => $user);
         Auth::setUser($user);

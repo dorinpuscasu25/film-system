@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\AdCampaign;
+use App\Models\AdEventAggregate;
 use App\Models\Content;
 use App\Services\AuditLogService;
 use App\Services\ContentScopeService;
@@ -27,24 +28,39 @@ class AdCampaignController extends ApiController
 
         $campaigns = AdCampaign::query()
             ->with(['creatives', 'targetingRules.content'])
-            ->when($isScoped, function ($query) use ($assignedContentIds): void {
-                $query->where(function ($builder) use ($assignedContentIds): void {
-                    $builder->whereDoesntHave('targetingRules', fn ($rules) => $rules->whereNotNull('content_id'))
-                        ->orWhereHas('targetingRules', fn ($rules) => $rules->whereIn('content_id', $assignedContentIds));
-                });
-            })
             ->orderByDesc('updated_at')
-            ->get();
+            ->get()
+            ->when(
+                $isScoped,
+                fn ($items) => $items
+                    ->filter(fn (AdCampaign $campaign): bool => $this->contentScope->canAccessAdCampaign($user, $campaign))
+                    ->values(),
+            );
 
-        $stats = collect(DB::connection('analytics')->table('ad_aggregate_daily')
-            ->selectRaw('ad_campaign_id, SUM(impressions) as impressions, SUM(clicks) as clicks, SUM(completes) as completes')
-            ->groupBy('ad_campaign_id')
-            ->get())
-            ->keyBy('ad_campaign_id');
+        $stats = $isScoped
+            ? AdEventAggregate::query()
+                ->whereIn('content_id', $assignedContentIds)
+                ->whereIn('ad_campaign_id', $campaigns->pluck('id'))
+                ->get()
+                ->groupBy('ad_campaign_id')
+            : collect(DB::connection('analytics')->table('ad_aggregate_daily')
+                ->selectRaw('ad_campaign_id, SUM(impressions) as impressions, SUM(clicks) as clicks, SUM(completes) as completes')
+                ->groupBy('ad_campaign_id')
+                ->get())
+                ->keyBy('ad_campaign_id');
 
         return response()->json([
-            'items' => $campaigns->map(function (AdCampaign $campaign) use ($stats): array {
+            'items' => $campaigns->map(function (AdCampaign $campaign) use ($stats, $isScoped): array {
                 $aggregate = $stats->get($campaign->id);
+                $impressions = $isScoped
+                    ? (int) collect($aggregate)->where('event_type', 'impression')->sum('count')
+                    : (int) ($aggregate->impressions ?? 0);
+                $clicks = $isScoped
+                    ? (int) collect($aggregate)->where('event_type', 'click')->sum('count')
+                    : (int) ($aggregate->clicks ?? 0);
+                $completes = $isScoped
+                    ? (int) collect($aggregate)->where('event_type', 'complete')->sum('count')
+                    : (int) ($aggregate->completes ?? 0);
 
                 return [
                     'id' => $campaign->id,
@@ -78,9 +94,9 @@ class AdCampaignController extends ApiController
                         'is_include_rule' => $rule->is_include_rule,
                     ])->values(),
                     'stats' => [
-                        'impressions' => (int) ($aggregate->impressions ?? 0),
-                        'clicks' => (int) ($aggregate->clicks ?? 0),
-                        'completes' => (int) ($aggregate->completes ?? 0),
+                        'impressions' => $impressions,
+                        'clicks' => $clicks,
+                        'completes' => $completes,
                     ],
                 ];
             })->values(),
@@ -120,19 +136,7 @@ class AdCampaignController extends ApiController
 
     public function destroy(AdCampaign $campaign): JsonResponse
     {
-        if ($this->contentScope->isScoped(request()->user())) {
-            $allowedContentIds = $this->contentScope->assignedContentIds(request()->user());
-            $hasForeignRule = $campaign->targetingRules()
-                ->whereNotNull('content_id')
-                ->whereNotIn('content_id', $allowedContentIds)
-                ->exists();
-
-            if ($hasForeignRule) {
-                return response()->json([
-                    'message' => 'Nu poți șterge o campanie care țintește filme din afara scope-ului tău.',
-                ], Response::HTTP_FORBIDDEN);
-            }
-        }
+        $this->contentScope->assertCanAccessAdCampaign(request()->user(), $campaign);
 
         $campaign->delete();
         $this->auditLog->record(
@@ -152,6 +156,9 @@ class AdCampaignController extends ApiController
         $user = $request->user();
         $isScoped = $this->contentScope->isScoped($user);
         $assignedContentIds = $this->contentScope->assignedContentIds($user);
+        if ($campaign !== null) {
+            $this->contentScope->assertCanAccessAdCampaign($user, $campaign);
+        }
 
         $payload = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -194,6 +201,8 @@ class AdCampaignController extends ApiController
         if ($isScoped) {
             $requestedContentIds = collect($payload['targeting_rules'] ?? [])
                 ->pluck('content_id')
+                ->merge($payload['target_content_ids'] ?? [])
+                ->merge($payload['target_excluded_content_ids'] ?? [])
                 ->filter()
                 ->map(fn ($value) => (int) $value)
                 ->unique();
@@ -205,7 +214,7 @@ class AdCampaignController extends ApiController
             }
         }
 
-        $campaign ??= new AdCampaign();
+        $campaign ??= new AdCampaign;
         $campaign->fill([
             'name' => $payload['name'],
             'company_name' => $payload['company_name'] ?? null,
