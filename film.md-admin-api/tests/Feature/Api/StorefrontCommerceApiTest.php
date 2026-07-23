@@ -218,6 +218,7 @@ class StorefrontCommerceApiTest extends TestCase
 
     public function test_playback_for_paid_title_requires_access_and_returns_offer_url_after_purchase(): void
     {
+        config()->set('services.bunny.libraries.movies.api_key', 'test-library-api-key');
         $token = $this->registerViewerAndReturnToken();
         $offer = Offer::query()
             ->where('name', 'Forever Full HD')
@@ -246,7 +247,10 @@ class StorefrontCommerceApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('playback.url', 'https://storage.filmoteca.md/playback/carbon-fullhd.mp4')
-            ->assertJsonPath('playback.quality', 'Full HD');
+            ->assertJsonPath('playback.quality', 'Full HD')
+            ->assertJsonPath('playback.embed_url', fn ($url) => str_contains($url, 'token=') && str_contains($url, 'expires='))
+            ->assertJsonPath('playback.bunny_token', fn ($token) => is_string($token) && $token !== '')
+            ->assertJsonPath('playback.bunny_expires', fn ($expires) => is_int($expires) && $expires > now()->timestamp);
     }
 
     public function test_kids_profile_cannot_play_content_above_12_plus(): void

@@ -19,6 +19,12 @@ return [
         'client_url' => env('CLIENT_FRONTEND_URL', 'http://localhost:5173'),
     ],
 
+    'cloudflare' => [
+        // API token needs the Zone > Cache Purge permission for this zone.
+        'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+        'cache_api_token' => env('CLOUDFLARE_CACHE_API_TOKEN'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

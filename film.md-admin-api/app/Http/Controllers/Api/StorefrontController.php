@@ -263,7 +263,12 @@ class StorefrontController extends ApiController
             'episode' => $playback['episode'],
             'playback' => [
                 'url' => $playback['url'],
-                'embed_url' => $playback['embed_url'],
+                'embed_url' => $this->appendBunnyAuthentication(
+                    $playback['embed_url'],
+                    $playback['bunny_auth'] ?? null,
+                ),
+                'bunny_token' => data_get($playback, 'bunny_auth.token'),
+                'bunny_expires' => data_get($playback, 'bunny_auth.expires'),
                 'quality' => $playback['quality'],
                 'content_format_id' => $playback['content_format_id'],
                 'drm' => $playback['drm'],
@@ -322,7 +327,7 @@ class StorefrontController extends ApiController
     }
 
     /**
-     * @return array{url: ?string, embed_url: ?string, quality: ?string, content_format_id: ?int, drm: array<string, mixed>, subtitles: array<int, array<string, mixed>>, episode: ?array<string, mixed>, message?: string, status?: int}
+     * @return array{url: ?string, embed_url: ?string, bunny_auth?: array{token: string, expires: int}|null, quality: ?string, content_format_id: ?int, drm: array<string, mixed>, subtitles: array<int, array<string, mixed>>, episode: ?array<string, mixed>, message?: string, status?: int}
      */
     protected function resolvePlaybackPayload(
         Content $content,
@@ -478,10 +483,12 @@ class StorefrontController extends ApiController
                 ?: data_get($seriesEpisode, 'trailer_url')
                 ?: $this->bunnyToken->signedStreamUrl($resolvedFormat)
                 ?: $primaryVideoUrl;
+            $episodeVideoId = (string) (data_get($seriesEpisode, 'bunny_video_id') ?: $resolvedFormat->bunny_video_id);
 
             return [
                 'url' => $episodeUrl,
                 'embed_url' => $episodeEmbedUrl ?: $this->bunnyEmbedUrl($resolvedFormat),
+                'bunny_auth' => $this->bunnyToken->embedViewToken($resolvedFormat, $episodeVideoId),
                 'quality' => $resolvedFormat->quality,
                 'content_format_id' => $resolvedFormat->id,
                 'drm' => $this->formatDrmData($resolvedFormat),
@@ -504,6 +511,7 @@ class StorefrontController extends ApiController
         return [
             'url' => $this->bunnyToken->signedStreamUrl($resolvedFormat) ?: $primaryVideoUrl,
             'embed_url' => $this->bunnyEmbedUrl($resolvedFormat),
+            'bunny_auth' => $this->bunnyToken->embedViewToken($resolvedFormat),
             'quality' => $resolvedFormat->quality,
             'content_format_id' => $resolvedFormat->id,
             'drm' => $this->formatDrmData($resolvedFormat),
@@ -536,6 +544,23 @@ class StorefrontController extends ApiController
             rawurlencode((string) $libraryId),
             rawurlencode((string) $videoId),
         );
+    }
+
+    /**
+     * @param array{token: string, expires: int}|null $authentication
+     */
+    protected function appendBunnyAuthentication(?string $url, ?array $authentication): ?string
+    {
+        if ($url === null || $authentication === null) {
+            return $url;
+        }
+
+        $separator = str_contains($url, '?') ? '&' : '?';
+
+        return $url.$separator.http_build_query([
+            'token' => $authentication['token'],
+            'expires' => $authentication['expires'],
+        ], '', '&', PHP_QUERY_RFC3986);
     }
 
     protected function formatDrmData(\App\Models\ContentFormat $format): array

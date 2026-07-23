@@ -224,6 +224,15 @@ export const adminApi = {
     return request<void>("POST", "/auth/logout");
   },
 
+  clearAllCaches() {
+    return request<{
+      message: string;
+      application_cache: "cleared";
+      cloudflare_cache: "purged" | "not_configured" | "failed";
+      version: number;
+    }>("DELETE", "/admin/cache");
+  },
+
   getDashboard(range?: "7days" | "30days" | "3months") {
     const query = range ? `?range=${range}` : "";
     return request<DashboardResponse>("GET", `/admin/dashboard${query}`);

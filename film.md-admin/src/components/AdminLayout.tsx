@@ -1,20 +1,54 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   BellIcon,
   LogOutIcon,
   MenuIcon,
+  RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
   UserCircle2Icon,
 } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useAdmin } from "../hooks/useAdmin";
+import { adminApi } from "../lib/api";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { breadcrumbs, currentUser, navigate, toggleSidebar, logout, sidebarCollapsed } = useAdmin();
+  const [isClearingCache, setIsClearingCache] = useState(false);
   const roleLabel = currentUser?.roles.map((role) => role.name).join(", ") || "Admin";
+  const canClearCache =
+    currentUser?.permission_codes.includes("settings.edit_home_curation") ?? false;
+
+  const handleClearCache = async () => {
+    if (!window.confirm("Sigur vrei să cureți cache-ul aplicației și cache-ul CDN?")) {
+      return;
+    }
+
+    setIsClearingCache(true);
+
+    try {
+      const result = await adminApi.clearAllCaches();
+
+      if (result.cloudflare_cache === "failed") {
+        window.alert("Cache-ul aplicației a fost curățat, dar cache-ul Cloudflare nu a putut fi purjat.");
+        return;
+      }
+
+      const cloudflareMessage =
+        result.cloudflare_cache === "purged"
+          ? " Cache-ul Cloudflare a fost purjat."
+          : " Cloudflare nu este încă configurat pentru purjare automată.";
+
+      window.alert(`Cache-ul aplicației a fost curățat.${cloudflareMessage}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "A apărut o eroare necunoscută.";
+      window.alert(`Cache-ul nu a putut fi curățat: ${message}`);
+    } finally {
+      setIsClearingCache(false);
+    }
+  };
 
   return (
     <div className="app-shell">
@@ -48,6 +82,20 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <Button variant="ghost" size="icon">
                 <BellIcon className="h-4 w-4" />
               </Button>
+              {canClearCache && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:inline-flex"
+                  disabled={isClearingCache}
+                  onClick={() => void handleClearCache()}
+                >
+                  <RefreshCwIcon
+                    className={`mr-2 h-4 w-4 ${isClearingCache ? "animate-spin" : ""}`}
+                  />
+                  {isClearingCache ? "Se curăță..." : "Curăță cache"}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"

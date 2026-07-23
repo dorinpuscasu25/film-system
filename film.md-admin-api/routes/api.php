@@ -163,6 +163,7 @@ use Illuminate\Support\Facades\Route;
             Route::get('exports/{exportJob}/download', [ExportController::class, 'download'])->middleware('permission:commerce.view_billing');
             Route::get('home-curation', [HomeCurationController::class, 'index'])->middleware('permission:settings.edit_home_curation');
             Route::put('home-curation', [HomeCurationController::class, 'update'])->middleware('permission:settings.edit_home_curation');
+            Route::delete('cache', [StorefrontCacheController::class, 'destroy'])->middleware('permission:settings.edit_home_curation');
             Route::delete('storefront-cache', [StorefrontCacheController::class, 'destroy'])->middleware('permission:settings.edit_home_curation');
             Route::get('playback/sessions', [PlaybackOpsController::class, 'index'])->middleware('permission:playback.view_sessions');
             Route::post('playback/sessions/{playbackSession}/revoke', [PlaybackOpsController::class, 'revoke'])->middleware('permission:playback.revoke_tokens');

@@ -35,7 +35,11 @@ final class MediaUploadService
         $filename = $this->generateFilename($file);
         $path = rtrim($directory, '/') . '/' . $filename;
 
-        Storage::disk(self::DISK)->put($path, $file->getContent(), 'public');
+        Storage::disk(self::DISK)->put($path, $file->getContent(), [
+            'visibility' => 'public',
+            'ContentType' => $file->getMimeType() ?? 'application/octet-stream',
+            'CacheControl' => 'public, max-age=31536000, immutable',
+        ]);
 
         return $this->publicUrl($path);
     }
@@ -95,6 +99,7 @@ final class MediaUploadService
         Storage::disk(self::DISK)->put($path, $binary, [
             'visibility' => 'public',
             'ContentType' => $mime,
+            'CacheControl' => 'public, max-age=31536000, immutable',
         ]);
 
         return $this->publicUrl($path);
