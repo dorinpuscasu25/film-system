@@ -453,6 +453,12 @@ export interface ExportJobItem {
   filters: Record<string, unknown>;
   requested_by: string | null;
   created_at: string | null;
+  meta?: {
+    file_name?: string | null;
+    mime_type?: string | null;
+    error_message?: string | null;
+    row_count?: number;
+  };
 }
 
 export interface ExportJobsResponse {

@@ -4,17 +4,21 @@ import {
   ArrowUpRightIcon,
   BarChart3Icon,
   CheckIcon,
+  CircleAlertIcon,
+  CircleCheckIcon,
   ClipboardIcon,
   CreditCardIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
   FilterIcon,
   LandmarkIcon,
+  LoaderCircleIcon,
   ReceiptTextIcon,
   RotateCcwIcon,
   SearchIcon,
   Settings2Icon,
   WalletCardsIcon,
+  XIcon,
 } from "lucide-react";
 import { Modal } from "../components/shared/Modal";
 import { SalesTimeline } from "../components/shared/SalesTimeline";
@@ -40,6 +44,12 @@ import {
 
 type BillingTab = "overview" | "accounting" | "wallet" | "payments" | "costs" | "exports";
 type RangeValue = "7days" | "30days" | "3months";
+type ExportProgress = {
+  key: string;
+  status: "preparing" | "downloading" | "completed" | "error";
+  title: string;
+  detail: string;
+};
 
 const SELECT_CLASS =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
@@ -128,6 +138,7 @@ export function Billing() {
   const [isSavingCosts, setIsSavingCosts] = React.useState(false);
   const [exportingKey, setExportingKey] = React.useState<string | null>(null);
   const [downloadingExportId, setDownloadingExportId] = React.useState<number | null>(null);
+  const [exportProgress, setExportProgress] = React.useState<ExportProgress | null>(null);
   const [selectedTopUp, setSelectedTopUp] = React.useState<PaymentTopUpItem | null>(null);
   const [copiedCheckoutId, setCopiedCheckoutId] = React.useState<string | null>(null);
   const [refundForm, setRefundForm] = React.useState({ amount: "", reason: "" });
@@ -163,9 +174,9 @@ export function Billing() {
       setExportsData(exportResponse);
       setPaymentTopUps(paymentResponse);
     } catch {
-      setCosts(null);
-      setExportsData(null);
-      setPaymentTopUps(null);
+      setCosts(EMPTY_COSTS);
+      setExportsData(EMPTY_EXPORTS);
+      setPaymentTopUps(EMPTY_TOP_UPS);
     } finally {
       setIsOperationalLoading(false);
     }
@@ -270,19 +281,89 @@ export function Billing() {
     filters: Record<string, unknown> = {},
   ) => {
     const key = `${format}:${scope}:${JSON.stringify(filters)}`;
+    const reportName =
+      scope === "accounting"
+        ? "exportul contabil"
+        : scope === "creator-statements"
+          ? "raportul producătorilor"
+          : "exportul operațional";
+
     setExportingKey(key);
+    setExportProgress({
+      key,
+      status: "preparing",
+      title: "Se pregătește fișierul",
+      detail: `Generăm ${reportName}. Poți continua să lucrezi în pagină.`,
+    });
+
     try {
-      await adminApi.createExportJob({ format, scope, filters });
-      setExportsData(await adminApi.getExports());
+      const response = await adminApi.createExportJob({ format, scope, filters });
+      const job = response.job;
+
+      if (job.status !== "completed" || !job.file_path) {
+        throw new Error(job.error_message ?? job.meta?.error_message ?? "Exportul nu a putut fi finalizat.");
+      }
+
+      setExportProgress({
+        key,
+        status: "downloading",
+        title: "Fișierul este gata",
+        detail: "Descărcarea pornește automat.",
+      });
+      await adminApi.downloadExportJob(job.id, job.file_name ?? job.meta?.file_name);
+      setExportProgress({
+        key,
+        status: "completed",
+        title: "Export descărcat",
+        detail: "Fișierul a fost salvat și rămâne disponibil în tabul Exporturi.",
+      });
+      window.setTimeout(() => {
+        setExportProgress((current) => (current?.key === key ? null : current));
+      }, 5000);
+    } catch (error) {
+      setExportProgress({
+        key,
+        status: "error",
+        title: "Exportul nu a reușit",
+        detail: error instanceof Error ? error.message : "Încearcă din nou.",
+      });
     } finally {
+      try {
+        setExportsData(await adminApi.getExports());
+      } catch {
+        // Descărcarea rămâne validă chiar dacă istoricul nu se poate reîncărca imediat.
+      }
       setExportingKey(null);
     }
   };
 
   const downloadExport = async (jobId: number, fileName?: string | null) => {
+    const key = `download:${jobId}`;
     setDownloadingExportId(jobId);
+    setExportProgress({
+      key,
+      status: "downloading",
+      title: "Se descarcă fișierul",
+      detail: fileName ?? "Export pregătit anterior",
+    });
     try {
       await adminApi.downloadExportJob(jobId, fileName);
+      setExportProgress({
+        key,
+        status: "completed",
+        title: "Fișier descărcat",
+        detail: fileName ?? "Exportul a fost descărcat.",
+      });
+      window.setTimeout(() => {
+        setExportProgress((current) => (current?.key === key ? null : current));
+      }, 5000);
+    } catch (error) {
+      setExportProgress({
+        key,
+        status: "error",
+        title: "Descărcarea nu a reușit",
+        detail: error instanceof Error ? error.message : "Încearcă din nou.",
+      });
     } finally {
       setDownloadingExportId(null);
     }
@@ -448,6 +529,11 @@ export function Billing() {
         />
       ) : null}
 
+      <ExportProgressNotice
+        progress={exportProgress}
+        onDismiss={() => setExportProgress(null)}
+      />
+
       <Modal
         isOpen={selectedTopUp !== null}
         onClose={closeRefund}
@@ -529,6 +615,63 @@ export function Billing() {
           </div>
         ) : null}
       </Modal>
+    </div>
+  );
+}
+
+function ExportProgressNotice({
+  progress,
+  onDismiss,
+}: {
+  progress: ExportProgress | null;
+  onDismiss: () => void;
+}) {
+  if (!progress) {
+    return null;
+  }
+
+  const isBusy = progress.status === "preparing" || progress.status === "downloading";
+  const isCompleted = progress.status === "completed";
+  const toneClass = isCompleted
+    ? "border-emerald-500/40 bg-emerald-50 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-50"
+    : progress.status === "error"
+      ? "border-rose-500/40 bg-rose-50 text-rose-950 dark:bg-rose-950 dark:text-rose-50"
+      : "border-sky-500/40 bg-background text-foreground";
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`fixed bottom-5 right-5 z-[100] w-[min(380px,calc(100vw-2.5rem))] overflow-hidden rounded-xl border p-4 shadow-2xl ${toneClass}`}
+    >
+      <div className="flex items-start gap-3">
+        {isBusy ? (
+          <LoaderCircleIcon className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-sky-600" />
+        ) : isCompleted ? (
+          <CircleCheckIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+        ) : (
+          <CircleAlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{progress.title}</p>
+          <p className="mt-1 text-sm opacity-75">{progress.detail}</p>
+        </div>
+        {!isBusy ? (
+          <button
+            type="button"
+            aria-label="Închide notificarea"
+            className="rounded-md p-1 opacity-60 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+            onClick={onDismiss}
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+      {isBusy ? (
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sky-500/15">
+          <div className="h-full w-2/3 animate-pulse rounded-full bg-sky-500" />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -636,10 +779,26 @@ function AccountingSection({
             Filtre contabilitate
           </CardTitle>
           <CardDescription>
-            Intrare = top-up bancar contabilizat. Ieșire = refund bancar reușit.
+            Registrul pentru contabilitate: bani reali intrați prin top-up plătit și bani reali ieșiți prin refund reușit.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-sm md:grid-cols-2">
+            <div>
+              <p className="font-semibold text-foreground">Cum stabilim Moldova sau extern?</p>
+              <p className="mt-1 text-muted-foreground">
+                Folosim codul țării din adresa de facturare salvată la momentul plății: MD = Moldova,
+                orice alt cod = extern. Dacă țara lipsește, operațiunea apare ca „Necunoscut”.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">De ce este separat de plăți?</p>
+              <p className="mt-1 text-muted-foreground">
+                Aici vezi numai fluxul financiar contabilizat. Checkout-urile în așteptare, eșuate sau în procesare
+                se verifică în tabul Plăți și refunduri.
+              </p>
+            </div>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <FilterField label="De la">
               <Input
@@ -816,7 +975,7 @@ function AccountingSection({
                 disabled={Boolean(exportingKey)}
               >
                 <DownloadIcon className="h-4 w-4" />
-                Excel — filtre curente
+                Descarcă Excel — filtre curente
               </Button>
               <Button
                 variant="outline"
@@ -824,7 +983,7 @@ function AccountingSection({
                 disabled={Boolean(exportingKey)}
               >
                 <FileSpreadsheetIcon className="h-4 w-4" />
-                Excel — tot istoricul
+                Descarcă Excel — tot istoricul
               </Button>
             </div>
           ) : null}
@@ -1096,7 +1255,10 @@ function PaymentsSection({
       <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <CardTitle>Plăți și refunduri Pay.Filmoteca</CardTitle>
-          <CardDescription>Operațiuni tehnice per checkout, cu datele de facturare salvate la plată.</CardDescription>
+          <CardDescription>
+            Monitor tehnic per checkout: include plăți în așteptare, în procesare, eșuate și plătite și permite
+            inițierea refundului. Totalurile contabile finale sunt în tabul Contabilitate.
+          </CardDescription>
         </div>
         <div className="relative w-full max-w-md">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1393,7 +1555,8 @@ function ExportsSection({
         <CardHeader>
           <CardTitle>Generează raport</CardTitle>
           <CardDescription>
-            Exportul contabil conține țara, regiunea, localitatea, codul poștal și adresa de facturare.
+            Fișierul se descarcă automat după generare și rămâne în istoricul de mai jos. Exportul contabil
+            conține țara, regiunea, localitatea, codul poștal și adresa de facturare.
           </CardDescription>
         </CardHeader>
         <CardContent>

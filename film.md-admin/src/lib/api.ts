@@ -25,6 +25,7 @@ import {
   CostSettingsPayload,
   CostSettingsResponse,
   DashboardResponse,
+  ExportJobItem,
   ExportJobPayload,
   ExportJobsResponse,
   HomeCurationResponse,
@@ -286,7 +287,7 @@ export const adminApi = {
   },
 
   createExportJob(payload: ExportJobPayload) {
-    return request<{ job: unknown }>("POST", "/admin/exports", {
+    return request<{ job: ExportJobItem }>("POST", "/admin/exports", {
       data: payload,
     });
   },
