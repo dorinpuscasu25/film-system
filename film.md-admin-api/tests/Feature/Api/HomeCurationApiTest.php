@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Content;
 use App\Models\HomePageSection;
 use App\Models\PersonalAccessToken;
 use App\Models\Taxonomy;
 use App\Models\User;
+use App\Services\StorefrontCacheService;
 use Database\Seeders\AccessControlSeeder;
 use Database\Seeders\ContentSeeder;
 use Database\Seeders\HomePageSectionSeeder;
@@ -45,12 +47,25 @@ class HomeCurationApiTest extends TestCase
             ->assertJsonPath('sections.0.section_type', HomePageSection::TYPE_HERO_SLIDER)
             ->assertJsonPath('sections.0.hero_slides.0.content.slug', 'carbon')
             ->assertJsonPath('options.section_types.0.value', HomePageSection::TYPE_HERO_SLIDER)
-            ->assertJsonPath('options.contents.0.status', 'published');
+            ->assertJsonPath('options.contents.0.status', 'published')
+            ->assertJsonPath('options.contents.0.is_publicly_visible', false)
+            ->assertJsonPath('options.contents.0.visibility_reason', 'Titlul nu are niciun format video activ.');
     }
 
     public function test_admin_can_update_home_curation_with_manual_and_dynamic_sections(): void
     {
         $comedy = Taxonomy::query()->where('slug', 'comedy')->firstOrFail();
+        $cacheVersionBeforeUpdate = app(StorefrontCacheService::class)->version();
+        $publicComedy = Content::query()->where('slug', 'afacerea-est')->firstOrFail();
+        $publicComedy->formats()->create([
+            'quality' => 'HD',
+            'format_type' => 'main',
+            'bunny_library_id' => '123',
+            'bunny_video_id' => 'afacerea-est-hd',
+            'stream_url' => 'https://storage.filmoteca.md/playback/afacerea-est-hd.mp4',
+            'is_active' => true,
+            'is_default' => true,
+        ]);
 
         $response = $this->putJson('/api/v1/admin/home-curation', [
             'sections' => [
@@ -109,5 +124,24 @@ class HomeCurationApiTest extends TestCase
             'name' => 'Comedy row',
             'section_type' => HomePageSection::TYPE_CONTENT_CAROUSEL,
         ]);
+        $this->assertGreaterThan(
+            $cacheVersionBeforeUpdate,
+            app(StorefrontCacheService::class)->version(),
+        );
+
+        $savedCarousel = HomePageSection::query()->where('name', 'Comedy row')->firstOrFail();
+        $this->assertSame(
+            'Comedy',
+            $savedCarousel->getTranslation('title', 'en', false),
+            json_encode([
+                'raw' => $savedCarousel->getRawOriginal('title'),
+                'translations' => $savedCarousel->getTranslations('title'),
+            ]) ?: 'Unable to inspect saved title.',
+        );
+
+        $this->getJson('/api/v1/public/home?locale=en')
+            ->assertOk()
+            ->assertJsonPath('sections.0.title', 'Comedy')
+            ->assertJsonPath('sections.0.source_mode', HomePageSection::SOURCE_DYNAMIC);
     }
 }

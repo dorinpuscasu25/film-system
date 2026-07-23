@@ -329,7 +329,11 @@ function compactStrings(value: string[] | Record<string, string> | null | undefi
     .map((item) => item.trim());
 }
 
-async function fetchJson<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
+async function fetchJson<T>(
+  path: string,
+  query?: Record<string, string | number | undefined>,
+  init: RequestInit = {},
+): Promise<T> {
   const params = new URLSearchParams();
 
   Object.entries(query ?? {}).forEach(([key, value]) => {
@@ -339,10 +343,12 @@ async function fetchJson<T>(path: string, query?: Record<string, string | number
   });
 
   const url = `${API_URL}${path}${params.toString() ? `?${params.toString()}` : ""}`;
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+
   const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-    },
+    ...init,
+    headers,
   });
 
   if (!response.ok) {
@@ -544,7 +550,21 @@ function mapDetailToMovie(item: PublicContentDetail): Movie {
 }
 
 export async function getHomeSections(locale: LocaleCode): Promise<HomeSections> {
-  const response = await fetchJson<HomeResponse>("/public/home", { locale });
+  let cacheVersion: number | undefined;
+
+  try {
+    const versionResponse = await fetchJson<{ version: number }>("/public/home-version", undefined, {
+      cache: "no-cache",
+    });
+    cacheVersion = Number.isFinite(versionResponse.version) ? versionResponse.version : undefined;
+  } catch {
+    cacheVersion = undefined;
+  }
+
+  const response = await fetchJson<HomeResponse>("/public/home", {
+    locale,
+    v: cacheVersion,
+  });
 
   return {
     hero: response.hero ? mapCardToMovie(response.hero) : null,

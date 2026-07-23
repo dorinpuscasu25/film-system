@@ -39,6 +39,19 @@ class PublicCatalogApiTest extends TestCase
             ->assertJsonPath('featured.0.hero_desktop_url', 'https://picsum.photos/seed/carbon-hero-desktop/1600/760');
     }
 
+    public function test_public_home_exposes_a_revalidated_cache_version(): void
+    {
+        $response = $this->getJson('/api/v1/public/home-version');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('version', app(\App\Services\StorefrontCacheService::class)->version());
+        $this->assertStringContainsString(
+            'no-cache',
+            (string) $response->headers->get('Cache-Control'),
+        );
+    }
+
     public function test_public_home_handles_empty_translatable_arrays(): void
     {
         DB::table('contents')

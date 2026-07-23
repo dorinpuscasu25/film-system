@@ -73,6 +73,7 @@ Route::prefix('v1')->group(function (): void {
     });
 
     Route::prefix('public')->group(function (): void {
+        Route::get('home-version', [PublicCatalogController::class, 'homeVersion']);
         Route::get('home', [PublicCatalogController::class, 'home']);
         Route::get('catalog', [PublicCatalogController::class, 'catalog']);
         Route::get('content/{slug}/share-preview', [PublicCatalogController::class, 'sharePreview']);

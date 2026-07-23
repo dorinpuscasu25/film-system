@@ -622,6 +622,8 @@ export interface HomeCurationContentOption {
   currency: string;
   is_featured: boolean;
   is_trending: boolean;
+  is_publicly_visible: boolean;
+  visibility_reason: string | null;
   genres: string[];
   collections: string[];
   tags: string[];

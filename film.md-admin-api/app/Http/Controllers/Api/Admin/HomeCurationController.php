@@ -9,6 +9,7 @@ use App\Models\HomePageSection;
 use App\Models\Taxonomy;
 use App\Services\HomePageService;
 use App\Services\MediaUploadService;
+use App\Services\PlaybackAccessService;
 use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
@@ -18,6 +19,7 @@ class HomeCurationController extends ApiController
     public function __construct(
         protected HomePageService $homePageService,
         protected MediaUploadService $mediaUpload,
+        protected PlaybackAccessService $playbackAccess,
         protected StorefrontCacheService $storefrontCache,
     ) {}
 
@@ -79,7 +81,7 @@ class HomeCurationController extends ApiController
     protected function contentOptionCollection(string $locale): Collection
     {
         return Content::query()
-            ->with('taxonomies', 'offers')
+            ->with('taxonomies', 'offers', 'formats', 'rightsWindows')
             ->orderByDesc('is_featured')
             ->orderBy('sort_order')
             ->orderByDesc('published_at')
@@ -87,6 +89,10 @@ class HomeCurationController extends ApiController
             ->get()
             ->map(function (Content $content) use ($locale): array {
                 $card = $this->publicContentCardData($content, $locale);
+                $isCurrentlyPublished = $this->playbackAccess->isContentCurrentlyAvailable($content);
+                $hasActiveFormat = $content->formats->contains(
+                    fn ($format): bool => (bool) $format->is_active,
+                );
 
                 return [
                     'id' => $content->id,
@@ -104,6 +110,12 @@ class HomeCurationController extends ApiController
                     'currency' => $card['currency'],
                     'is_featured' => (bool) $content->is_featured,
                     'is_trending' => (bool) $content->is_trending,
+                    'is_publicly_visible' => $isCurrentlyPublished && $hasActiveFormat,
+                    'visibility_reason' => match (true) {
+                        ! $isCurrentlyPublished => 'Titlul nu este publicat sau are publicarea programată.',
+                        ! $hasActiveFormat => 'Titlul nu are niciun format video activ.',
+                        default => null,
+                    },
                     'genres' => collect($card['genres'] ?? [])->values()->all(),
                     'collections' => collect($card['collections'] ?? [])->values()->all(),
                     'tags' => collect($card['tags'] ?? [])->values()->all(),

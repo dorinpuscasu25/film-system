@@ -25,6 +25,13 @@ class PublicCatalogController extends ApiController
         protected StorefrontCacheService $storefrontCache,
     ) {}
 
+    public function homeVersion(): JsonResponse
+    {
+        return response()->json([
+            'version' => $this->storefrontCache->version(),
+        ])->header('Cache-Control', 'private, no-cache, must-revalidate');
+    }
+
     public function home(Request $request): JsonResponse
     {
         $locale = $this->resolveLocale($request);

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangleIcon,
   ArrowDownIcon,
   ArrowUpIcon,
   PlusIcon,
@@ -54,6 +55,8 @@ function normalizeLocalizedText(value?: Partial<LocalizedText> | null): Localize
 function normalizeContentOption(value: HomeCurationContentOption): HomeCurationContentOption {
   return {
     ...value,
+    is_publicly_visible: value.is_publicly_visible ?? value.status === "published",
+    visibility_reason: value.visibility_reason ?? null,
     genres: value.genres ?? [],
     collections: value.collections ?? [],
     tags: value.tags ?? [],
@@ -222,7 +225,7 @@ function resolveSectionPreview(
     return [];
   }
 
-  const contents = options.contents ?? [];
+  const contents = (options.contents ?? []).filter((content) => content.is_publicly_visible);
 
   if (section.section_type !== "content_carousel") {
     return [];
@@ -1163,6 +1166,15 @@ export function HomeCuration() {
                         </div>
 
                         <div className="space-y-3">
+                          {selectedSection.selected_content.some((content) => !content.is_publicly_visible) ? (
+                            <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700">
+                              <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                              <span>
+                                Unele titluri rămân salvate în carusel, dar nu apar public deoarece nu sunt publicate sau nu au un format video activ.
+                              </span>
+                            </div>
+                          ) : null}
+
                           {selectedSection.selected_content.length === 0 ? (
                             <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
                               Ordinea manuală este goală. Adaugă titluri în această secțiune.
@@ -1188,10 +1200,18 @@ export function HomeCuration() {
                                     <span className="rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
                                       {content.status}
                                     </span>
+                                    {!content.is_publicly_visible ? (
+                                      <span className="rounded-full border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[11px] uppercase tracking-wide text-amber-700">
+                                        Nu apare public
+                                      </span>
+                                    ) : null}
                                   </div>
                                   <p className="text-sm text-muted-foreground">
                                     {content.release_year ?? "TBD"} • {content.genres.join(", ") || "Fără genuri"} • {content.lowest_price === 0 ? "Gratuit" : `$${content.lowest_price}`}
                                   </p>
+                                  {!content.is_publicly_visible && content.visibility_reason ? (
+                                    <p className="text-xs text-amber-700">{content.visibility_reason}</p>
+                                  ) : null}
                                 </div>
                               </div>
 
@@ -1400,7 +1420,7 @@ export function HomeCuration() {
                   <CardHeader>
                     <CardTitle className="text-xl">Previzualizare live</CardTitle>
                     <CardDescription>
-                      Preview rapid din admin pentru titlurile care vor intra în shelf după regulile curente.
+                      Preview pentru titlurile publicate care vor intra în shelf. Disponibilitatea pe țară poate elimina suplimentar unele titluri.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
