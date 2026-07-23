@@ -33,7 +33,7 @@ final class MediaUploadService
         $this->validateFile($file);
 
         $filename = $this->generateFilename($file);
-        $path = rtrim($directory, '/') . '/' . $filename;
+        $path = rtrim($directory, '/').'/'.$filename;
 
         Storage::disk(self::DISK)->put($path, $file->getContent(), [
             'visibility' => 'public',
@@ -124,13 +124,7 @@ final class MediaUploadService
      */
     public function isCdnUrl(string $url): bool
     {
-        $cdnBase = rtrim((string) config('filesystems.disks.s3.url'), '/');
-
-        if ($cdnBase === '') {
-            return false;
-        }
-
-        return str_starts_with($url, $cdnBase);
+        return $this->pathFromUrl($url) !== null;
     }
 
     private function validateFile(UploadedFile $file): void
@@ -158,7 +152,7 @@ final class MediaUploadService
     {
         $extension = $file->getClientOriginalExtension() ?: ($file->guessExtension() ?? 'bin');
 
-        return Str::ulid()->toBase32() . '.' . strtolower($extension);
+        return Str::ulid()->toBase32().'.'.strtolower($extension);
     }
 
     public function publicUrl(string $path): string
@@ -174,12 +168,27 @@ final class MediaUploadService
 
     public function pathFromUrl(string $url): ?string
     {
-        $cdnBase = rtrim((string) config('filesystems.disks.s3.url'), '/');
+        $cdnBases = [
+            config('filesystems.disks.s3.url'),
+            config('filesystems.disks.s3.legacy_url'),
+        ];
 
-        if ($cdnBase === '' || ! str_starts_with($url, $cdnBase)) {
-            return null;
+        foreach ($cdnBases as $cdnBase) {
+            $cdnBase = rtrim((string) $cdnBase, '/');
+
+            if ($cdnBase === '') {
+                continue;
+            }
+
+            if ($url === $cdnBase) {
+                return '';
+            }
+
+            if (str_starts_with($url, $cdnBase.'/')) {
+                return ltrim(substr($url, strlen($cdnBase)), '/');
+            }
         }
 
-        return ltrim(substr($url, strlen($cdnBase)), '/');
+        return null;
     }
 }

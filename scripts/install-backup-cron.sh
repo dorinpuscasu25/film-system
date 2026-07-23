@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 BACKUP_CRON_SCHEDULE="${BACKUP_CRON_SCHEDULE:-0 3 * * *}"
 BACKUP_ROOT="${BACKUP_ROOT:-${HOME}/film-md-backups}"
-BACKUP_RCLONE_DEST="${BACKUP_RCLONE_DEST:-gdrive:film-md-backups}"
+BACKUP_RCLONE_DEST="${BACKUP_RCLONE_DEST:-dorin-gdrive:film-md-backups}"
 BACKUP_SYNC_MODE="${BACKUP_SYNC_MODE:-copy}"
 BACKUP_LOG="${BACKUP_LOG:-${HOME}/film-md-backup.log}"
 CRON_BEGIN="# BEGIN film-md nightly backup"
@@ -25,7 +25,7 @@ Environment variables:
   BACKUP_ROOT="$HOME/film-md-backups"
       Local backup folder.
 
-  BACKUP_RCLONE_DEST="gdrive:film-md-backups"
+  BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups"
       Google Drive rclone destination.
 
   BACKUP_SYNC_MODE="copy"

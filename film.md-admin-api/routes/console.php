@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\AdEvent;
 use App\Services\AdEventTrackingService;
 use App\Services\AnalyticsBufferService;
 use App\Services\BunnyStatsService;
 use App\Services\ContentSearchService;
 use App\Services\FormatCleanupService;
+use App\Services\MediaUrlMigrationService;
 use App\Services\PayFilmotecaPaymentService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
@@ -78,6 +80,51 @@ Artisan::command('content:cleanup-unused-formats {--days=30} {--delete-remote}',
     return self::SUCCESS;
 })->purpose('Deactivate content formats with zero views in the lookback window');
 
+Artisan::command(
+    'media:migrate-cdn-urls {--from= : Legacy public CDN base URL} {--to= : New public CDN base URL} {--apply : Persist the replacements}',
+    function (MediaUrlMigrationService $migration) {
+        $from = (string) ($this->option('from') ?: config('filesystems.disks.s3.legacy_url'));
+        $to = (string) ($this->option('to') ?: config('filesystems.disks.s3.url'));
+        $apply = (bool) $this->option('apply');
+
+        if ($from === '' || $to === '') {
+            $this->error('Set AWS_LEGACY_URL and AWS_URL, or provide both --from and --to.');
+
+            return self::FAILURE;
+        }
+
+        try {
+            $result = $migration->migrate($from, $to, $apply);
+        } catch (InvalidArgumentException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+
+        $rows = collect($result['by_table'])
+            ->map(fn (array $stats, string $table): array => [
+                $table,
+                $stats['records'],
+                $stats['urls'],
+            ])
+            ->values()
+            ->all();
+
+        if ($rows !== []) {
+            $this->table(['Table', 'Records', 'URLs'], $rows);
+        }
+
+        $mode = $apply ? 'Applied' : 'Dry-run';
+        $this->info("{$mode}: {$result['urls']} URL(s) in {$result['records']} record(s).");
+
+        if (! $apply && $result['urls'] > 0) {
+            $this->warn('No data was changed. Run the same command with --apply after reviewing the totals.');
+        }
+
+        return self::SUCCESS;
+    },
+)->purpose('Safely migrate stored media URLs from a legacy R2 origin to the production CDN');
+
 Artisan::command('analytics:flush-ad-aggregates', function (AdEventTrackingService $tracking) {
     $count = $tracking->flushAggregatesToDatabase();
     $this->info("Flushed {$count} ad aggregate keys from Redis to ad_event_aggregates.");
@@ -87,7 +134,7 @@ Artisan::command('analytics:flush-ad-aggregates', function (AdEventTrackingServi
 
 Artisan::command('ad-events:prune {--days=7}', function () {
     $days = (int) $this->option('days');
-    $deleted = \App\Models\AdEvent::query()
+    $deleted = AdEvent::query()
         ->where('occurred_at', '<', now()->subDays($days))
         ->delete();
     $this->info("Pruned {$deleted} ad_events older than {$days} days.");

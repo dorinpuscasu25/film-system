@@ -1,3 +1,5 @@
 /backups/
 *.log
 .DS_Store
+/film.md-ios/build/
+/film.md-ios/DerivedData/

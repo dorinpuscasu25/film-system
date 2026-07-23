@@ -32,7 +32,7 @@ Environment variables:
   BACKUP_ROOT=/path/to/backups
       Local folder where timestamped backups are saved. Default: ./backups
 
-  BACKUP_RCLONE_DEST=gdrive:film-md-backups
+  BACKUP_RCLONE_DEST=dorin-gdrive:film-md-backups
       Optional Google Drive destination configured in rclone. If empty, sync is skipped.
 
   BACKUP_SYNC_MODE=copy|sync
@@ -45,8 +45,8 @@ Environment variables:
       Optional rclone source to download into the backup, useful for S3/Bunny-compatible storage.
 
 Examples:
-  BACKUP_RCLONE_DEST="gdrive:film-md-backups" scripts/backup.sh
-  BACKUP_ROOT="$HOME/film-md-backups" BACKUP_SYNC_MODE=sync BACKUP_RCLONE_DEST="gdrive:film-md-backups" scripts/backup.sh
+  BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups" scripts/backup.sh
+  BACKUP_ROOT="$HOME/film-md-backups" BACKUP_SYNC_MODE=sync BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups" scripts/backup.sh
 EOF
 }
 

@@ -1,5 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "https://filmmd-api.veezify.com/api/v1";
-const IMAGE_CDN_HOSTS = String(import.meta.env.VITE_IMAGE_CDN_HOSTS ?? ".r2.dev")
+const IMAGE_CDN_HOSTS = String(import.meta.env.VITE_IMAGE_CDN_HOSTS ?? ".r2.dev,cdn.filmoteca.md")
   .split(",")
   .map((host) => host.trim().toLowerCase())
   .filter(Boolean);

@@ -27,18 +27,18 @@ brew install rclone
 rclone config
 ```
 
-În `rclone config`, creează un remote pentru Google Drive, de exemplu `gdrive`.
+În `rclone config`, creează un remote pentru Google Drive. În cazul tău, remote-ul se numește `dorin-gdrive`.
 
 Rulează backup + upload:
 
 ```sh
-BACKUP_RCLONE_DEST="gdrive:film-md-backups" scripts/backup.sh
+BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups" scripts/backup.sh
 ```
 
 Implicit, scriptul folosește `rclone copy`, adică adaugă backup-uri noi în Google Drive fără să șteargă fișiere vechi de acolo. Dacă vrei ca Google Drive să fie oglinda exactă a folderului local `backups`, folosește:
 
 ```sh
-BACKUP_SYNC_MODE=sync BACKUP_RCLONE_DEST="gdrive:film-md-backups" scripts/backup.sh
+BACKUP_SYNC_MODE=sync BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups" scripts/backup.sh
 ```
 
 ## Recomandare pentru server
@@ -47,7 +47,7 @@ Pe server, ține backup-urile într-un folder în afara repo-ului:
 
 ```sh
 BACKUP_ROOT="$HOME/film-md-backups" \
-BACKUP_RCLONE_DEST="gdrive:film-md-backups" \
+BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups" \
 scripts/backup.sh
 ```
 
@@ -60,13 +60,13 @@ chmod +x scripts/install-backup-cron.sh
 scripts/install-backup-cron.sh
 ```
 
-Implicit, cron-ul rulează în fiecare noapte la 03:00, salvează backup-urile locale în `$HOME/film-md-backups` și le copiază în `gdrive:film-md-backups`.
+Implicit, cron-ul rulează în fiecare noapte la 03:00, salvează backup-urile locale în `$HOME/film-md-backups` și le copiază în `dorin-gdrive:film-md-backups`.
 
 Dacă vrei altă oră sau alt remote Google Drive:
 
 ```sh
 BACKUP_CRON_SCHEDULE="30 2 * * *" \
-BACKUP_RCLONE_DEST="gdrive:film-md-production-backups" \
+BACKUP_RCLONE_DEST="dorin-gdrive:film-md-production-backups" \
 scripts/install-backup-cron.sh
 ```
 
@@ -85,7 +85,7 @@ tail -f "$HOME/film-md-backup.log"
 Exemplu manual pentru rulare zilnică la 03:00, dacă vrei să editezi crontab-ul singur:
 
 ```cron
-0 3 * * * cd /path/to/film.md-project && BACKUP_ROOT="$HOME/film-md-backups" BACKUP_RCLONE_DEST="gdrive:film-md-backups" scripts/backup.sh >> "$HOME/film-md-backup.log" 2>&1
+0 3 * * * cd /path/to/film.md-project && BACKUP_ROOT="$HOME/film-md-backups" BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups" scripts/backup.sh >> "$HOME/film-md-backup.log" 2>&1
 ```
 
 ## Storage extern
@@ -94,7 +94,7 @@ Dacă fișierele reale sunt într-un storage extern și ai remote rclone configu
 
 ```sh
 BACKUP_EXTRA_RCLONE_SOURCE="s3film:bucket-name" \
-BACKUP_RCLONE_DEST="gdrive:film-md-backups" \
+BACKUP_RCLONE_DEST="dorin-gdrive:film-md-backups" \
 scripts/backup.sh
 ```
 
