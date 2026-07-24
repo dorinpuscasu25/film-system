@@ -78,7 +78,6 @@ function MaintenanceGate({ onUnlock }: { onUnlock: () => void }) {
               Îți mulțumim pentru interesul față de cinematografia națională.
             </p>
             <div className="mt-8 max-w-2xl space-y-5 text-base leading-7 text-white/74 md:text-lg md:leading-8">
-              <p>Îți mulțumim pentru interesul față de cinematografia națională.</p>
               <p>
                 FILMOTECA.md se pregătește de lansare — prima platformă digitală dedicată filmului moldovenesc și
                 conținutului audiovizual local și internațional, cu acces individual și legal.
