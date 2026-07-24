@@ -2,25 +2,27 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Services\AccountProfileService;
 use App\Models\Content;
 use App\Models\ContentEntitlement;
-use App\Models\PlaybackSession;
+use App\Models\ContentFormat;
 use App\Models\Offer;
 use App\Models\PaymentTopUp;
+use App\Models\PlaybackSession;
 use App\Models\User;
-use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Models\WatchProgress;
+use App\Services\AccountProfileService;
 use App\Services\BunnyTokenService;
 use App\Services\IpGeoLocationService;
 use App\Services\ParentalControlService;
-use App\Services\PlaybackAccessService;
 use App\Services\PayFilmotecaPaymentService;
+use App\Services\PlaybackAccessService;
 use App\Services\StorefrontPurchaseService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class StorefrontController extends ApiController
@@ -34,8 +36,7 @@ class StorefrontController extends ApiController
         protected IpGeoLocationService $geoLocation,
         protected PayFilmotecaPaymentService $payments,
         protected ParentalControlService $parentalControls,
-    ) {
-    }
+    ) {}
 
     public function account(Request $request): JsonResponse
     {
@@ -190,7 +191,7 @@ class StorefrontController extends ApiController
         $resolvedEpisodeId = is_string($episodeId) ? $episodeId : null;
 
         if ($resolvedEpisodeId === null && $content->type === Content::TYPE_SERIES && $user !== null) {
-            $resolvedEpisodeId = \App\Models\WatchProgress::query()
+            $resolvedEpisodeId = WatchProgress::query()
                 ->where('user_id', $user->id)
                 ->where('account_profile_id', $profile?->id)
                 ->where('content_id', $content->id)
@@ -224,7 +225,7 @@ class StorefrontController extends ApiController
             'country_code' => $countryCode,
             'status' => PlaybackSession::STATUS_STARTED,
             'started_at' => now(),
-            'session_token' => \Illuminate\Support\Str::random(40),
+            'session_token' => Str::random(40),
             'meta' => [
                 'locale' => $locale,
                 'episode_id' => $resolvedEpisodeId,
@@ -232,7 +233,7 @@ class StorefrontController extends ApiController
         ]);
 
         if ($user !== null && $resolvedEpisodeId !== null) {
-            $progress = \App\Models\WatchProgress::query()->firstOrNew([
+            $progress = WatchProgress::query()->firstOrNew([
                 'user_id' => $user->id,
                 'account_profile_id' => $profile?->id,
                 'content_id' => $content->id,
@@ -299,7 +300,7 @@ class StorefrontController extends ApiController
         return $entitlements
             ->groupBy('content_id')
             ->map(function (Collection $group) use ($locale): array {
-                /** @var \App\Models\ContentEntitlement $entitlement */
+                /** @var ContentEntitlement $entitlement */
                 $entitlement = $group
                     ->sort(function (ContentEntitlement $left, ContentEntitlement $right): int {
                         $leftActiveScore = $left->isActive() ? 0 : 1;
@@ -412,6 +413,20 @@ class StorefrontController extends ApiController
         }
 
         if ($resolvedFormat === null) {
+            if (! $this->playbackAccess->isContentAllowedForCountry($content, $countryCode)) {
+                return [
+                    'url' => null,
+                    'quality' => null,
+                    'embed_url' => null,
+                    'content_format_id' => null,
+                    'drm' => [],
+                    'subtitles' => [],
+                    'episode' => null,
+                    'message' => 'This title is not available in your territory.',
+                    'status' => Response::HTTP_FORBIDDEN,
+                ];
+            }
+
             if ($seriesEpisode !== null) {
                 $episodeTitle = data_get($seriesEpisode, 'title');
                 $episodeDescription = data_get($seriesEpisode, 'description');
@@ -445,6 +460,29 @@ class StorefrontController extends ApiController
                         ],
                     ];
                 }
+            }
+
+            $manualOffer = $entitlement?->offer;
+            if ($manualOffer === null) {
+                $manualOffer = $content->offers
+                    ->first(
+                        fn (Offer $offer): bool => $offer->isCurrentlyAvailable()
+                            && trim((string) $offer->playback_url) !== ''
+                            && ((bool) $content->is_free || $offer->offer_type === Offer::TYPE_FREE),
+                    );
+            }
+
+            $manualPlaybackUrl = trim((string) $manualOffer?->playback_url);
+            if ($manualPlaybackUrl !== '') {
+                return [
+                    'url' => $manualPlaybackUrl,
+                    'quality' => $entitlement?->quality ?? $manualOffer?->quality,
+                    'embed_url' => null,
+                    'content_format_id' => null,
+                    'drm' => [],
+                    'subtitles' => [],
+                    'episode' => null,
+                ];
             }
 
             return [
@@ -521,7 +559,7 @@ class StorefrontController extends ApiController
         ];
     }
 
-    protected function bunnyEmbedUrl(\App\Models\ContentFormat $format): ?string
+    protected function bunnyEmbedUrl(ContentFormat $format): ?string
     {
         if ($format->stream_url && str_contains($format->stream_url, 'iframe.mediadelivery.net/embed/')) {
             return $format->stream_url;
@@ -548,7 +586,7 @@ class StorefrontController extends ApiController
     }
 
     /**
-     * @param array{token: string, expires: int}|null $authentication
+     * @param  array{token: string, expires: int}|null  $authentication
      */
     protected function appendBunnyAuthentication(?string $url, ?array $authentication): ?string
     {
@@ -564,7 +602,7 @@ class StorefrontController extends ApiController
         ], '', '&', PHP_QUERY_RFC3986);
     }
 
-    protected function formatDrmData(\App\Models\ContentFormat $format): array
+    protected function formatDrmData(ContentFormat $format): array
     {
         $meta = is_array($format->meta) ? $format->meta : [];
 
@@ -591,7 +629,7 @@ class StorefrontController extends ApiController
             return null;
         }
 
-        $progress = \App\Models\WatchProgress::query()
+        $progress = WatchProgress::query()
             ->where('user_id', $userId)
             ->where('account_profile_id', $profileId)
             ->where('content_id', $contentId)

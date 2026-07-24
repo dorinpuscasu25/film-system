@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Content;
 use App\Models\HomePageSection;
+use App\Services\StorefrontCacheService;
 use Database\Seeders\AccessControlSeeder;
 use Database\Seeders\ContentSeeder;
 use Database\Seeders\HomePageSectionSeeder;
@@ -45,7 +46,7 @@ class PublicCatalogApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('version', app(\App\Services\StorefrontCacheService::class)->version());
+            ->assertJsonPath('version', app(StorefrontCacheService::class)->version());
         $this->assertStringContainsString(
             'no-cache',
             (string) $response->headers->get('Cache-Control'),
@@ -66,6 +67,20 @@ class PublicCatalogApiTest extends TestCase
 
     public function test_public_catalog_can_filter_by_type_genre_and_access(): void
     {
+        Content::query()
+            ->where('slug', 'afacerea-est')
+            ->firstOrFail()
+            ->formats()
+            ->create([
+                'quality' => 'HD',
+                'format_type' => 'main',
+                'bunny_library_id' => '123',
+                'bunny_video_id' => 'afacerea-est-hd',
+                'stream_url' => 'https://storage.filmoteca.md/playback/afacerea-est-hd.mp4',
+                'is_active' => true,
+                'is_default' => true,
+            ]);
+
         $this->getJson('/api/v1/public/catalog?locale=en&type=movie&genre=comedy&access=free')
             ->assertOk()
             ->assertJsonCount(1, 'items')
@@ -111,6 +126,78 @@ class PublicCatalogApiTest extends TestCase
             ->assertJsonPath('cast.0.name', 'Dumitru Roman')
             ->assertJsonPath('videos.0.title', 'Official Trailer')
             ->assertJsonPath('badges.0.label', 'Выбор редакции');
+    }
+
+    public function test_content_without_rights_windows_remains_available_globally(): void
+    {
+        $content = Content::query()->where('slug', 'carbon')->firstOrFail();
+        $this->assertSame(0, $content->rightsWindows()->count());
+
+        $this->getJson('/api/v1/public/content/carbon?locale=ro', [
+            'X-Country-Code' => 'RO',
+        ])
+            ->assertOk()
+            ->assertJsonPath('slug', 'carbon');
+    }
+
+    public function test_missing_playback_source_is_not_reported_as_a_territory_error(): void
+    {
+        $content = Content::query()->where('slug', 'carbon')->firstOrFail();
+        $content->formats()->update(['is_active' => false]);
+        $content->offers()->update(['playback_url' => null]);
+        $content->formats()->create([
+            'quality' => 'HD',
+            'format_type' => 'trailer',
+            'bunny_library_id' => '123',
+            'bunny_video_id' => 'carbon-trailer',
+            'is_active' => true,
+            'is_default' => true,
+        ]);
+
+        $this->getJson('/api/v1/public/content/carbon?locale=ro', [
+            'X-Country-Code' => 'MD',
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'playback_source_missing')
+            ->assertJsonMissing(['code' => 'territory_restricted']);
+    }
+
+    public function test_allow_rights_window_restricts_other_countries(): void
+    {
+        $content = Content::query()->where('slug', 'carbon')->firstOrFail();
+        $content->rightsWindows()->create([
+            'country_code' => 'MD',
+            'is_allowed' => true,
+        ]);
+
+        $this->getJson('/api/v1/public/content/carbon?locale=ro', [
+            'X-Country-Code' => 'RO',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('code', 'territory_restricted');
+
+        $this->getJson('/api/v1/public/content/carbon?locale=ro', [
+            'X-Country-Code' => 'MD',
+        ])->assertOk();
+    }
+
+    public function test_deny_rights_window_only_blocks_the_matching_country(): void
+    {
+        $content = Content::query()->where('slug', 'carbon')->firstOrFail();
+        $content->rightsWindows()->create([
+            'country_code' => 'MD',
+            'is_allowed' => false,
+        ]);
+
+        $this->getJson('/api/v1/public/content/carbon?locale=ro', [
+            'X-Country-Code' => 'MD',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('code', 'territory_restricted');
+
+        $this->getJson('/api/v1/public/content/carbon?locale=ro', [
+            'X-Country-Code' => 'RO',
+        ])->assertOk();
     }
 
     public function test_series_payload_returns_seasons_and_episodes(): void

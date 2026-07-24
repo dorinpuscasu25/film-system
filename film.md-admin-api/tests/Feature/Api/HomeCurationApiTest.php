@@ -40,6 +40,12 @@ class HomeCurationApiTest extends TestCase
 
     public function test_admin_can_fetch_home_curation_sections_and_options(): void
     {
+        Content::query()
+            ->where('slug', 'carbon')
+            ->firstOrFail()
+            ->offers()
+            ->update(['playback_url' => null]);
+
         $this->getJson('/api/v1/admin/home-curation', [
             'Authorization' => 'Bearer '.$this->token,
         ])
@@ -49,7 +55,10 @@ class HomeCurationApiTest extends TestCase
             ->assertJsonPath('options.section_types.0.value', HomePageSection::TYPE_HERO_SLIDER)
             ->assertJsonPath('options.contents.0.status', 'published')
             ->assertJsonPath('options.contents.0.is_publicly_visible', false)
-            ->assertJsonPath('options.contents.0.visibility_reason', 'Titlul nu are niciun format video activ.');
+            ->assertJsonPath(
+                'options.contents.0.visibility_reason',
+                'Titlul nu are nicio sursă de playback: activează un format Bunny principal sau completează URL-ul manual într-o ofertă.',
+            );
     }
 
     public function test_admin_can_update_home_curation_with_manual_and_dynamic_sections(): void

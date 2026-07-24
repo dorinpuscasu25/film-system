@@ -6,6 +6,23 @@ const FULL_CATALOG_PAGE_SIZE = 100;
 
 type LocaleCode = "en" | "ro" | "ru";
 
+export type StorefrontErrorCode =
+  | "not_found"
+  | "content_not_currently_available"
+  | "playback_source_missing"
+  | "territory_restricted";
+
+export class StorefrontRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code: StorefrontErrorCode | null,
+  ) {
+    super(message);
+    this.name = "StorefrontRequestError";
+  }
+}
+
 interface PublicBadge {
   id: string;
   slug: string;
@@ -352,7 +369,17 @@ async function fetchJson<T>(
   });
 
   if (!response.ok) {
-    throw new Error("Nu am putut încărca datele storefront.");
+    const payload = await response.json().catch(() => null) as {
+      code?: StorefrontErrorCode;
+      message?: string;
+    } | null;
+    const code = payload?.code ?? (response.status === 404 ? "not_found" : null);
+
+    throw new StorefrontRequestError(
+      payload?.message ?? "Nu am putut încărca datele storefront.",
+      response.status,
+      code,
+    );
   }
 
   return response.json() as Promise<T>;
@@ -630,7 +657,7 @@ export async function getFullCatalog(locale: LocaleCode, query: Omit<CatalogQuer
   let page = 1;
   let total = Number.POSITIVE_INFINITY;
 
-  do {
+  while (page <= Math.ceil(total / FULL_CATALOG_PAGE_SIZE)) {
     const response = await getCatalogPage(locale, {
       ...query,
       page,
@@ -646,7 +673,7 @@ export async function getFullCatalog(locale: LocaleCode, query: Omit<CatalogQuer
     }
 
     page += 1;
-  } while (true);
+  }
 
   return items;
 }

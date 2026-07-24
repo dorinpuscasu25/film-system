@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangleIcon,
   ArrowLeftIcon,
   ArrowDownIcon,
   ArrowUpIcon,
@@ -2454,6 +2455,14 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
               </Button>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
+              {contentFormatDrafts.length > 0 && !contentFormatDrafts.some((item) => item.is_active && item.format_type === "main") ? (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700">
+                  <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Niciun format Bunny principal nu este activ. Fără un URL manual în ofertă, titlul nu apare în Home sau catalog și nu poate porni playback-ul.
+                  </span>
+                </div>
+              ) : null}
               {contentFormatDrafts.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
                   Nu există încă formate Bunny. Adaugă calitățile pe care vrei să le poată cumpăra utilizatorii.
@@ -2505,7 +2514,7 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                         label="Activ"
                         type="toggle"
                         checked={item.is_active}
-                        helperText="Formatul poate fi ales pentru playback dacă este activ."
+                        helperText="Pornit = formatul poate alimenta Home, ofertele și playback-ul. Oprit = formatul rămâne salvat, dar nu este folosit public."
                         onChange={(event) => updateContentFormatDraft(item.local_id, "is_active", event.target.checked)}
                       />
                       <FormField

@@ -8,9 +8,9 @@ use App\Models\PlatformSetting;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WalletTransaction;
-use App\Services\RegistrationCreditService;
 use App\Services\AccountProfileService;
 use App\Services\BillingAddressService;
+use App\Services\RegistrationCreditService;
 use App\Services\WalletService;
 use Database\Seeders\AccessControlSeeder;
 use Database\Seeders\ContentSeeder;
@@ -294,6 +294,29 @@ class StorefrontCommerceApiTest extends TestCase
             ->assertJsonPath('playback.embed_url', fn ($url) => str_contains($url, 'token=') && str_contains($url, 'expires='))
             ->assertJsonPath('playback.bunny_token', fn ($token) => is_string($token) && $token !== '')
             ->assertJsonPath('playback.bunny_expires', fn ($expires) => is_int($expires) && $expires > now()->timestamp);
+    }
+
+    public function test_playback_uses_the_offer_url_when_no_bunny_format_is_active(): void
+    {
+        $token = $this->registerViewerAndReturnToken(email: 'manual-playback@example.com');
+        $offer = Offer::query()
+            ->where('name', 'Forever Full HD')
+            ->whereHas('content', fn ($query) => $query->where('slug', 'carbon'))
+            ->firstOrFail();
+
+        $this->assertFalse($offer->content->formats()->where('is_active', true)->exists());
+
+        $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase", [], [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertOk();
+
+        $this->getJson('/api/v1/storefront/content/carbon/playback?locale=ro', [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertOk()
+            ->assertJsonPath('playback.url', 'https://storage.filmoteca.md/playback/carbon-fullhd.mp4')
+            ->assertJsonPath('playback.quality', 'Full HD')
+            ->assertJsonPath('playback.content_format_id', null);
     }
 
     public function test_kids_profile_cannot_play_content_above_12_plus(): void

@@ -45,6 +45,10 @@ class PublicCatalogController extends ApiController
             $heroSection = $resolvedSections->firstWhere('section_type', HomePageSection::TYPE_HERO_SLIDER);
             $heroSlides = $heroSection
                 ? $this->homePageService->resolveHeroSlides($heroSection)
+                    ->filter(
+                        fn (array $slide): bool => data_get($slide, 'content') instanceof Content
+                            && $this->isCatalogVisible(data_get($slide, 'content'), $countryCode),
+                    )
                     ->map(fn (array $slide) => $this->publicHeroSlideData($slide, $locale))
                     ->values()
                 : collect();
@@ -148,8 +152,23 @@ class PublicCatalogController extends ApiController
             ], Response::HTTP_NOT_FOUND);
         }
 
-        if (! $this->isCatalogVisible($content, $countryCode)) {
+        if (! $this->playbackAccess->isContentCurrentlyAvailable($content)) {
             return response()->json([
+                'code' => 'content_not_currently_available',
+                'message' => 'This title is not currently available.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if (! $this->playbackAccess->hasConfiguredPlaybackSource($content)) {
+            return response()->json([
+                'code' => 'playback_source_missing',
+                'message' => 'This title does not have an active playback source.',
+            ], Response::HTTP_CONFLICT);
+        }
+
+        if (! $this->playbackAccess->hasAvailablePlaybackSource($content, $countryCode)) {
+            return response()->json([
+                'code' => 'territory_restricted',
                 'message' => 'This title is not available in your territory.',
             ], Response::HTTP_FORBIDDEN);
         }
@@ -259,18 +278,18 @@ class PublicCatalogController extends ApiController
             'updated_at' => $content->updated_at?->timestamp,
         ], function () use ($content, $locale, $nextPremiere): array {
             return [
-            'content' => $this->publicContentCardData($content, $locale),
-            'premiere_event' => $nextPremiere ? [
-                'id' => $nextPremiere->id,
-                'title' => $nextPremiere->title,
-                'starts_at' => $nextPremiere->starts_at?->toIso8601String(),
-                'ends_at' => $nextPremiere->ends_at?->toIso8601String(),
-                'is_live' => $nextPremiere->starts_at !== null && $nextPremiere->starts_at->isPast(),
-            ] : null,
-            'watch_party' => [
-                'is_locked' => $nextPremiere !== null,
-                'entry_path' => '/watch/'.$content->slug,
-            ],
+                'content' => $this->publicContentCardData($content, $locale),
+                'premiere_event' => $nextPremiere ? [
+                    'id' => $nextPremiere->id,
+                    'title' => $nextPremiere->title,
+                    'starts_at' => $nextPremiere->starts_at?->toIso8601String(),
+                    'ends_at' => $nextPremiere->ends_at?->toIso8601String(),
+                    'is_live' => $nextPremiere->starts_at !== null && $nextPremiere->starts_at->isPast(),
+                ] : null,
+                'watch_party' => [
+                    'is_locked' => $nextPremiere !== null,
+                    'entry_path' => '/watch/'.$content->slug,
+                ],
             ];
         });
 
@@ -347,9 +366,7 @@ class PublicCatalogController extends ApiController
             return false;
         }
 
-        $format = $this->playbackAccess->resolveAvailableFormat($content, $countryCode);
-
-        return $format !== null;
+        return $this->playbackAccess->hasAvailablePlaybackSource($content, $countryCode);
     }
 
     protected function absolutePublicUrl(string $url, string $frontendBaseUrl): string

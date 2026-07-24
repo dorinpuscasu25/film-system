@@ -18,7 +18,13 @@ import { StarRating } from "../components/StarRating";
 import { PurchaseModal } from "../components/PurchaseModal";
 import { Carousel } from "../components/Carousel";
 import { UniversalVideoPlayer } from "../components/UniversalVideoPlayer";
-import { fetchContentReviews, getCatalogPage, getContentDetail } from "../lib/storefront";
+import {
+  fetchContentReviews,
+  getCatalogPage,
+  getContentDetail,
+  StorefrontRequestError,
+  type StorefrontErrorCode,
+} from "../lib/storefront";
 import { fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/session";
 import { applyMovieSeo, movieShareDescription, movieSharePreviewUrl } from "../lib/seo";
 import { imageSrcSet, resizedImageUrl } from "../lib/images";
@@ -184,6 +190,7 @@ export function MovieDetailPage() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<StorefrontErrorCode | null>(null);
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -218,6 +225,7 @@ export function MovieDetailPage() {
     async function loadMovie() {
       setIsLoading(true);
       setError(null);
+      setErrorCode(null);
 
       try {
         const detail = await getContentDetail(currentLanguage.code, id);
@@ -249,7 +257,12 @@ export function MovieDetailPage() {
           return;
         }
 
-        setError(loadError instanceof Error ? loadError.message : "Nu am putut încărca titlul.");
+        if (loadError instanceof StorefrontRequestError) {
+          setErrorCode(loadError.code);
+          setError(loadError.message);
+        } else {
+          setError(loadError instanceof Error ? loadError.message : "Nu am putut încărca titlul.");
+        }
       } finally {
         if (active) {
           setIsLoading(false);
@@ -397,11 +410,24 @@ export function MovieDetailPage() {
   }
 
   if (error || !movie) {
+    const isUnavailable = errorCode === "content_not_currently_available"
+      || errorCode === "playback_source_missing"
+      || errorCode === "territory_restricted";
+    const errorMessage = errorCode === "territory_restricted"
+      ? t("movie.territory_restricted")
+      : errorCode === "playback_source_missing"
+        ? t("movie.playback_source_missing")
+        : errorCode === "content_not_currently_available" || errorCode === "not_found"
+          ? t("movie.not_available")
+          : error ?? t("movie.not_available");
+
     return (
       <div className="min-h-screen bg-background px-4 pt-32 pb-20">
         <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-surface p-8 text-center">
-          <h1 className="mb-3 text-2xl font-bold text-white">{t("movie.not_found")}</h1>
-          <p className="text-gray-400">{error ?? t("movie.not_available")}</p>
+          <h1 className="mb-3 text-2xl font-bold text-white">
+            {isUnavailable ? t("movie.unavailable_title") : t("movie.not_found")}
+          </h1>
+          <p className="text-gray-400">{errorMessage}</p>
         </div>
       </div>
     );

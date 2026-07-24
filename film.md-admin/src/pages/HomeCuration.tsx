@@ -1170,7 +1170,7 @@ export function HomeCuration() {
                             <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700">
                               <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
                               <span>
-                                Unele titluri rămân salvate în carusel, dar nu apar public deoarece nu sunt publicate sau nu au un format video activ.
+                                Unele titluri rămân salvate în carusel, dar nu apar public. Verifică motivul afișat sub fiecare titlu: publicarea sau sursa de playback (format Bunny principal activ ori URL manual în ofertă).
                               </span>
                             </div>
                           ) : null}

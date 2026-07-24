@@ -90,9 +90,7 @@ class HomeCurationController extends ApiController
             ->map(function (Content $content) use ($locale): array {
                 $card = $this->publicContentCardData($content, $locale);
                 $isCurrentlyPublished = $this->playbackAccess->isContentCurrentlyAvailable($content);
-                $hasActiveFormat = $content->formats->contains(
-                    fn ($format): bool => (bool) $format->is_active,
-                );
+                $hasPlaybackSource = $this->playbackAccess->hasConfiguredPlaybackSource($content);
 
                 return [
                     'id' => $content->id,
@@ -110,10 +108,10 @@ class HomeCurationController extends ApiController
                     'currency' => $card['currency'],
                     'is_featured' => (bool) $content->is_featured,
                     'is_trending' => (bool) $content->is_trending,
-                    'is_publicly_visible' => $isCurrentlyPublished && $hasActiveFormat,
+                    'is_publicly_visible' => $isCurrentlyPublished && $hasPlaybackSource,
                     'visibility_reason' => match (true) {
                         ! $isCurrentlyPublished => 'Titlul nu este publicat sau are publicarea programată.',
-                        ! $hasActiveFormat => 'Titlul nu are niciun format video activ.',
+                        ! $hasPlaybackSource => 'Titlul nu are nicio sursă de playback: activează un format Bunny principal sau completează URL-ul manual într-o ofertă.',
                         default => null,
                     },
                     'genres' => collect($card['genres'] ?? [])->values()->all(),
