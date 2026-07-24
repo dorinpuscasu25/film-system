@@ -132,6 +132,49 @@ class StorefrontCommerceApiTest extends TestCase
             ->assertJsonPath('user.billing_address.address_line1', 'Strada Test 10');
     }
 
+    public function test_storefront_account_returns_saved_payment_phone(): void
+    {
+        $user = $this->createActiveViewer('payment-phone-account@example.com');
+        $user->update(['payment_phone' => '+37369484967']);
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+
+        $this->getJson('/api/v1/storefront/account?locale=ro', [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertOk()
+            ->assertJsonPath('payment_phone', '+37369484967');
+    }
+
+    public function test_wallet_top_up_saves_normalized_payment_phone_for_future_payments(): void
+    {
+        config()->set('services.pay_filmoteca.username', null);
+        config()->set('services.pay_filmoteca.password', null);
+        config()->set('services.pay_filmoteca.api_key', null);
+
+        $user = $this->createActiveViewer('payment-phone-save@example.com');
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+
+        $this->postJson('/api/v1/storefront/wallet/top-ups', [
+            'amount' => 200,
+            'currency' => 'MDL',
+            'phone' => '069484967',
+            'locale' => 'ro',
+            'billing_address' => [
+                'full_name' => 'Buyer Phone',
+                'country_code' => 'MD',
+                'city' => 'Chișinău',
+                'postal_code' => 'MD-2001',
+                'address_line1' => 'Strada Test 10',
+            ],
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('payment');
+
+        $this->assertSame('+37369484967', $user->fresh()->payment_phone);
+    }
+
     public function test_purchase_deducts_wallet_and_adds_library_entry(): void
     {
         $token = $this->registerViewerAndReturnToken();

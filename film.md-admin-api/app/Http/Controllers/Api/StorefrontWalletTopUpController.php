@@ -112,6 +112,10 @@ class StorefrontWalletTopUpController extends ApiController
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        if ($user->payment_phone !== $data['phone']) {
+            $user->update(['payment_phone' => $data['phone']]);
+        }
+
         $billingAddress = $this->billingAddresses->upsertDefault($user, $data['billing_address']);
         $data['billing_address_id'] = $billingAddress->id;
         $data['billing_address'] = $this->billingAddresses->snapshot($billingAddress);

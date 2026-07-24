@@ -36,7 +36,7 @@ interface WalletModalProps {
 }
 
 export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps) {
-  const { balance, currency, addFunds, billingAddress } = useWallet();
+  const { balance, currency, addFunds, paymentPhone, billingAddress } = useWallet();
   const { t, currentLanguage } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -99,9 +99,10 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
 
     setAcceptedTerms(false);
     setAmount('');
-    setPhone('');
+    const savedPhone = paymentPhoneDraft(paymentPhone);
+    setPhone(savedPhone.nationalNumber);
     setPhoneTouched(false);
-    setSelectedCountry(DEFAULT_COUNTRY);
+    setSelectedCountry(savedPhone.country);
     setBillingDraft(billingAddress ?? emptyBillingAddress(user?.name));
     setIsEditingBillingAddress(!billingAddress);
     setBillingTouched(false);
@@ -114,7 +115,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       .catch(() => {
         setTermsUrl('/page/termeni-si-conditii');
       });
-  }, [billingAddress, currentLanguage.code, isOpen, user?.name]);
+  }, [billingAddress, currentLanguage.code, isOpen, paymentPhone, user?.name]);
 
   const handleSubmit = async () => {
     if (!acceptedTerms) {
@@ -572,4 +573,23 @@ function normalizePhoneNumber(value: string, country: CountryCode): string | nul
     : parsePhoneNumberFromString(trimmed, country);
 
   return parsed?.isValid() ? parsed.number : null;
+}
+
+function paymentPhoneDraft(value: string | null): {
+  country: CountryCode;
+  nationalNumber: string;
+} {
+  const parsed = value ? parsePhoneNumberFromString(value) : undefined;
+
+  if (!parsed?.isValid() || !parsed.country) {
+    return {
+      country: DEFAULT_COUNTRY,
+      nationalNumber: '',
+    };
+  }
+
+  return {
+    country: parsed.country,
+    nationalNumber: parsed.nationalNumber,
+  };
 }

@@ -17,6 +17,7 @@ interface WalletContextType {
   transactions: WalletTransaction[];
   purchases: Purchase[];
   favorites: string[];
+  paymentPhone: string | null;
   billingAddress: StorefrontBillingAddressPayload | null;
   isLoading: boolean;
   addFunds: (amount: number, options: { phone?: string; billingAddress: StorefrontBillingAddressPayload }) => Promise<StorefrontTopUpPayload>;
@@ -72,6 +73,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [favoritesByProfile, setFavoritesByProfile] = useState<Record<string, string[]>>({});
+  const [paymentPhone, setPaymentPhone] = useState<string | null>(null);
   const [billingAddress, setBillingAddress] = useState<StorefrontBillingAddressPayload | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -90,6 +92,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
+      setPaymentPhone(null);
       setBillingAddress(null);
       return;
     }
@@ -103,6 +106,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions((response.transactions ?? []).map(mapTransaction));
       setPurchases((response.library ?? []).map(mapPurchase));
       setFavoritesByProfile(response.favorites_by_profile ?? {});
+      setPaymentPhone(response.payment_phone ?? response.user.payment_phone ?? null);
       setBillingAddress(response.billing_address ?? response.user.billing_address ?? null);
     } catch {
       setBalance(0);
@@ -110,6 +114,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
+      setPaymentPhone(null);
       setBillingAddress(null);
     } finally {
       setIsLoading(false);
@@ -127,6 +132,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setPurchases([]);
       setFavoritesByProfile({});
+      setPaymentPhone(null);
       setBillingAddress(null);
       return;
     }
@@ -142,6 +148,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       billing_address: options.billingAddress,
       locale: currentLanguage.code,
     });
+
+    setPaymentPhone(options.phone ?? null);
 
     if (response.top_up.billing_address) {
       setBillingAddress({
@@ -230,6 +238,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         transactions,
         purchases,
         favorites,
+        paymentPhone,
         billingAddress,
         isLoading,
         addFunds,

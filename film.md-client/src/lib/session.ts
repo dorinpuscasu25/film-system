@@ -17,6 +17,7 @@ export interface SessionUserPayload {
   id: string | number;
   name: string;
   email: string;
+  payment_phone?: string | null;
   preferred_locale?: "en" | "ro" | "ru" | null;
   avatar_url?: string | null;
   admin_panel_access?: boolean;
@@ -82,6 +83,7 @@ export interface StorefrontAccountPayload {
     currency: string;
     balance_amount: number;
   };
+  payment_phone?: string | null;
   billing_address?: StorefrontBillingAddressPayload | null;
   transactions: StorefrontTransactionPayload[];
   library: StorefrontLibraryItemPayload[];

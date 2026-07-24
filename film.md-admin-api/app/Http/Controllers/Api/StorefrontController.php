@@ -65,6 +65,7 @@ class StorefrontController extends ApiController
         return response()->json([
             'user' => $this->userData($user),
             'wallet' => $this->walletSummaryData($wallet->fresh()),
+            'payment_phone' => $user->payment_phone,
             'billing_address' => $this->billingAddressData($user->defaultBillingAddress),
             'transactions' => $transactionHistory,
             'library' => $library,
