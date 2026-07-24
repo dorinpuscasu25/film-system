@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\DB;
 
 class HomePageService
 {
+    /** @var Collection<int, Content>|null */
+    private ?Collection $publishedContent = null;
+
     public function listSections(): Collection
     {
         return HomePageSection::query()
@@ -91,9 +94,8 @@ class HomePageService
             ->values()
             ->all();
 
-        $contentMap = $this->publishedContentQuery()
+        $contentMap = $this->publishedContentForHome()
             ->whereIn('id', $contentIds)
-            ->get()
             ->keyBy('id');
 
         return $slides
@@ -144,9 +146,8 @@ class HomePageService
             return collect();
         }
 
-        $items = $this->publishedContentQuery()
+        $items = $this->publishedContentForHome()
             ->whereIn('id', $contentIds->all())
-            ->get()
             ->sortBy(fn (Content $content): int => $contentIds->search($content->id))
             ->values();
 
@@ -172,7 +173,7 @@ class HomePageService
         $accessMode = (string) data_get($filters, 'access', HomePageSection::ACCESS_ALL);
         $sortMode = (string) data_get($filters, 'sort_mode', HomePageSection::SORT_RELEASE_YEAR_DESC);
 
-        $query = $this->publishedContentQuery();
+        $query = Content::query()->published();
 
         if ($contentTypes->isNotEmpty()) {
             $query->whereIn('type', $contentTypes->all());
@@ -228,14 +229,38 @@ class HomePageService
             $query->limit((int) $section->limit);
         }
 
-        return $query->get();
+        $contentMap = $this->publishedContentForHome()->keyBy('id');
+
+        return $query
+            ->pluck('id')
+            ->map(fn (int $contentId) => $contentMap->get($contentId))
+            ->filter(fn (mixed $content): bool => $content instanceof Content)
+            ->values();
+    }
+
+    public function publishedContentForHome(): Collection
+    {
+        return $this->publishedContent ??= $this->publishedContentQuery()
+            ->orderByDesc('is_featured')
+            ->orderBy('sort_order')
+            ->orderByDesc('published_at')
+            ->orderByDesc('release_year')
+            ->get();
     }
 
     protected function publishedContentQuery(): Builder
     {
         return Content::query()
             ->published()
-            ->with('taxonomies', 'offers');
+            ->with(
+                'taxonomies',
+                'offers',
+                'formats',
+                'rightsWindows',
+                'subtitleTracks',
+                'creators',
+                'premiereEvents',
+            );
     }
 
     protected function normalizedLocalizedValue(mixed $value): array

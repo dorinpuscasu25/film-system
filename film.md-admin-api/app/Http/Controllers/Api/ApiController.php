@@ -131,6 +131,7 @@ class ApiController extends Controller
                 ?? $content->original_title,
             'poster_url' => $content->poster_url,
             'backdrop_url' => $content->backdrop_url,
+            'age_rating' => $content->age_rating,
             'offer_id' => $entitlement->offer_id,
             'offer_name' => $entitlement->offer?->name,
             'access_type' => $entitlement->access_type,
@@ -292,6 +293,7 @@ class ApiController extends Controller
         $content->loadMissing('taxonomies', 'offers', 'formats', 'rightsWindows', 'subtitleTracks', 'creators', 'premiereEvents');
         $taxonomies = $content->taxonomies;
         $offers = $content->offers;
+        $offers->each(fn (Offer $offer) => $offer->setRelation('content', $content));
         $formats = $content->formats;
         $rightsWindows = $content->rightsWindows;
         $subtitleTracks = $content->subtitleTracks;

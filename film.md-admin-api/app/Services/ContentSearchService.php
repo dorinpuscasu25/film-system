@@ -216,11 +216,19 @@ class ContentSearchService
             ->with('taxonomies', 'offers')
             ->get()
             ->values();
+        $items = $matchedContents
+            ->slice(($page - 1) * $pageSize, $pageSize)
+            ->values();
+        $items->loadMissing(
+            'formats',
+            'rightsWindows',
+            'subtitleTracks',
+            'creators',
+            'premiereEvents',
+        );
 
         return [
-            'items' => $matchedContents
-                ->slice(($page - 1) * $pageSize, $pageSize)
-                ->values(),
+            'items' => $items,
             'page' => $page,
             'page_size' => $pageSize,
             'total' => $matchedContents->count(),
@@ -615,7 +623,18 @@ class ContentSearchService
         }
 
         $query = Content::query()
-            ->with('taxonomies', 'offers')
+            ->with($publishedOnly ? [
+                'taxonomies',
+                'offers',
+                'formats',
+                'rightsWindows',
+                'subtitleTracks',
+                'creators',
+                'premiereEvents',
+            ] : [
+                'taxonomies',
+                'offers',
+            ])
             ->whereIn('id', $contentIds)
             ->when($publishedOnly, fn (Builder $builder) => $builder->published());
 

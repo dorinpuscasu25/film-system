@@ -53,6 +53,33 @@ class PublicCatalogApiTest extends TestCase
         );
     }
 
+    public function test_public_home_is_shared_cacheable_and_varies_by_country(): void
+    {
+        $response = $this->getJson('/api/v1/public/home?locale=ro');
+
+        $response->assertOk();
+        $this->assertSame(
+            'public, s-maxage=60, stale-while-revalidate=300',
+            $response->headers->get('Cache-Control'),
+        );
+        $vary = (string) $response->headers->get('Vary');
+        $this->assertStringContainsString('CF-IPCountry', $vary);
+        $this->assertStringContainsString('X-Country-Code', $vary);
+        $this->assertNotNull($response->headers->get('X-Storefront-Cache-Version'));
+    }
+
+    public function test_public_home_avoids_query_explosion(): void
+    {
+        $queryCount = 0;
+        DB::listen(function () use (&$queryCount): void {
+            $queryCount++;
+        });
+
+        $this->getJson('/api/v1/public/home?locale=ro')->assertOk();
+
+        $this->assertLessThanOrEqual(15, $queryCount);
+    }
+
     public function test_public_home_handles_empty_translatable_arrays(): void
     {
         DB::table('contents')

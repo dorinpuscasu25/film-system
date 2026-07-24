@@ -17,6 +17,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PublicCatalogController extends ApiController
 {
+    /** @var array<string, array> */
+    private array $contentCardCache = [];
+
     public function __construct(
         protected ContentSearchService $contentSearch,
         protected HomePageService $homePageService,
@@ -305,23 +308,27 @@ class PublicCatalogController extends ApiController
             : Content::supportedLocales()[0];
     }
 
+    protected function publicContentCardData(Content $content, string $locale = 'ro'): array
+    {
+        $key = $content->getKey().':'.$locale;
+
+        return $this->contentCardCache[$key]
+            ??= parent::publicContentCardData($content, $locale);
+    }
+
     protected function legacyHomeData(string $locale, ?string $countryCode = null): array
     {
-        $baseQuery = Content::query()
-            ->published()
-            ->with('taxonomies', 'offers', 'formats', 'rightsWindows', 'premiereEvents')
-            ->orderByDesc('is_featured')
-            ->orderBy('sort_order')
-            ->orderByDesc('published_at')
-            ->orderByDesc('release_year');
-
-        $featured = (clone $baseQuery)->where('is_featured', true)->limit(16)->get()
+        $allContent = $this->homePageService->publishedContentForHome();
+        $featured = $allContent
+            ->where('is_featured', true)
+            ->take(16)
             ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
             ->take(8)
             ->values();
         $hero = $featured->first()
-            ?? (clone $baseQuery)->limit(24)->get()->first(fn (Content $content) => $this->isCatalogVisible($content, $countryCode));
-        $allPublished = (clone $baseQuery)->limit(40)->get()
+            ?? $allContent->take(24)->first(fn (Content $content) => $this->isCatalogVisible($content, $countryCode));
+        $allPublished = $allContent
+            ->take(40)
             ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
             ->take(24)
             ->values();
@@ -329,22 +336,18 @@ class PublicCatalogController extends ApiController
         return [
             'hero' => $hero ? $this->publicContentCardData($hero, $locale) : null,
             'featured' => $featured->map(fn (Content $content) => $this->publicContentCardData($content, $locale))->values(),
-            'free_to_watch' => (clone $baseQuery)
-                ->where(function ($builder): void {
-                    $builder
-                        ->where('is_free', true)
-                        ->orWhereHas('offers', fn ($offerQuery) => $offerQuery->where('offer_type', Offer::TYPE_FREE));
-                })
-                ->limit(16)
-                ->get()
+            'free_to_watch' => $allContent
+                ->filter(
+                    fn (Content $content): bool => (bool) $content->is_free
+                        || $content->offers->contains('offer_type', Offer::TYPE_FREE),
+                )
+                ->take(16)
                 ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
                 ->take(8)
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
                 ->values(),
-            'latest' => (clone $baseQuery)
-                ->orderByDesc('release_year')
-                ->limit(16)
-                ->get()
+            'latest' => $allContent
+                ->take(16)
                 ->filter(fn (Content $content) => $this->isCatalogVisible($content, $countryCode))
                 ->take(8)
                 ->map(fn (Content $content) => $this->publicContentCardData($content, $locale))
@@ -433,7 +436,8 @@ class PublicCatalogController extends ApiController
     protected function storefrontJson(array $payload): JsonResponse
     {
         return response()->json($payload)
-            ->header('Cache-Control', 'private, max-age=60, stale-while-revalidate=300')
+            ->header('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+            ->header('Vary', 'CF-IPCountry, X-Country-Code')
             ->header('X-Storefront-Cache-Version', (string) $this->storefrontCache->version());
     }
 }
