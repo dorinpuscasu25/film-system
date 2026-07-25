@@ -484,7 +484,8 @@ class ContentSearchService
                     ];
                 })
                 ->sortByDesc('count')
-                ->values(),
+                ->values()
+                ->all(),
             'years' => collect($facetDistribution['release_year'] ?? [])
                 ->map(fn ($count, $year): array => [
                     'value' => (string) $year,
@@ -492,7 +493,8 @@ class ContentSearchService
                     'count' => (int) $count,
                 ])
                 ->sortByDesc(fn (array $item) => (int) $item['value'])
-                ->values(),
+                ->values()
+                ->all(),
             'countries' => collect($facetDistribution['country_codes'] ?? $facetDistribution['country_code'] ?? [])
                 ->map(fn ($count, $code): array => [
                     'value' => (string) $code,
@@ -500,14 +502,16 @@ class ContentSearchService
                     'count' => (int) $count,
                 ])
                 ->sortByDesc('count')
-                ->values(),
+                ->values()
+                ->all(),
             'types' => collect($facetDistribution['type'] ?? [])
                 ->map(fn ($count, $type): array => [
                     'value' => (string) $type,
                     'label' => $typeLabels[$type] ?? ucfirst((string) $type),
                     'count' => (int) $count,
                 ])
-                ->values(),
+                ->values()
+                ->all(),
             'access' => collect([
                 [
                     'value' => 'free',
@@ -519,7 +523,7 @@ class ContentSearchService
                     'label' => 'Paid',
                     'count' => $this->boolFacetCount($facetDistribution['is_free'] ?? [], false),
                 ],
-            ])->filter(fn (array $item): bool => $item['count'] > 0)->values(),
+            ])->filter(fn (array $item): bool => $item['count'] > 0)->values()->all(),
         ];
     }
 
@@ -556,7 +560,8 @@ class ContentSearchService
                     'count' => (int) $count,
                 ])
                 ->sortByDesc('count')
-                ->values(),
+                ->values()
+                ->all(),
             'years' => $contents
                 ->pluck('release_year')
                 ->filter()
@@ -567,7 +572,8 @@ class ContentSearchService
                     'count' => (int) $count,
                 ])
                 ->sortByDesc(fn (array $item) => (int) $item['value'])
-                ->values(),
+                ->values()
+                ->all(),
             'countries' => $contents
                 ->flatMap(function (Content $content): array {
                     $countryCodes = collect($content->country_codes ?? [])
@@ -590,7 +596,8 @@ class ContentSearchService
                     'count' => (int) $count,
                 ])
                 ->sortByDesc('count')
-                ->values(),
+                ->values()
+                ->all(),
             'types' => $contents
                 ->pluck('type')
                 ->filter()
@@ -600,7 +607,8 @@ class ContentSearchService
                     'label' => $typeLabels[$type] ?? ucfirst((string) $type),
                     'count' => (int) $count,
                 ])
-                ->values(),
+                ->values()
+                ->all(),
             'access' => collect([
                 [
                     'value' => 'free',
@@ -612,7 +620,7 @@ class ContentSearchService
                     'label' => 'Paid',
                     'count' => $accessCounts['paid'],
                 ],
-            ])->filter(fn (array $item): bool => $item['count'] > 0)->values(),
+            ])->filter(fn (array $item): bool => $item['count'] > 0)->values()->all(),
         ];
     }
 

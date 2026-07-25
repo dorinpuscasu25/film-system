@@ -507,14 +507,16 @@ export function SearchPage() {
 }
 
 function getCountryLabel(
-  value: string,
-  fallbackLabel: string,
+  value: string | null | undefined,
+  fallbackLabel: string | null | undefined,
   displayNames: Intl.DisplayNames | null,
 ): string {
-  const countryCode = value.trim().toUpperCase();
+  const countryCode = String(value ?? "").trim().toUpperCase();
   const localizedLabel = /^[A-Z]{2}$/.test(countryCode) ? displayNames?.of(countryCode) : null;
 
-  return localizedLabel && localizedLabel !== countryCode ? localizedLabel : fallbackLabel;
+  return localizedLabel && localizedLabel !== countryCode
+    ? localizedLabel
+    : String(fallbackLabel ?? countryCode);
 }
 
 function isContentType(value: string | null): value is ContentType {

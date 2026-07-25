@@ -642,14 +642,54 @@ export async function getCatalogPage(locale: LocaleCode, query: CatalogQuery = {
     pageSize: response.page_size ?? DEFAULT_PAGE_SIZE,
     total: response.total ?? 0,
     filters: {
-      genres: arrayOf(response.filters?.genres),
-      years: arrayOf(response.filters?.years),
-      countries: arrayOf(response.filters?.countries),
-      types: arrayOf(response.filters?.types),
-      access: arrayOf(response.filters?.access),
+      genres: normalizeCatalogFilterOptions(response.filters?.genres),
+      years: normalizeCatalogFilterOptions(response.filters?.years),
+      countries: normalizeCatalogFilterOptions(response.filters?.countries),
+      types: normalizeCatalogFilterOptions(response.filters?.types),
+      access: normalizeCatalogFilterOptions(response.filters?.access),
     },
     searchEngine: response.search_engine ?? "database",
   };
+}
+
+function normalizeCatalogFilterOptions(value: unknown): CatalogFilterOption[] {
+  if (
+    value === null
+    || typeof value !== "object"
+    || Array.isArray(value) === false && "__PHP_Incomplete_Class_Name" in value
+  ) {
+    return [];
+  }
+
+  const items = Array.isArray(value) ? value : Object.values(value);
+
+  return items.flatMap((item): CatalogFilterOption[] => {
+    if (item === null || typeof item !== "object") {
+      return [];
+    }
+
+    const record = item as Record<string, unknown>;
+    const rawValue = record.value ?? record.code ?? record.slug ?? record.year ?? record.type;
+    const optionValue = typeof rawValue === "string" || typeof rawValue === "number"
+      ? String(rawValue).trim()
+      : "";
+
+    if (optionValue === "") {
+      return [];
+    }
+
+    const rawLabel = record.label ?? record.name;
+    const label = typeof rawLabel === "string" && rawLabel.trim() !== ""
+      ? rawLabel.trim()
+      : optionValue;
+    const count = Number(record.count ?? 0);
+
+    return [{
+      value: optionValue,
+      label,
+      count: Number.isFinite(count) ? count : 0,
+    }];
+  });
 }
 
 export async function getFullCatalog(locale: LocaleCode, query: Omit<CatalogQuery, "page" | "pageSize"> = {}): Promise<Movie[]> {

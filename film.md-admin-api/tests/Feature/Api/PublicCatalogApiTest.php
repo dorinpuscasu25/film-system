@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Content;
 use App\Models\HomePageSection;
+use App\Services\ContentSearchService;
 use App\Services\StorefrontCacheService;
 use Database\Seeders\AccessControlSeeder;
 use Database\Seeders\ContentSeeder;
@@ -122,6 +123,18 @@ class PublicCatalogApiTest extends TestCase
                     'access',
                 ],
             ]);
+    }
+
+    public function test_catalog_facets_are_plain_arrays_safe_for_cache_serialization(): void
+    {
+        $result = app(ContentSearchService::class)->searchCatalog('ro', [
+            'page' => 1,
+            'page_size' => 24,
+        ]);
+
+        foreach (['genres', 'years', 'countries', 'types', 'access'] as $facet) {
+            $this->assertIsArray($result['filters'][$facet] ?? null);
+        }
     }
 
     public function test_public_catalog_can_search_localized_titles_and_people(): void
