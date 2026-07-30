@@ -656,6 +656,15 @@ export async function submitStorefrontReview(
   }, undefined, true);
 }
 
+export async function deleteStorefrontReview(identifier: string, reviewId: string) {
+  return requestJson<{
+    message: string;
+    summary: { count: number; average_rating: number };
+  }>(`/storefront/content/${identifier}/reviews/${reviewId}`, {
+    method: "DELETE",
+  }, undefined, true);
+}
+
 export async function createStorefrontProfile(payload: {
   name: string;
   avatarColor?: string;

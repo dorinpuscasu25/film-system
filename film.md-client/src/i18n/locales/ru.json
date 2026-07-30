@@ -129,6 +129,9 @@
     "review_login_button": "Войти для отзыва",
     "review_saving": "Сохраняем...",
     "review_save": "Сохранить отзыв",
+    "review_delete": "Удалить отзыв",
+    "review_delete_confirm": "Удалить ваш отзыв?",
+    "review_delete_error": "Не удалось удалить отзыв.",
     "reviews_loading": "Загружаем отзывы...",
     "reviews_empty": "Для этого фильма пока нет отзывов."
   },
@@ -188,7 +191,8 @@
     "discount": "Скидка",
     "total": "Итого",
     "pay": "Оплатить",
-    "coupon_invalid": "Промокод недействителен"
+    "coupon_invalid": "Промокод недействителен",
+    "access_from_moldova": "Я захожу в Filmoteca из Республики Молдова"
   },
   "wallet": {
     "title": "Кошелёк",
@@ -218,6 +222,7 @@
     "billing_country": "Страна",
     "billing_address_line1": "Адрес",
     "billing_address_line1_placeholder": "Улица и номер дома",
+    "billing_address_line1_note": "(Место оказания услуг)",
     "billing_address_line2": "Квартира, блок, корпус",
     "billing_address_line2_placeholder": "Необязательно",
     "billing_city": "Город",

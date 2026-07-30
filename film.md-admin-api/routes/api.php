@@ -148,6 +148,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('continue-watching', [StorefrontTrackingController::class, 'continueWatching'])->middleware('permission:content.watch');
             Route::get('content/{identifier}/recommendations', [StorefrontTrackingController::class, 'recommendations'])->middleware('permission:content.watch');
             Route::post('content/{identifier}/reviews', [ContentReviewController::class, 'store'])->middleware(['permission:storefront.access', 'throttle:20,1']);
+            Route::delete('content/{identifier}/reviews/{review}', [ContentReviewController::class, 'destroy'])->middleware(['permission:storefront.access', 'throttle:20,1']);
 
             // Watch party participation
             Route::post('watch-parties/{roomCode}/join', [StorefrontWatchPartyController::class, 'join'])->middleware('permission:content.watch');

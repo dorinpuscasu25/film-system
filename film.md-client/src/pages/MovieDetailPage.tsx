@@ -25,7 +25,7 @@ import {
   StorefrontRequestError,
   type StorefrontErrorCode,
 } from "../lib/storefront";
-import { fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/session";
+import { deleteStorefrontReview, fetchStorefrontRecommendations, submitStorefrontReview } from "../lib/session";
 import { applyMovieSeo, movieShareDescription, movieSharePreviewUrl } from "../lib/seo";
 import { imageSrcSet, resizedImageUrl } from "../lib/images";
 import { Movie, Review } from "../types";
@@ -169,6 +169,7 @@ export function MovieDetailPage() {
   const navigate = useNavigate();
   const { hasAccess, getTimeRemaining, toggleFavorite, isFavorite } = useWallet();
   const { isAuthenticated, openAuthModal, isLoading: isAuthLoading, user, activeProfile } = useAuth();
+  const userId = user?.id;
   const { currentLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("description");
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
@@ -187,6 +188,7 @@ export function MovieDetailPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -347,8 +349,8 @@ export function MovieDetailPage() {
           averageRating: response.summary.average_rating,
         });
 
-        const ownReview = user
-          ? mappedReviews.find((review) => review.userId === user.id)
+        const ownReview = userId
+          ? mappedReviews.find((review) => review.userId === userId)
           : undefined;
 
         if (ownReview) {
@@ -375,13 +377,13 @@ export function MovieDetailPage() {
     return () => {
       active = false;
     };
-  }, [id, user?.id]);
+  }, [id, userId]);
 
   useEffect(() => {
     setReviewRating(5);
     setReviewComment("");
     setReviewError(null);
-  }, [id, user?.id]);
+  }, [id, userId]);
 
   const relatedMovies = useMemo(() => {
     if (!movie) {
@@ -586,6 +588,30 @@ export function MovieDetailPage() {
       setReviewError(submitError instanceof Error ? submitError.message : t("movie.review_save_error"));
     } finally {
       setIsReviewSubmitting(false);
+    }
+  };
+
+  const handleDeleteReview = async (review: Review) => {
+    if (!id || !window.confirm(t("movie.review_delete_confirm"))) {
+      return;
+    }
+
+    setDeletingReviewId(review.id);
+    setReviewError(null);
+
+    try {
+      const response = await deleteStorefrontReview(id, review.id);
+      setReviews((current) => current.filter((item) => item.id !== review.id));
+      setReviewsSummary({
+        count: response.summary.count,
+        averageRating: response.summary.average_rating,
+      });
+      setReviewComment("");
+      setReviewRating(5);
+    } catch (deleteError) {
+      setReviewError(deleteError instanceof Error ? deleteError.message : t("movie.review_delete_error"));
+    } finally {
+      setDeletingReviewId(null);
     }
   };
 
@@ -1020,7 +1046,15 @@ export function MovieDetailPage() {
                     ) : reviews.length === 0 ? (
                       <div className="glass-panel rounded-xl p-6 text-center text-sm text-gray-400">{t("movie.reviews_empty")}</div>
                     ) : (
-                      reviews.map((review) => <ReviewCard key={review.id} review={review} />)
+                      reviews.map((review) => (
+                        <ReviewCard
+                          key={review.id}
+                          review={review}
+                          onDelete={isAuthenticated && String(review.userId) === String(userId) ? () => void handleDeleteReview(review) : undefined}
+                          isDeleting={deletingReviewId === review.id}
+                          deleteLabel={t("movie.review_delete")}
+                        />
+                      ))
                     )}
                   </motion.div>
                 ) : null}

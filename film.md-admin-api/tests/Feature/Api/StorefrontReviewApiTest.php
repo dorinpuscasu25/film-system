@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Content;
+use App\Models\ContentReview;
 use App\Models\PersonalAccessToken;
 use App\Models\Role;
 use App\Models\User;
@@ -58,6 +59,53 @@ class StorefrontReviewApiTest extends TestCase
             ->assertJsonPath('summary.count', 0);
 
         $this->assertNotSame($carbon->id, $teambuilding->id);
+    }
+
+    public function test_user_can_delete_their_own_review(): void
+    {
+        $user = $this->createViewer('owner@example.com');
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+        $content = Content::query()->where('slug', 'carbon')->firstOrFail();
+
+        $review = ContentReview::query()->create([
+            'content_id' => $content->id,
+            'user_id' => $user->id,
+            'rating' => 5,
+            'comment' => 'Recenzia mea.',
+            'status' => ContentReview::STATUS_PUBLISHED,
+        ]);
+
+        $this->deleteJson("/api/v1/storefront/content/carbon/reviews/{$review->id}", [], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertOk()
+            ->assertJsonPath('summary.count', 0)
+            ->assertJsonPath('summary.average_rating', 0);
+
+        $this->assertDatabaseMissing('content_reviews', ['id' => $review->id]);
+        $this->assertNull($content->fresh()->platform_rating);
+    }
+
+    public function test_user_cannot_delete_another_users_review(): void
+    {
+        $owner = $this->createViewer('owner@example.com');
+        $otherUser = $this->createViewer('other@example.com');
+        [, $token] = PersonalAccessToken::issue($otherUser, 'client-test');
+        $content = Content::query()->where('slug', 'carbon')->firstOrFail();
+
+        $review = ContentReview::query()->create([
+            'content_id' => $content->id,
+            'user_id' => $owner->id,
+            'rating' => 4,
+            'comment' => 'Recenzia autorului.',
+            'status' => ContentReview::STATUS_PUBLISHED,
+        ]);
+
+        $this->deleteJson("/api/v1/storefront/content/carbon/reviews/{$review->id}", [], [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('content_reviews', ['id' => $review->id]);
     }
 
     protected function createViewer(string $email): User

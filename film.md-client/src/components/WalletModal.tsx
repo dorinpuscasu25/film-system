@@ -388,6 +388,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                           isBillingFieldInvalid(billingDraft, 'address_line1', billingTouched) ? 'border-red-500/50' : 'border-white/10'
                         }`}
                       />
+                      <span className="mt-1.5 block text-xs text-gray-400">{t('wallet.billing_address_line1_note')}</span>
                     </label>
 
                     <label className="block">

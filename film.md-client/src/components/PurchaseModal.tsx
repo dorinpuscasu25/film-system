@@ -82,11 +82,13 @@ export function PurchaseModal({
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const offers = useMemo(() => movie.offers && movie.offers.length > 0 ? movie.offers : buildFallbackOffers(movie), [movie]);
   const [selectedOfferId, setSelectedOfferId] = useState<string>(offers[0]?.id ?? '');
+  const [isAccessingFromMoldova, setIsAccessingFromMoldova] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedOfferId(offers[0]?.id ?? '');
       setErrorMessage(null);
+      setIsAccessingFromMoldova(false);
     }
   }, [isOpen, offers]);
 
@@ -240,6 +242,25 @@ export function PurchaseModal({
                     {errorMessage}
                   </p>
                 }
+
+                <button
+                type="button"
+                role="switch"
+                aria-checked={isAccessingFromMoldova}
+                onClick={() => setIsAccessingFromMoldova((value) => !value)}
+                className="mb-3 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-left backdrop-blur-md transition-colors hover:bg-black/60 sm:mb-4 sm:px-4">
+
+                  <span
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${isAccessingFromMoldova ? 'bg-accentGreen' : 'bg-white/20'}`}>
+
+                    <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${isAccessingFromMoldova ? 'left-[22px]' : 'left-0.5'}`} />
+
+                  </span>
+                  <span className="text-sm text-gray-200">
+                    {t('checkout.access_from_moldova')}
+                  </span>
+                </button>
 
                 <button
                 onClick={handlePurchase}

@@ -85,6 +85,27 @@ class ContentReviewController extends ApiController
         ]);
     }
 
+    public function destroy(Request $request, string $identifier, ContentReview $review): JsonResponse
+    {
+        $content = $this->resolvePublishedContent($identifier);
+
+        if ($content === null || $review->content_id !== $content->id) {
+            return response()->json(['message' => 'The requested review was not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($review->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'You may only delete your own reviews.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $review->delete();
+        $this->updatePlatformRating($content);
+
+        return response()->json([
+            'message' => 'Review deleted successfully.',
+            'summary' => $this->summary($content->id),
+        ]);
+    }
+
     protected function resolvePublishedContent(string $identifier): ?Content
     {
         return Content::query()
