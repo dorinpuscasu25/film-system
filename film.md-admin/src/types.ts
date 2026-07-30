@@ -132,6 +132,8 @@ export interface DashboardTransaction {
   own_amount: number;
   platform_percent: number;
   funding_source: string | null;
+  access_location: "moldova" | "outside_moldova" | null;
+  access_location_label: string;
   processed_at: string | null;
   user: DashboardTransactionUser;
   content: DashboardTransactionContent | null;

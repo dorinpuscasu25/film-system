@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
     'amount',
     'balance_after',
     'currency',
+    'access_location',
     'reference_type',
     'reference_id',
     'description',

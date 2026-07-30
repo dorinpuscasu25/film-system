@@ -192,7 +192,11 @@
     "total": "Total",
     "pay": "Plătește",
     "coupon_invalid": "Cuponul nu este valid",
-    "access_from_moldova": "Accesez filmoteca din Republica Moldova"
+    "access_location_title": "De unde accesezi Filmoteca?",
+    "access_location_note": "(Locul livrării serviciilor)",
+    "access_location_subtitle": "Alege o opțiune pentru a continua.",
+    "access_from_moldova": "Accesez Filmoteca din Republica Moldova",
+    "access_outside_moldova": "Accesez Filmoteca din afara Republicii Moldova"
   },
   "wallet": {
     "title": "Portofel",
@@ -222,7 +226,7 @@
     "billing_country": "Țară",
     "billing_address_line1": "Adresă",
     "billing_address_line1_placeholder": "Stradă și număr",
-    "billing_address_line1_note": "(Locul livrării serviciilor)",
+    "billing_address_note": "(Locul livrării serviciilor)",
     "billing_address_line2": "Apartament, bloc, scară",
     "billing_address_line2_placeholder": "Opțional",
     "billing_city": "Oraș",

@@ -9,7 +9,7 @@ import {
   purchaseStorefrontOffer,
   unfavoriteStorefrontContent,
 } from "../lib/session";
-import type { StorefrontBillingAddressPayload, StorefrontTopUpPayload } from "../lib/session";
+import type { StorefrontAccessLocation, StorefrontBillingAddressPayload, StorefrontTopUpPayload } from "../lib/session";
 
 interface WalletContextType {
   balance: number;
@@ -21,7 +21,7 @@ interface WalletContextType {
   billingAddress: StorefrontBillingAddressPayload | null;
   isLoading: boolean;
   addFunds: (amount: number, options: { phone?: string; billingAddress: StorefrontBillingAddressPayload }) => Promise<StorefrontTopUpPayload>;
-  purchaseAccess: (offerId: string) => Promise<void>;
+  purchaseAccess: (offerId: string, options?: { accessLocation?: StorefrontAccessLocation | null }) => Promise<void>;
   hasAccess: (movieId: string) => boolean;
   getTimeRemaining: (movieId: string) => string | null;
   toggleFavorite: (movieId: string) => Promise<void>;
@@ -164,9 +164,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return response.top_up;
   };
 
-  const purchaseAccess = async (offerId: string) => {
+  const purchaseAccess = async (offerId: string, options?: { accessLocation?: StorefrontAccessLocation | null }) => {
     await purchaseStorefrontOffer(offerId, currentLanguage.code, {
       accountProfileId: activeProfile?.id ?? null,
+      accessLocation: options?.accessLocation ?? null,
     });
     await loadAccount();
   };

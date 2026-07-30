@@ -322,7 +322,8 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                     </div>
                     <div>
                       <h4 className="font-semibold text-white">{t('wallet.billing_address')}</h4>
-                      <p className="text-xs text-gray-400">{t('wallet.billing_address_hint')}</p>
+                      <p className="text-xs text-gray-400">{t('wallet.billing_address_note')}</p>
+                      <p className="mt-1 text-xs text-gray-400">{t('wallet.billing_address_hint')}</p>
                     </div>
                   </div>
                   {!isEditingBillingAddress && billingAddress ? (
@@ -388,7 +389,6 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                           isBillingFieldInvalid(billingDraft, 'address_line1', billingTouched) ? 'border-red-500/50' : 'border-white/10'
                         }`}
                       />
-                      <span className="mt-1.5 block text-xs text-gray-400">{t('wallet.billing_address_line1_note')}</span>
                     </label>
 
                     <label className="block">

@@ -192,7 +192,11 @@
     "total": "Итого",
     "pay": "Оплатить",
     "coupon_invalid": "Промокод недействителен",
-    "access_from_moldova": "Я захожу в Filmoteca из Республики Молдова"
+    "access_location_title": "Откуда вы заходите в Filmoteca?",
+    "access_location_note": "(Место оказания услуг)",
+    "access_location_subtitle": "Выберите вариант, чтобы продолжить.",
+    "access_from_moldova": "Я захожу в Filmoteca из Республики Молдова",
+    "access_outside_moldova": "Я захожу в Filmoteca из-за пределов Республики Молдова"
   },
   "wallet": {
     "title": "Кошелёк",
@@ -222,7 +226,7 @@
     "billing_country": "Страна",
     "billing_address_line1": "Адрес",
     "billing_address_line1_placeholder": "Улица и номер дома",
-    "billing_address_line1_note": "(Место оказания услуг)",
+    "billing_address_note": "(Место оказания услуг)",
     "billing_address_line2": "Квартира, блок, корпус",
     "billing_address_line2_placeholder": "Необязательно",
     "billing_city": "Город",

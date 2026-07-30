@@ -192,7 +192,11 @@
     "total": "Total",
     "pay": "Pay",
     "coupon_invalid": "Coupon is not valid",
-    "access_from_moldova": "I am accessing Filmoteca from the Republic of Moldova"
+    "access_location_title": "Where are you accessing Filmoteca from?",
+    "access_location_note": "(Place of supply of services)",
+    "access_location_subtitle": "Choose an option to continue.",
+    "access_from_moldova": "I am accessing Filmoteca from the Republic of Moldova",
+    "access_outside_moldova": "I am accessing Filmoteca from outside the Republic of Moldova"
   },
   "wallet": {
     "title": "Wallet",
@@ -222,7 +226,7 @@
     "billing_country": "Country",
     "billing_address_line1": "Address",
     "billing_address_line1_placeholder": "Street and number",
-    "billing_address_line1_note": "(Place of supply of services)",
+    "billing_address_note": "(Place of supply of services)",
     "billing_address_line2": "Apartment, suite, building",
     "billing_address_line2_placeholder": "Optional",
     "billing_city": "City",

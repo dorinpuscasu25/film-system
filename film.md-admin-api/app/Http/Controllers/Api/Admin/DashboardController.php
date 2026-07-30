@@ -354,6 +354,8 @@ class DashboardController extends ApiController
     {
         $contentSlug = data_get($transaction->meta ?? [], 'content_slug');
         $offerId = data_get($transaction->meta ?? [], 'offer_id');
+        $accessLocation = $transaction->access_location
+            ?? data_get($transaction->meta ?? [], 'access_location');
 
         /** @var Content|null $content */
         $content = is_string($contentSlug) ? $contentsBySlug->get($contentSlug) : null;
@@ -379,6 +381,12 @@ class DashboardController extends ApiController
             'own_amount' => round((float) data_get($transaction->meta ?? [], 'own_amount', 0), 2),
             'platform_percent' => round((float) data_get($transaction->meta ?? [], 'platform_percent', 0), 2),
             'funding_source' => data_get($transaction->meta ?? [], 'funding_source'),
+            'access_location' => $accessLocation,
+            'access_location_label' => match ($accessLocation) {
+                ContentEntitlement::ACCESS_LOCATION_MOLDOVA => 'Moldova',
+                ContentEntitlement::ACCESS_LOCATION_OUTSIDE_MOLDOVA => 'Extern',
+                default => 'Nedeclarat',
+            },
             'processed_at' => $transaction->processed_at?->toIso8601String(),
             'user' => [
                 'id' => $transaction->user?->id,

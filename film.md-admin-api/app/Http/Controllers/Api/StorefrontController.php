@@ -23,6 +23,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class StorefrontController extends ApiController
@@ -80,6 +81,7 @@ class StorefrontController extends ApiController
         $locale = $this->resolveRequestedLocale($request, $user);
         $validated = $request->validate([
             'account_profile_id' => ['nullable', 'integer'],
+            'access_location' => ['nullable', 'string', Rule::in(ContentEntitlement::ACCESS_LOCATIONS)],
         ]);
         $offer->loadMissing('content');
 
@@ -100,7 +102,7 @@ class StorefrontController extends ApiController
             }
         }
 
-        $purchase = $this->purchases->purchase($user, $offer);
+        $purchase = $this->purchases->purchase($user, $offer, $validated['access_location'] ?? null);
         $libraryItem = $this->libraryItemData($purchase['entitlement'], $locale);
 
         return response()->json([

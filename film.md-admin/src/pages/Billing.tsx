@@ -1163,6 +1163,7 @@ function WalletSection({
                 <TableHead>Utilizator</TableHead>
                 <TableHead>Conținut</TableHead>
                 <TableHead>Ofertă / sursă</TableHead>
+                <TableHead>Loc livrare</TableHead>
                 <TableHead className="text-right">Sumă</TableHead>
                 <TableHead>Când</TableHead>
               </TableRow>
@@ -1197,6 +1198,19 @@ function WalletSection({
                         : ""}
                     </p>
                   </TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        transaction.access_location === "moldova"
+                          ? "bg-emerald-500/10 text-emerald-600"
+                          : transaction.access_location === "outside_moldova"
+                            ? "bg-sky-500/10 text-sky-600"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {transaction.access_location_label ?? "Nedeclarat"}
+                    </span>
+                  </TableCell>
                   <TableCell
                     className={`text-right font-bold ${
                       transaction.amount > 0
@@ -1215,7 +1229,7 @@ function WalletSection({
               ))}
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                     {loading ? "Se încarcă tranzacțiile..." : "Nu există tranzacții pentru filtrele curente."}
                   </TableCell>
                 </TableRow>

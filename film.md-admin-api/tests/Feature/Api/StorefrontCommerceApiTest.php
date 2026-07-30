@@ -208,6 +208,49 @@ class StorefrontCommerceApiTest extends TestCase
         ]);
     }
 
+    public function test_purchase_records_declared_access_location(): void
+    {
+        $token = $this->registerViewerAndReturnToken();
+        $user = User::query()->where('email', 'buyer@example.com')->firstOrFail();
+        $offer = Offer::query()
+            ->where('name', '2 days HD')
+            ->whereHas('content', fn ($query) => $query->where('slug', 'teambuilding'))
+            ->firstOrFail();
+
+        $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase?locale=en", [
+            'access_location' => 'outside_moldova',
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('content_entitlements', [
+            'user_id' => $user->id,
+            'offer_id' => $offer->id,
+            'access_location' => 'outside_moldova',
+        ]);
+
+        $this->assertDatabaseHas('wallet_transactions', [
+            'user_id' => $user->id,
+            'type' => 'purchase',
+            'access_location' => 'outside_moldova',
+        ]);
+    }
+
+    public function test_purchase_rejects_unknown_access_location(): void
+    {
+        $token = $this->registerViewerAndReturnToken();
+        $offer = Offer::query()
+            ->where('name', '2 days HD')
+            ->whereHas('content', fn ($query) => $query->where('slug', 'teambuilding'))
+            ->firstOrFail();
+
+        $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase?locale=en", [
+            'access_location' => 'romania',
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertStatus(422);
+    }
+
     public function test_purchase_records_platform_and_own_money_breakdown(): void
     {
         PlatformSetting::setValue(RegistrationCreditService::SETTINGS_KEY, [

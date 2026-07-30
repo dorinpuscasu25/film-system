@@ -6,6 +6,9 @@ import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { WalletModal } from './WalletModal';
 import { resizedImageUrl } from '../lib/images';
+import type { StorefrontAccessLocation } from '../lib/session';
+
+type AccessLocation = StorefrontAccessLocation;
 
 interface PurchaseModalProps {
   isOpen: boolean;
@@ -82,13 +85,15 @@ export function PurchaseModal({
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const offers = useMemo(() => movie.offers && movie.offers.length > 0 ? movie.offers : buildFallbackOffers(movie), [movie]);
   const [selectedOfferId, setSelectedOfferId] = useState<string>(offers[0]?.id ?? '');
-  const [isAccessingFromMoldova, setIsAccessingFromMoldova] = useState(false);
+  const [isAccessLocationStepOpen, setIsAccessLocationStepOpen] = useState(false);
+  const [accessLocation, setAccessLocation] = useState<AccessLocation | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedOfferId(offers[0]?.id ?? '');
       setErrorMessage(null);
-      setIsAccessingFromMoldova(false);
+      setIsAccessLocationStepOpen(false);
+      setAccessLocation(null);
     }
   }, [isOpen, offers]);
 
@@ -103,16 +108,27 @@ export function PurchaseModal({
     }, {});
   }, [offers]);
 
-  const handlePurchase = async () => {
+  const handleConfirmClick = () => {
     if (!selectedOffer || !canAfford) {
       return;
     }
 
+    setErrorMessage(null);
+    setAccessLocation(null);
+    setIsAccessLocationStepOpen(true);
+  };
+
+  const handlePurchase = async () => {
+    if (!selectedOffer || !canAfford || !accessLocation) {
+      return;
+    }
+
+    setIsAccessLocationStepOpen(false);
     setIsProcessing(true);
     setErrorMessage(null);
 
     try {
-      await purchaseAccess(selectedOffer.id);
+      await purchaseAccess(selectedOffer.id, { accessLocation });
       setIsProcessing(false);
       onSuccess?.();
       onClose();
@@ -181,10 +197,6 @@ export function PurchaseModal({
               <div className="mb-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:mb-10 md:grid-cols-2 md:gap-5">
                 {Object.entries(groupedOffers).map(([label, group]) =>
                 <div key={label} className="space-y-2 sm:space-y-3">
-                    <h3 className="mb-2 text-center text-xs font-bold uppercase tracking-[0.22em] text-white sm:mb-4 sm:text-sm">
-                      {label}
-                    </h3>
-
                     {group.map((offer) =>
                   <button
                     key={offer.id}
@@ -193,10 +205,10 @@ export function PurchaseModal({
 
                         <div className="mb-2 flex items-start justify-between gap-3 sm:mb-4">
                           <div>
-                            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-300 sm:text-xs">
+                            <span className="inline-flex items-center rounded-md bg-accent/15 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-accent sm:text-xs">
                               {offerDurationLabel(offer, t)}
-                            </div>
-                            <div className="mt-0.5 text-2xl font-bold leading-tight text-white sm:mt-1 sm:text-3xl">{offer.quality}</div>
+                            </span>
+                            <div className="mt-2 text-2xl font-bold leading-tight text-white sm:text-3xl">{offer.quality}</div>
                           </div>
                         </div>
                         <div className="text-xl font-semibold text-white sm:text-2xl">
@@ -244,26 +256,7 @@ export function PurchaseModal({
                 }
 
                 <button
-                type="button"
-                role="switch"
-                aria-checked={isAccessingFromMoldova}
-                onClick={() => setIsAccessingFromMoldova((value) => !value)}
-                className="mb-3 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-left backdrop-blur-md transition-colors hover:bg-black/60 sm:mb-4 sm:px-4">
-
-                  <span
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${isAccessingFromMoldova ? 'bg-accentGreen' : 'bg-white/20'}`}>
-
-                    <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${isAccessingFromMoldova ? 'left-[22px]' : 'left-0.5'}`} />
-
-                  </span>
-                  <span className="text-sm text-gray-200">
-                    {t('checkout.access_from_moldova')}
-                  </span>
-                </button>
-
-                <button
-                onClick={handlePurchase}
+                onClick={handleConfirmClick}
                 disabled={!selectedOffer || !canAfford || isProcessing}
                 className={`flex w-full items-center justify-center rounded-xl py-3 text-sm font-bold transition-all sm:py-4 sm:text-lg ${canAfford ? 'bg-white text-background hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed backdrop-blur-md'}`}>
 
@@ -277,6 +270,83 @@ export function PurchaseModal({
               </div>
             </div>
           </motion.div>
+
+          <AnimatePresence>
+            {isAccessLocationStepOpen &&
+          <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
+                <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setIsAccessLocationStepOpen(false)} />
+
+                <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-surface p-5 shadow-2xl sm:p-6">
+
+                  <h3 className="text-lg font-bold text-white sm:text-xl">
+                    {t('checkout.access_location_title')}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-400">
+                    {t('checkout.access_location_note')}
+                  </p>
+                  <p className="mb-5 mt-2 text-sm text-gray-400">
+                    {t('checkout.access_location_subtitle')}
+                  </p>
+
+                  <div className="mb-5 space-y-3">
+                    {([
+                { value: 'moldova' as const, label: t('checkout.access_from_moldova') },
+                { value: 'outside_moldova' as const, label: t('checkout.access_outside_moldova') }]).
+                map((option) =>
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={accessLocation === option.value}
+                  onClick={() => setAccessLocation(option.value)}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors sm:p-4 ${accessLocation === option.value ? 'border-white bg-white/10' : 'border-white/10 bg-black/30 hover:bg-white/5'}`}>
+
+                        <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${accessLocation === option.value ? 'border-white' : 'border-white/30'}`}>
+
+                          {accessLocation === option.value &&
+                    <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                    }
+                        </span>
+                        <span className="text-sm text-gray-100">{option.label}</span>
+                      </button>
+                )}
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                    <button
+                  type="button"
+                  onClick={() => setIsAccessLocationStepOpen(false)}
+                  className="w-full rounded-xl border border-white/10 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto sm:px-5">
+
+                      {t('common.back')}
+                    </button>
+                    <button
+                  type="button"
+                  onClick={handlePurchase}
+                  disabled={!accessLocation}
+                  className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${accessLocation ? 'bg-white text-background hover:bg-gray-200' : 'cursor-not-allowed bg-white/10 text-gray-500'}`}>
+
+                      {selectedOffer ?
+                  t('checkout.confirm_purchase', { price: formatCurrency(selectedOffer.price, selectedOffer.currency) }) :
+                  t('checkout.no_offer')
+                  }
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+          }
+          </AnimatePresence>
+
           <WalletModal
             isOpen={isWalletModalOpen}
             onClose={() => setIsWalletModalOpen(false)}

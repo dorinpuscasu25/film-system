@@ -22,8 +22,12 @@ class StorefrontPurchaseService
     /**
      * @return array{wallet: Wallet, transaction: WalletTransaction|null, entitlement: ContentEntitlement, already_owned: bool}
      */
-    public function purchase(User $user, Offer $offer): array
+    public function purchase(User $user, Offer $offer, ?string $accessLocation = null): array
     {
+        $accessLocation = in_array($accessLocation, ContentEntitlement::ACCESS_LOCATIONS, true)
+            ? $accessLocation
+            : null;
+
         $offer->loadMissing('content');
         $content = $offer->content;
 
@@ -41,7 +45,7 @@ class StorefrontPurchaseService
 
         $this->wallets->ensureWallet($user);
 
-        return DB::transaction(function () use ($user, $offer, $content): array {
+        return DB::transaction(function () use ($user, $offer, $content, $accessLocation): array {
             $wallet = $this->wallets->lockWallet($user);
             $lockedOffer = Offer::query()
                 ->with('content')
@@ -83,6 +87,7 @@ class StorefrontPurchaseService
                         'offer_name' => $lockedOffer->name,
                         'quality' => $lockedOffer->quality,
                         'offer_type' => $lockedOffer->offer_type,
+                        'access_location' => $accessLocation,
                     ],
                     $lockedOffer,
                 );
@@ -100,10 +105,15 @@ class StorefrontPurchaseService
                         'offer_name' => $lockedOffer->name,
                         'quality' => $lockedOffer->quality,
                         'offer_type' => $lockedOffer->offer_type,
+                        'access_location' => $accessLocation,
                         'is_free_claim' => true,
                     ],
                     $lockedOffer,
                 );
+            }
+
+            if ($transaction !== null && $accessLocation !== null) {
+                $transaction->forceFill(['access_location' => $accessLocation])->save();
             }
 
             $entitlement = ContentEntitlement::query()->create([
@@ -114,6 +124,7 @@ class StorefrontPurchaseService
                 'quality' => $lockedOffer->quality,
                 'status' => ContentEntitlement::STATUS_ACTIVE,
                 'currency' => $lockedOffer->currency ?: Wallet::DEFAULT_CURRENCY,
+                'access_location' => $accessLocation,
                 'price_amount' => $priceAmount,
                 'granted_at' => $now,
                 'starts_at' => $now,

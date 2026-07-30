@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'quality',
     'status',
     'currency',
+    'access_location',
     'price_amount',
     'granted_at',
     'starts_at',
@@ -27,6 +28,18 @@ class ContentEntitlement extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_EXPIRED = 'expired';
     public const STATUS_REVOKED = 'revoked';
+
+    /**
+     * Where the customer declared they were accessing the service from.
+     * Relevant for VAT: the place of supply of the service.
+     */
+    public const ACCESS_LOCATION_MOLDOVA = 'moldova';
+    public const ACCESS_LOCATION_OUTSIDE_MOLDOVA = 'outside_moldova';
+
+    public const ACCESS_LOCATIONS = [
+        self::ACCESS_LOCATION_MOLDOVA,
+        self::ACCESS_LOCATION_OUTSIDE_MOLDOVA,
+    ];
 
     public function user(): BelongsTo
     {

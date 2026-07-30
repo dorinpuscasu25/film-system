@@ -90,6 +90,8 @@ export interface StorefrontAccountPayload {
   favorites_by_profile: Record<string, string[]>;
 }
 
+export type StorefrontAccessLocation = "moldova" | "outside_moldova";
+
 export interface StorefrontPurchasePayload {
   message: string;
   already_owned: boolean;
@@ -505,12 +507,14 @@ export async function purchaseStorefrontOffer(
   locale?: "en" | "ro" | "ru",
   options?: {
     accountProfileId?: string | number | null;
+    accessLocation?: StorefrontAccessLocation | null;
   },
 ) {
   return requestJson<StorefrontPurchasePayload>(`/storefront/offers/${offerId}/purchase`, {
     method: "POST",
     body: JSON.stringify({
       account_profile_id: options?.accountProfileId ?? undefined,
+      access_location: options?.accessLocation ?? undefined,
     }),
   }, {
     locale,
