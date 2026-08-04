@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'email', 'purpose', 'code_hash', 'expires_at', 'consumed_at', 'meta'])]
+#[Fillable(['user_id', 'email', 'purpose', 'code_hash', 'token_hash', 'expires_at', 'consumed_at', 'meta'])]
 class EmailVerificationCode extends Model
 {
     public const PURPOSE_REGISTRATION = 'registration';

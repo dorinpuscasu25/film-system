@@ -21,23 +21,27 @@ class EmailVerificationService
                 ->delete();
 
             $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $expiresAt = now()->addMinutes((int) config('auth.registration_code_ttl_minutes', 15));
+            $token = bin2hex(random_bytes(32));
+            $expiresInMinutes = (int) config('auth.registration_code_ttl_minutes', 15);
+            $expiresAt = now()->addMinutes($expiresInMinutes);
 
             $verification = EmailVerificationCode::query()->create([
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'purpose' => EmailVerificationCode::PURPOSE_REGISTRATION,
                 'code_hash' => hash('sha256', $code),
+                'token_hash' => hash('sha256', $token),
                 'expires_at' => $expiresAt,
                 'meta' => [
                     'delivery' => 'email',
                 ],
             ]);
 
-            Mail::to($user->email)->send(new RegistrationVerificationCodeMail(
+            Mail::to($user->email)->locale($this->localeFor($user))->send(new RegistrationVerificationCodeMail(
                 user: $user,
                 code: $code,
-                expiresAtLabel: $expiresAt->format('Y-m-d H:i'),
+                verificationUrl: route('auth.register.confirm', ['token' => $token]),
+                expiresInMinutes: $expiresInMinutes,
             ));
 
             return $verification;
@@ -46,35 +50,79 @@ class EmailVerificationService
 
     public function consumeRegistrationCode(string $email, string $code): User
     {
-        $normalizedEmail = strtolower(trim($email));
-        $user = User::query()
-            ->where('email', $normalizedEmail)
-            ->where('status', 'pending_verification')
-            ->first();
+        return DB::transaction(function () use ($email, $code): User {
+            $normalizedEmail = strtolower(trim($email));
+            $user = User::query()
+                ->where('email', $normalizedEmail)
+                ->where('status', 'pending_verification')
+                ->lockForUpdate()
+                ->first();
 
-        if ($user === null) {
-            throw ValidationException::withMessages([
-                'email' => ['No pending registration was found for this email.'],
-            ]);
-        }
+            if ($user === null) {
+                throw ValidationException::withMessages([
+                    'email' => ['No pending registration was found for this email.'],
+                ]);
+            }
 
-        $verification = EmailVerificationCode::query()
-            ->where('user_id', $user->id)
-            ->where('purpose', EmailVerificationCode::PURPOSE_REGISTRATION)
-            ->active()
-            ->latest('id')
-            ->first();
+            $verification = EmailVerificationCode::query()
+                ->where('user_id', $user->id)
+                ->where('purpose', EmailVerificationCode::PURPOSE_REGISTRATION)
+                ->active()
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
 
-        if ($verification === null || ! hash_equals($verification->code_hash, hash('sha256', trim($code)))) {
-            throw ValidationException::withMessages([
-                'code' => ['The confirmation code is invalid or expired.'],
-            ]);
-        }
+            if ($verification === null || ! hash_equals($verification->code_hash, hash('sha256', trim($code)))) {
+                throw ValidationException::withMessages([
+                    'code' => ['The confirmation code is invalid or expired.'],
+                ]);
+            }
 
-        $verification->forceFill([
-            'consumed_at' => now(),
-        ])->save();
+            $verification->forceFill(['consumed_at' => now()])->save();
 
-        return $user;
+            return $user;
+        });
+    }
+
+    public function consumeRegistrationToken(string $token): User
+    {
+        return DB::transaction(function () use ($token): User {
+            $tokenHash = hash('sha256', $token);
+            $candidate = EmailVerificationCode::query()
+                ->where('purpose', EmailVerificationCode::PURPOSE_REGISTRATION)
+                ->where('token_hash', $tokenHash)
+                ->active()
+                ->first(['id', 'user_id']);
+
+            $user = $candidate === null ? null : User::query()
+                ->whereKey($candidate->user_id)
+                ->where('status', 'pending_verification')
+                ->lockForUpdate()
+                ->first();
+
+            $verification = $candidate === null ? null : EmailVerificationCode::query()
+                ->whereKey($candidate->id)
+                ->where('token_hash', $tokenHash)
+                ->active()
+                ->lockForUpdate()
+                ->first();
+
+            if ($verification === null || $user === null) {
+                throw ValidationException::withMessages([
+                    'token' => ['The confirmation link is invalid, expired, or has already been used.'],
+                ]);
+            }
+
+            $verification->forceFill(['consumed_at' => now()])->save();
+
+            return $user;
+        });
+    }
+
+    private function localeFor(User $user): string
+    {
+        return in_array($user->preferred_locale, ['ro', 'ru', 'en'], true)
+            ? $user->preferred_locale
+            : 'ro';
     }
 }

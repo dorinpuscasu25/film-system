@@ -49,18 +49,31 @@ function withoutLanguageLinks(items: FooterMenuNode[]): FooterMenuNode[] {
 }
 
 function FooterMenuLink({ item }: { item: PublicMenuItem }) {
-  const isExternal = item.resolved_url.startsWith('http') || item.target === '_blank';
+  const normalizedLabel = item.label
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .toLowerCase();
+  const fallbackUrl = normalizedLabel.includes('pret') || normalizedLabel.includes('price')
+    ? '/politica-de-preturi'
+    : normalizedLabel.includes('contact')
+      ? '/contacte'
+      : '/';
+  const resolvedUrl = item.resolved_url?.trim() && item.resolved_url !== '#'
+    ? item.resolved_url
+    : fallbackUrl;
+  const isExternal = resolvedUrl.startsWith('http') || item.target === '_blank';
 
   if (isExternal) {
     return (
-      <a href={item.resolved_url} target={item.target === '_blank' ? '_blank' : undefined} rel="noreferrer" className="transition-colors hover:text-white">
+      <a href={resolvedUrl} target={item.target === '_blank' ? '_blank' : undefined} rel="noreferrer" className="transition-colors hover:text-white">
         {item.label}
       </a>
     );
   }
 
   return (
-    <Link to={item.resolved_url} className="transition-colors hover:text-white">
+    <Link to={resolvedUrl} className="transition-colors hover:text-white">
       {item.label}
     </Link>
   );
@@ -164,6 +177,10 @@ export function Footer() {
             <p className="max-w-md text-xs leading-5 text-gray-600">
               {t('footer.tagline')}
             </p>
+            <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-400" aria-label={t('footer.support')}>
+              <Link to="/contacte" className="transition-colors hover:text-white">{t('footer.contact')}</Link>
+              <Link to="/politica-de-preturi" className="transition-colors hover:text-white">{t('footer.pricing_policy')}</Link>
+            </nav>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

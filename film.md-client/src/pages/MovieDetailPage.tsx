@@ -177,6 +177,7 @@ export function MovieDetailPage() {
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareMenuStyle, setShareMenuStyle] = useState<React.CSSProperties>();
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [activeSeason, setActiveSeason] = useState(1);
   const [movie, setMovie] = useState<Movie | null>(null);
@@ -194,6 +195,7 @@ export function MovieDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<StorefrontErrorCode | null>(null);
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
+  const shareButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -201,8 +203,37 @@ export function MovieDetailPage() {
 
   useEffect(() => {
     if (!isShareOpen) {
+      setShareMenuStyle(undefined);
       return;
     }
+
+    const updateShareMenuPosition = () => {
+      if (window.innerWidth < 640 || !shareButtonRef.current) {
+        setShareMenuStyle(undefined);
+        return;
+      }
+
+      const trigger = shareButtonRef.current.getBoundingClientRect();
+      const viewportMargin = 16;
+      const headerClearance = 72;
+      const gap = 8;
+      const spaceBelow = window.innerHeight - trigger.bottom - viewportMargin - gap;
+      const spaceAbove = trigger.top - headerClearance - gap;
+      const openBelow = spaceBelow >= spaceAbove;
+      const availableHeight = Math.max(96, openBelow ? spaceBelow : spaceAbove);
+
+      setShareMenuStyle({
+        position: "fixed",
+        top: openBelow ? trigger.bottom + gap : undefined,
+        bottom: openBelow ? undefined : window.innerHeight - trigger.top + gap,
+        right: Math.max(viewportMargin, window.innerWidth - trigger.right),
+        maxHeight: Math.min(448, availableHeight),
+      });
+    };
+
+    updateShareMenuPosition();
+    window.addEventListener("resize", updateShareMenuPosition);
+    window.addEventListener("scroll", updateShareMenuPosition, true);
 
     const handlePointerDown = (event: PointerEvent) => {
       if (shareMenuRef.current?.contains(event.target as Node)) {
@@ -214,7 +245,11 @@ export function MovieDetailPage() {
 
     window.addEventListener("pointerdown", handlePointerDown);
 
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("resize", updateShareMenuPosition);
+      window.removeEventListener("scroll", updateShareMenuPosition, true);
+    };
   }, [isShareOpen]);
 
   useEffect(() => {
@@ -771,14 +806,22 @@ export function MovieDetailPage() {
               </button>
               <div className="relative shrink-0" ref={shareMenuRef}>
                 <button
+                  ref={shareButtonRef}
                   onClick={() => setIsShareOpen((current) => !current)}
                   className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10"
                   aria-label={t("share.label")}
+                  aria-expanded={isShareOpen}
+                  aria-controls="movie-share-menu"
                 >
                   <Share2Icon className="h-5 w-5" />
                 </button>
                 {isShareOpen ? (
-                  <div className="absolute left-0 top-14 z-30 w-56 overflow-hidden rounded-xl border border-white/10 bg-surface/95 p-2 text-sm text-white shadow-2xl backdrop-blur md:left-auto md:right-0">
+                  <div
+                    id="movie-share-menu"
+                    className="fixed inset-x-4 bottom-4 z-[60] max-h-[min(70dvh,28rem)] overflow-y-auto rounded-2xl border border-white/10 bg-surface/95 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-sm text-white shadow-2xl backdrop-blur sm:inset-x-auto sm:bottom-auto sm:top-auto sm:z-30 sm:w-64 sm:rounded-xl"
+                    role="menu"
+                    style={shareMenuStyle}
+                  >
                     {[
                       ["native", t("share.native")],
                       ["facebook", "Facebook"],
@@ -793,7 +836,8 @@ export function MovieDetailPage() {
                       <button
                         key={platform}
                         onClick={() => void handleShare(platform)}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition hover:bg-white/10"
+                        className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left transition hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                        role="menuitem"
                       >
                         <span>{label}</span>
                       </button>
@@ -801,7 +845,7 @@ export function MovieDetailPage() {
                   </div>
                 ) : null}
                 {shareMessage ? (
-                  <div className="absolute left-0 top-14 z-20 whitespace-nowrap rounded-lg bg-white px-3 py-2 text-xs font-medium text-black md:left-auto md:right-0">
+                  <div className="fixed bottom-4 left-1/2 z-[70] max-w-[calc(100vw-2rem)] -translate-x-1/2 whitespace-nowrap rounded-lg bg-white px-3 py-2 text-xs font-medium text-black sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-14 sm:z-20 sm:translate-x-0">
                     {shareMessage}
                   </div>
                 ) : null}

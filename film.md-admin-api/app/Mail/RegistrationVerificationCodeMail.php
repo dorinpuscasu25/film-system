@@ -16,14 +16,14 @@ class RegistrationVerificationCodeMail extends Mailable
     public function __construct(
         public User $user,
         public string $code,
-        public string $expiresAtLabel,
-    ) {
-    }
+        public string $verificationUrl,
+        public int $expiresInMinutes,
+    ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Confirm your filmoteca.md account',
+            subject: __('emails.registration.subject'),
         );
     }
 
@@ -34,7 +34,8 @@ class RegistrationVerificationCodeMail extends Mailable
             with: [
                 'userName' => $this->user->name,
                 'code' => $this->code,
-                'expiresAtLabel' => $this->expiresAtLabel,
+                'verificationUrl' => $this->verificationUrl,
+                'expiresInMinutes' => $this->expiresInMinutes,
             ],
         );
     }

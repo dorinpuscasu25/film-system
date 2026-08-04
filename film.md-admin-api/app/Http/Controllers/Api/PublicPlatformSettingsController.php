@@ -28,19 +28,55 @@ class PublicPlatformSettingsController extends ApiController
             $termsPage = $this->termsPageData();
 
             return [
-            'ga4_measurement_id' => PlatformSetting::getValue('ga4_measurement_id'),
-            'default_locale' => PlatformSetting::getValue('default_locale', 'ro'),
-            'available_locales' => PlatformSetting::getValue('available_locales', ['ro', 'ru', 'en']),
-            'social_links' => PlatformSetting::getValue('social_links', []),
-            'seo' => PlatformSetting::getValue('seo', []),
-            'terms_page' => $termsPage,
-            'terms_page_url' => $termsPage['url'] ?? null,
+                'ga4_measurement_id' => PlatformSetting::getValue('ga4_measurement_id'),
+                'default_locale' => PlatformSetting::getValue('default_locale', 'ro'),
+                'available_locales' => PlatformSetting::getValue('available_locales', ['ro', 'ru', 'en']),
+                'social_links' => PlatformSetting::getValue('social_links', []),
+                'seo' => PlatformSetting::getValue('seo', []),
+                'terms_page' => $termsPage,
+                'terms_page_url' => $termsPage['url'] ?? null,
+                'contact' => $this->contactData(),
             ];
         });
 
         return response()->json($payload)
             ->header('Cache-Control', 'private, max-age=60, stale-while-revalidate=300')
             ->header('X-Storefront-Cache-Version', (string) $this->storefrontCache->version());
+    }
+
+    private function contactData(): ?array
+    {
+        $contact = PlatformSetting::getValue('contact', []);
+        if (! is_array($contact)) {
+            return null;
+        }
+
+        $locale = (string) request()->query('locale', PlatformSetting::getValue('default_locale', Taxonomy::LOCALE_RO));
+        $locale = in_array($locale, Taxonomy::supportedLocales(), true) ? $locale : Taxonomy::LOCALE_RO;
+        $localized = static function (mixed $field) use ($locale): ?string {
+            if (is_string($field)) {
+                return filled($field) ? trim($field) : null;
+            }
+
+            if (! is_array($field)) {
+                return null;
+            }
+
+            $value = $field[$locale] ?? $field[Taxonomy::LOCALE_RO] ?? collect($field)->first(fn (mixed $item): bool => filled($item));
+
+            return filled($value) ? trim((string) $value) : null;
+        };
+
+        $payload = [
+            'operator_name' => filled($contact['operator_name'] ?? null) ? trim((string) $contact['operator_name']) : null,
+            'email' => filled($contact['email'] ?? null) ? trim((string) $contact['email']) : null,
+            'phone' => filled($contact['phone'] ?? null) ? trim((string) $contact['phone']) : null,
+            'address' => $localized($contact['address'] ?? null),
+            'working_hours' => $localized($contact['working_hours'] ?? null),
+            'description' => $localized($contact['description'] ?? null),
+        ];
+
+        return collect($payload)->contains(fn (mixed $value): bool => filled($value)) ? $payload : null;
     }
 
     private function termsPageData(): ?array

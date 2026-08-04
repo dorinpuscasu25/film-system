@@ -647,6 +647,21 @@ export const adminApi = {
       data: payload,
     });
   },
+  adjustUserWallet(
+    userId: number,
+    payload: {
+      operation: "add" | "set";
+      amount: number;
+      reason?: string;
+    },
+  ) {
+    return request<{
+      user: AdminUser;
+      wallet: NonNullable<AdminUser["wallet"]>;
+      previous_balance: number;
+      difference: number;
+    }>("PATCH", `/admin/users/${userId}/wallet`, { data: payload });
+  },
 
   createRole(payload: {
     name: string;

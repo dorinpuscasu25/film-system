@@ -21,9 +21,22 @@ const WatchPartyPage = lazy(() => import('./pages/WatchPartyPage').then((module)
 const PaymentStatusPage = lazy(() => import('./pages/PaymentStatusPage').then((module) => ({ default: module.PaymentStatusPage })));
 const CmsPage = lazy(() => import('./pages/CmsPage').then((module) => ({ default: module.CmsPage })));
 const DeviceLinkPage = lazy(() => import('./pages/DeviceLinkPage').then((module) => ({ default: module.DeviceLinkPage })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then((module) => ({ default: module.ContactPage })));
+const PricingPolicyPage = lazy(() => import('./pages/PricingPolicyPage').then((module) => ({ default: module.PricingPolicyPage })));
+const RegistrationConfirmationPage = lazy(() => import('./pages/RegistrationConfirmationPage').then((module) => ({ default: module.RegistrationConfirmationPage })));
 
 const MAINTENANCE_PASSWORD = 'superfilm';
 const MAINTENANCE_ACCESS_KEY = 'filmoteca_maintenance_access';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
+
+  return null;
+}
 
 function MaintenanceGate({ onUnlock }: { onUnlock: () => void }) {
   const [password, setPassword] = useState('');
@@ -159,6 +172,7 @@ function AppFrame() {
     <div className="min-h-screen flex flex-col bg-background text-white font-sans selection:bg-accent selection:text-white">
       {!isPlayerRoute && !isProfileRoute ? <Header /> : null}
       {!isPlayerRoute ? <AuthModal /> : null}
+      <ScrollToTop />
       <main className="flex-grow">
         <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-gray-400">Se încarcă...</div>}>
           <Routes>
@@ -168,6 +182,9 @@ function AppFrame() {
             <Route path="/watch/:id" element={<PlayerPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/page/:slug" element={<CmsPage />} />
+            <Route path="/contacte" element={<ContactPage />} />
+            <Route path="/politica-de-preturi" element={<PricingPolicyPage />} />
+            <Route path="/registration-confirmed" element={<RegistrationConfirmationPage />} />
             <Route path="/tv" element={<DeviceLinkPage />} />
             <Route path="/dashboard" element={<UserDashboardPage />} />
             <Route path="/payment/success" element={<PaymentStatusPage fallbackStatus="success" />} />

@@ -28,6 +28,7 @@ class PlatformSettingsController extends ApiController
         'social_links',
         'seo',
         'terms_page_id',
+        'contact',
         RegistrationCreditService::SETTINGS_KEY,
     ];
 
@@ -54,6 +55,16 @@ class PlatformSettingsController extends ApiController
     {
         $data = $request->validate([
             'settings' => ['required', 'array'],
+            'settings.contact' => ['sometimes', 'array'],
+            'settings.contact.operator_name' => ['nullable', 'string', 'max:255'],
+            'settings.contact.email' => ['nullable', 'email', 'max:255'],
+            'settings.contact.phone' => ['nullable', 'string', 'max:100'],
+            'settings.contact.address' => ['nullable', 'array'],
+            'settings.contact.address.*' => ['nullable', 'string', 'max:1000'],
+            'settings.contact.working_hours' => ['nullable', 'array'],
+            'settings.contact.working_hours.*' => ['nullable', 'string', 'max:500'],
+            'settings.contact.description' => ['nullable', 'array'],
+            'settings.contact.description.*' => ['nullable', 'string', 'max:2000'],
         ]);
 
         foreach ($data['settings'] as $key => $value) {
@@ -66,6 +77,9 @@ class PlatformSettingsController extends ApiController
             if ($key === 'terms_page_id') {
                 $value = filled($value) ? (int) $value : null;
             }
+            if ($key === 'contact') {
+                $value = $this->normalizeContactSettings(is_array($value) ? $value : []);
+            }
             PlatformSetting::setValue($key, $value);
         }
 
@@ -73,5 +87,27 @@ class PlatformSettingsController extends ApiController
         $this->storefrontCache->clear();
 
         return $this->index();
+    }
+
+    private function normalizeContactSettings(array $value): array
+    {
+        $localized = static function (mixed $field): array {
+            $field = is_array($field) ? $field : [];
+
+            return collect(['ro', 'ru', 'en'])
+                ->mapWithKeys(fn (string $locale): array => [
+                    $locale => trim((string) ($field[$locale] ?? '')),
+                ])
+                ->all();
+        };
+
+        return [
+            'operator_name' => trim((string) ($value['operator_name'] ?? '')),
+            'email' => trim((string) ($value['email'] ?? '')),
+            'phone' => trim((string) ($value['phone'] ?? '')),
+            'address' => $localized($value['address'] ?? []),
+            'working_hours' => $localized($value['working_hours'] ?? []),
+            'description' => $localized($value['description'] ?? []),
+        ];
     }
 }

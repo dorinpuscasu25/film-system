@@ -16,7 +16,7 @@ class WalletService
         protected RegistrationCreditService $registrationCredit,
     ) {}
 
-    public function ensureWallet(User $user): Wallet
+    public function ensureWallet(User $user, bool $grantRegistrationCredit = true): Wallet
     {
         $existingWallet = $user->wallet()->first();
         if ($existingWallet !== null) {
@@ -24,13 +24,15 @@ class WalletService
         }
 
         try {
-            return DB::transaction(function () use ($user): Wallet {
+            return DB::transaction(function () use ($user, $grantRegistrationCredit): Wallet {
                 $wallet = $user->wallet()->first();
                 if ($wallet !== null) {
                     return $wallet;
                 }
 
-                $registrationCredit = $this->registrationCredit->resolveForRegistration($user->created_at);
+                $registrationCredit = $grantRegistrationCredit
+                    ? $this->registrationCredit->resolveForRegistration($user->created_at)
+                    : ['enabled' => false, 'amount' => 0.0, 'campaign' => null];
                 $welcomeCredit = $registrationCredit['enabled'] ? $registrationCredit['amount'] : 0.0;
 
                 $wallet = $user->wallet()->create([

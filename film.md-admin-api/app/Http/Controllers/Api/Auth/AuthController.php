@@ -5,18 +5,20 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Http\Controllers\Api\ApiController;
-use App\Models\EmailVerificationCode;
 use App\Models\PersonalAccessToken;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\AccountProfileService;
+use App\Services\EmailAddressNormalizer;
 use App\Services\EmailVerificationService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends ApiController
@@ -25,14 +27,16 @@ class AuthController extends ApiController
     use ProfileValidationRules;
 
     public function __construct(
+        protected EmailAddressNormalizer $emailAddressNormalizer,
         protected EmailVerificationService $emailVerification,
         protected AccountProfileService $profiles,
         protected WalletService $wallets,
-    ) {
-    }
+    ) {}
 
     public function register(Request $request): JsonResponse
     {
+        $this->normalizeRequestEmail($request);
+
         $validated = $request->validate([
             'name' => $this->nameRules(),
             'email' => ['required', 'email', 'max:255'],
@@ -50,7 +54,7 @@ class AuthController extends ApiController
         }
 
         $user = DB::transaction(function () use ($validated, $existingUser, $email): User {
-            $user = $existingUser ?? new User();
+            $user = $existingUser ?? new User;
             $user->fill([
                 'name' => $validated['name'],
                 'email' => $email,
@@ -76,32 +80,18 @@ class AuthController extends ApiController
 
     public function verifyRegistration(Request $request): JsonResponse
     {
+        $this->normalizeRequestEmail($request);
+
         $validated = $request->validate([
             'email' => ['required', 'email'],
             'code' => ['required', 'digits:6'],
         ]);
 
-        $viewerRole = Role::query()
-            ->where('is_default', true)
-            ->firstOrFail();
+        $user = DB::transaction(function () use ($validated): User {
+            $user = $this->emailVerification->consumeRegistrationCode($validated['email'], $validated['code']);
 
-        $user = $this->emailVerification->consumeRegistrationCode($validated['email'], $validated['code']);
-
-        $user = DB::transaction(function () use ($user, $viewerRole): User {
-            $user->forceFill([
-                'status' => 'active',
-                'email_verified_at' => now(),
-                'last_seen_at' => now(),
-            ])->save();
-
-            $user->roles()->syncWithoutDetaching([$viewerRole->id]);
-
-            return $user->fresh();
+            return $this->completeRegistration($user);
         });
-
-        $this->wallets->ensureWallet($user);
-        $this->profiles->ensureDefaultProfile($user);
-        $user->loadMissing('roles.permissions', 'wallet', 'profiles.favorites');
 
         [, $plainTextToken] = PersonalAccessToken::issue($user, 'client-register');
 
@@ -111,8 +101,26 @@ class AuthController extends ApiController
         ], Response::HTTP_CREATED);
     }
 
+    public function confirmRegistrationLink(string $token): RedirectResponse
+    {
+        $frontendUrl = rtrim((string) config('services.frontend.client_url'), '/');
+
+        try {
+            DB::transaction(function () use ($token): void {
+                $user = $this->emailVerification->consumeRegistrationToken($token);
+                $this->completeRegistration($user);
+            });
+
+            return redirect()->away($frontendUrl.'/registration-confirmed?status=success');
+        } catch (ValidationException) {
+            return redirect()->away($frontendUrl.'/registration-confirmed?status=invalid');
+        }
+    }
+
     public function resendRegistrationCode(Request $request): JsonResponse
     {
+        $this->normalizeRequestEmail($request);
+
         $validated = $request->validate([
             'email' => ['required', 'email'],
         ]);
@@ -139,6 +147,8 @@ class AuthController extends ApiController
 
     public function login(Request $request): JsonResponse
     {
+        $this->normalizeRequestEmail($request);
+
         $validated = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
@@ -190,6 +200,8 @@ class AuthController extends ApiController
 
     public function forgotPassword(Request $request): JsonResponse
     {
+        $this->normalizeRequestEmail($request);
+
         $validated = $request->validate([
             'email' => ['required', 'email'],
         ]);
@@ -222,7 +234,7 @@ class AuthController extends ApiController
 
     public function logout(Request $request): JsonResponse
     {
-        /** @var \App\Models\PersonalAccessToken|null $token */
+        /** @var PersonalAccessToken|null $token */
         $token = $request->attributes->get('currentAccessToken');
 
         if ($token !== null) {
@@ -230,5 +242,39 @@ class AuthController extends ApiController
         }
 
         return response()->json(status: Response::HTTP_NO_CONTENT);
+    }
+
+    private function normalizeRequestEmail(Request $request): void
+    {
+        if ($request->has('email')) {
+            $request->merge([
+                'email' => $this->emailAddressNormalizer->normalize((string) $request->input('email')),
+            ]);
+        }
+    }
+
+    private function completeRegistration(User $user): User
+    {
+        $viewerRole = Role::query()
+            ->where('is_default', true)
+            ->firstOrFail();
+
+        $user = DB::transaction(function () use ($user, $viewerRole): User {
+            $user->forceFill([
+                'status' => 'active',
+                'email_verified_at' => now(),
+                'last_seen_at' => now(),
+            ])->save();
+
+            $user->roles()->syncWithoutDetaching([$viewerRole->id]);
+
+            return $user->fresh();
+        });
+
+        $this->wallets->ensureWallet($user);
+        $this->profiles->ensureDefaultProfile($user);
+        $user->loadMissing('roles.permissions', 'wallet', 'profiles.favorites');
+
+        return $user;
     }
 }

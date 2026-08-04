@@ -8,25 +8,29 @@ use App\Models\Content;
 use App\Models\Invitation;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use App\Services\AuditLogService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends ApiController
 {
     public function __construct(
         protected AuditLogService $auditLog,
+        protected WalletService $wallets,
     ) {}
 
     public function index(): JsonResponse
     {
         $users = User::query()
-            ->with('roles.permissions', 'contentAccesses.content')
+            ->with('roles.permissions', 'contentAccesses.content', 'wallet')
             ->latest()
             ->get();
 
@@ -170,6 +174,106 @@ class UserController extends ApiController
 
         return response()->json([
             'user' => $this->userData($user->fresh()),
+        ]);
+    }
+
+    public function adjustWallet(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'operation' => ['required', Rule::in(['add', 'set'])],
+            'amount' => ['required', 'numeric', 'min:0', 'max:1000000'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        if ($validated['operation'] === 'add' && (float) $validated['amount'] <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => ['Suma adăugată trebuie să fie mai mare decât zero.'],
+            ]);
+        }
+
+        $this->wallets->ensureWallet($user, false);
+        $reason = trim((string) ($validated['reason'] ?? '')) ?: 'Ajustare manuală din admin';
+
+        $result = DB::transaction(function () use ($request, $user, $validated, $reason): array {
+            $wallet = $this->wallets->lockWallet($user);
+            $previousBalance = round((float) $wallet->balance_amount, 2);
+            $requestedAmount = round((float) $validated['amount'], 2);
+            $targetBalance = $validated['operation'] === 'add'
+                ? round($previousBalance + $requestedAmount, 2)
+                : $requestedAmount;
+
+            if ($targetBalance > 1000000) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Soldul final nu poate depăși 1.000.000 MDL.'],
+                ]);
+            }
+
+            $difference = round($targetBalance - $previousBalance, 2);
+
+            if ($difference === 0.0) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Soldul nou trebuie să fie diferit de soldul curent.'],
+                ]);
+            }
+
+            $meta = [
+                'source' => 'admin',
+                'admin_user_id' => $request->user()->id,
+                'target_user_id' => $user->id,
+                'operation' => $validated['operation'],
+                'reason' => $reason,
+                'previous_balance' => $previousBalance,
+                'target_balance' => $targetBalance,
+            ];
+
+            if ($difference > 0) {
+                $this->wallets->credit(
+                    $wallet,
+                    $difference,
+                    WalletTransaction::TYPE_ADJUSTMENT,
+                    $reason,
+                    [...$meta, 'funding_source' => 'platform'],
+                );
+            } elseif ($difference < 0) {
+                $this->wallets->debit(
+                    $wallet,
+                    abs($difference),
+                    WalletTransaction::TYPE_ADJUSTMENT,
+                    $reason,
+                    $meta,
+                );
+            }
+
+            return [
+                'wallet' => $wallet->fresh(),
+                'previous_balance' => $previousBalance,
+                'new_balance' => $targetBalance,
+                'difference' => $difference,
+            ];
+        });
+
+        $this->auditLog->record(
+            'wallet.balance_adjusted',
+            'wallet',
+            $result['wallet']->id,
+            [
+                'target_user_id' => $user->id,
+                'target_user_email' => $user->email,
+                'operation' => $validated['operation'],
+                'previous_balance' => $result['previous_balance'],
+                'new_balance' => $result['new_balance'],
+                'difference' => $result['difference'],
+                'reason' => $reason,
+            ],
+            $request->user(),
+            $request,
+        );
+
+        return response()->json([
+            'user' => $this->userData($user->fresh()->load('roles.permissions', 'contentAccesses.content', 'wallet')),
+            'wallet' => $this->walletSummaryData($result['wallet']),
+            'previous_balance' => $result['previous_balance'],
+            'difference' => $result['difference'],
         ]);
     }
 

@@ -37,6 +37,12 @@ export interface AdminUser {
     title: string | null;
     slug: string | null;
   }>;
+  wallet: {
+    id: number;
+    currency: string;
+    balance_amount: number;
+    updated_at: string | null;
+  } | null;
 }
 
 export interface AdminInvitation {

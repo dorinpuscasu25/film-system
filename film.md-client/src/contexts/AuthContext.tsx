@@ -50,7 +50,7 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, preferredLocale?: "en" | "ro" | "ru") => Promise<void>;
   verifyRegistration: (code: string) => Promise<void>;
   resendRegistration: (email?: string) => Promise<void>;
   startVerification: (email: string, expiresAt?: string | null) => void;
@@ -240,11 +240,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthModalOpen(false);
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string, preferredLocale?: "en" | "ro" | "ru") => {
     const response = await registerWithPassword({
       name,
       email,
       password,
+      preferredLocale,
     });
 
     setPendingRegistration({

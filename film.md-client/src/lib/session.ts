@@ -140,6 +140,14 @@ export interface StorefrontBillingAddressPayload {
 }
 
 export interface PublicPlatformSettingsPayload {
+  contact?: {
+    operator_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    working_hours?: string | null;
+    description?: string | null;
+  } | null;
   terms_page_url?: string | null;
   terms_page?: {
     id: number;

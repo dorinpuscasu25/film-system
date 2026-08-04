@@ -44,6 +44,8 @@ class AuthApiTest extends TestCase
             ->latest('id')
             ->firstOrFail();
 
+        $this->assertNotNull($verification->token_hash);
+
         Mail::assertSent(RegistrationVerificationCodeMail::class, function (RegistrationVerificationCodeMail $mail): bool {
             return $mail->user->email === 'viewer@example.com'
                 && preg_match('/^\d{6}$/', $mail->code) === 1;
@@ -62,8 +64,13 @@ class AuthApiTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('message', 'Confirm your email with the verification code we sent before logging in.');
 
-        /** @var \App\Mail\RegistrationVerificationCodeMail $sentMail */
+        /** @var RegistrationVerificationCodeMail $sentMail */
         $sentMail = collect(Mail::sent(RegistrationVerificationCodeMail::class))->first();
+        $mailHtml = $sentMail->locale('ro')->render();
+
+        $this->assertStringContainsString('Confirmă contul', $mailHtml);
+        $this->assertStringContainsString('white-space:nowrap', $mailHtml);
+        $this->assertStringContainsString($sentMail->verificationUrl, $mailHtml);
 
         $verifyResponse = $this->postJson('/api/v1/auth/register/verify', [
             'email' => 'viewer@example.com',
@@ -85,6 +92,89 @@ class AuthApiTest extends TestCase
         $this->assertNotNull($verification->fresh()->consumed_at);
     }
 
+    public function test_registration_corrects_a_popular_email_provider_typo_before_validation(): void
+    {
+        Mail::fake();
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Typo User',
+            'email' => 'typo@gmal.con',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])
+            ->assertAccepted()
+            ->assertJsonPath('email', 'typo@gmail.com');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'typo@gmail.com',
+            'status' => 'pending_verification',
+        ]);
+
+        Mail::assertSent(RegistrationVerificationCodeMail::class, function (RegistrationVerificationCodeMail $mail): bool {
+            return $mail->user->email === 'typo@gmail.com';
+        });
+    }
+
+    public function test_registration_can_be_confirmed_once_through_the_email_link(): void
+    {
+        Mail::fake();
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Viewer User',
+            'email' => 'viewer@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'preferred_locale' => 'ro',
+        ])->assertAccepted();
+
+        /** @var RegistrationVerificationCodeMail $sentMail */
+        $sentMail = collect(Mail::sent(RegistrationVerificationCodeMail::class))->first();
+        $confirmationPath = (string) parse_url($sentMail->verificationUrl, PHP_URL_PATH);
+
+        $this->get($confirmationPath)
+            ->assertRedirect('http://localhost:5173/registration-confirmed?status=success');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'viewer@example.com',
+            'status' => 'active',
+        ]);
+
+        $this->get($confirmationPath)
+            ->assertRedirect('http://localhost:5173/registration-confirmed?status=invalid');
+
+        $this->postJson('/api/v1/auth/register/verify', [
+            'email' => 'viewer@example.com',
+            'code' => $sentMail->code,
+        ])->assertUnprocessable();
+    }
+
+    public function test_invalid_and_expired_registration_codes_are_rejected(): void
+    {
+        Mail::fake();
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Viewer User',
+            'email' => 'viewer@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertAccepted();
+
+        /** @var RegistrationVerificationCodeMail $sentMail */
+        $sentMail = collect(Mail::sent(RegistrationVerificationCodeMail::class))->first();
+
+        $this->postJson('/api/v1/auth/register/verify', [
+            'email' => 'viewer@example.com',
+            'code' => $sentMail->code === '000000' ? '111111' : '000000',
+        ])->assertUnprocessable();
+
+        EmailVerificationCode::query()->update(['expires_at' => now()->subMinute()]);
+
+        $this->postJson('/api/v1/auth/register/verify', [
+            'email' => 'viewer@example.com',
+            'code' => $sentMail->code,
+        ])->assertUnprocessable();
+    }
+
     public function test_pending_registration_can_resend_confirmation_code(): void
     {
         Mail::fake();
@@ -96,7 +186,7 @@ class AuthApiTest extends TestCase
             'password_confirmation' => 'password',
         ])->assertAccepted();
 
-        /** @var \App\Mail\RegistrationVerificationCodeMail $firstMail */
+        /** @var RegistrationVerificationCodeMail $firstMail */
         $firstMail = collect(Mail::sent(RegistrationVerificationCodeMail::class))->first();
 
         $this->postJson('/api/v1/auth/register/resend', [
@@ -107,7 +197,7 @@ class AuthApiTest extends TestCase
 
         Mail::assertSent(RegistrationVerificationCodeMail::class, 2);
 
-        /** @var \App\Mail\RegistrationVerificationCodeMail $secondMail */
+        /** @var RegistrationVerificationCodeMail $secondMail */
         $secondMail = collect(Mail::sent(RegistrationVerificationCodeMail::class))->last();
 
         $this->assertNotSame($firstMail->code, $secondMail->code);

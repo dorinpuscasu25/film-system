@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeftIcon, MailIcon, RefreshCcwIcon, XIcon } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
+import { correctPopularEmailAddress } from "../lib/emailAddress";
 
 export function AuthModal() {
   const {
@@ -16,7 +17,7 @@ export function AuthModal() {
     startVerification,
     clearPendingRegistration,
   } = useAuth();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,6 +26,7 @@ export function AuthModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [correctedEmail, setCorrectedEmail] = useState<string | null>(null);
 
   const isVerificationStep = pendingRegistration !== null;
   const modalTitle = useMemo(() => {
@@ -43,6 +45,7 @@ export function AuthModal() {
     setMode(nextMode);
     setErrorMessage(null);
     setInfoMessage(null);
+    setCorrectedEmail(null);
     setCode("");
 
     if (pendingRegistration) {
@@ -55,6 +58,13 @@ export function AuthModal() {
     setErrorMessage(null);
     setInfoMessage(null);
     setIsLoading(true);
+    const correction = isVerificationStep ? null : correctPopularEmailAddress(email);
+    const submittedEmail = correction?.email ?? email;
+
+    if (correction) {
+      setEmail(submittedEmail);
+      setCorrectedEmail(correction.changed ? submittedEmail : null);
+    }
 
     try {
       if (isVerificationStep) {
@@ -63,16 +73,16 @@ export function AuthModal() {
       }
 
       if (mode === "login") {
-        await login(email, password);
+        await login(submittedEmail, password);
       } else {
-        await register(name, email, password);
+        await register(name, submittedEmail, password, currentLanguage.code);
         setInfoMessage(t("auth.code_sent"));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : t("auth.failed");
 
       if (mode === "login" && message.includes("Confirm your email")) {
-        startVerification(email);
+        startVerification(submittedEmail);
         setInfoMessage(t("auth.enter_code"));
       } else {
         setErrorMessage(message);
@@ -98,7 +108,7 @@ export function AuthModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -111,10 +121,12 @@ export function AuthModal() {
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        className="glass-panel relative z-10 w-full max-w-md rounded-2xl border border-white/10 p-8 shadow-2xl"
+        className="glass-panel relative z-10 max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-8"
       >
         <button
+          type="button"
           onClick={closeAuthModal}
+          aria-label={t("common.close")}
           className="absolute right-4 top-4 text-gray-400 transition-colors hover:text-white"
         >
           <XIcon className="h-6 w-6" />
@@ -168,6 +180,7 @@ export function AuthModal() {
                 setCode("");
                 setErrorMessage(null);
                 setInfoMessage(null);
+                setCorrectedEmail(null);
               }}
               className="inline-flex items-center gap-2 text-sm text-gray-300 transition-colors hover:text-white"
             >
@@ -199,14 +212,27 @@ export function AuthModal() {
 
           {!isVerificationStep && (
             <>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder={t("auth.email")}
-                className="w-full rounded-lg border border-white/10 bg-surfaceHover px-4 py-3 text-white placeholder-gray-500 transition-colors focus:border-accent focus:outline-none"
-                required
-              />
+              <div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setCorrectedEmail(null);
+                  }}
+                  placeholder={t("auth.email")}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="w-full rounded-lg border border-white/10 bg-surfaceHover px-4 py-3 text-white placeholder-gray-500 transition-colors focus:border-accent focus:outline-none"
+                  required
+                />
+                {correctedEmail ? (
+                  <p className="mt-2 break-words text-xs leading-5 text-amber-200" aria-live="polite">
+                    {t("auth.email_corrected", { email: correctedEmail })}
+                  </p>
+                ) : null}
+              </div>
 
               <input
                 type="password"
@@ -227,7 +253,7 @@ export function AuthModal() {
               placeholder="123456"
               inputMode="numeric"
               autoComplete="one-time-code"
-              className="w-full rounded-lg border border-white/10 bg-surfaceHover px-4 py-3 text-center text-2xl tracking-[0.5em] text-white placeholder-gray-500 transition-colors focus:border-accent focus:outline-none"
+              className="w-full whitespace-nowrap rounded-lg border border-white/10 bg-surfaceHover px-3 py-3 text-center text-2xl tabular-nums tracking-[0.2em] text-white placeholder-gray-500 transition-colors focus:border-accent focus:outline-none sm:px-4 sm:tracking-[0.35em]"
               required
             />
           )}
@@ -273,7 +299,12 @@ export function AuthModal() {
             </button>
             {pendingRegistration.expiresAt && (
               <span className="text-xs text-gray-500">
-                {t("auth.expires_at", { time: new Date(pendingRegistration.expiresAt).toLocaleTimeString() })}
+                {t("auth.expires_at", {
+                  time: new Date(pendingRegistration.expiresAt).toLocaleTimeString(currentLanguage.code, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                })}
               </span>
             )}
           </div>

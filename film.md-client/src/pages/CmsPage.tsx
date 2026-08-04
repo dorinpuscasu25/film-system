@@ -17,6 +17,7 @@ export function CmsPage() {
 
     const loadPage = async () => {
       try {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
         setIsLoading(true);
         setError(null);
         const response = await getCmsPage(currentLanguage.code, slug);

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { EditIcon, MailIcon, PlusIcon } from "lucide-react";
+import { EditIcon, MailIcon, PlusIcon, WalletIcon } from "lucide-react";
 import { DataTable } from "../components/shared/DataTable";
 import { Badge } from "../components/shared/Badge";
 import { Modal } from "../components/shared/Modal";
@@ -28,6 +28,17 @@ interface InviteFormState {
   expires_in_hours: number;
 }
 
+interface WalletFormState {
+  userId: number;
+  userName: string;
+  userEmail: string;
+  currentBalance: number;
+  currency: string;
+  operation: "add" | "set";
+  amount: string;
+  reason: string;
+}
+
 function formatDate(value: string | null) {
   if (!value) return "N/A";
   return new Date(value).toLocaleString();
@@ -35,6 +46,14 @@ function formatDate(value: string | null) {
 
 function userStatusLabel(status: "active" | "suspended") {
   return status === "active" ? "Activ" : "Suspendat";
+}
+
+function formatMoney(amount: number, currency = "MDL") {
+  return new Intl.NumberFormat("ro-MD", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(amount);
 }
 
 export function Users() {
@@ -49,6 +68,7 @@ export function Users() {
   const [inviteResultUrl, setInviteResultUrl] = useState<string | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [walletState, setWalletState] = useState<WalletFormState | null>(null);
   const [inviteState, setInviteState] = useState<InviteFormState>({
     name: "",
     email: "",
@@ -162,6 +182,18 @@ export function Users() {
       ),
     },
     {
+      key: "wallet",
+      header: "Sold cont",
+      render: (user: AdminUser) => (
+        <div>
+          <div className="font-semibold tabular-nums">
+            {formatMoney(user.wallet?.balance_amount ?? 0, user.wallet?.currency ?? "MDL")}
+          </div>
+          {!user.wallet ? <div className="text-xs text-muted-foreground">Portofel neinițializat</div> : null}
+        </div>
+      ),
+    },
+    {
       key: "last_seen_at",
       header: "Ultima activitate",
       render: (user: AdminUser) => formatDate(user.last_seen_at),
@@ -171,28 +203,53 @@ export function Users() {
       header: "",
       render: (user: AdminUser) =>
         can("users.edit") ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(event) => {
-              event.stopPropagation();
-              setSuccessMessage(null);
-              setInviteResultUrl(null);
-              setEditState({
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                status: user.status,
-                preferred_locale: user.preferred_locale,
-                role_ids: user.roles.map((role) => role.id),
-                assigned_content_ids: user.assigned_content_ids,
-              });
-              setIsEditModalOpen(true);
-            }}
-            title="Editează utilizatorul"
-          >
-            <EditIcon className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSuccessMessage(null);
+                setInviteResultUrl(null);
+                setWalletState({
+                  userId: user.id,
+                  userName: user.name,
+                  userEmail: user.email,
+                  currentBalance: user.wallet?.balance_amount ?? 0,
+                  currency: user.wallet?.currency ?? "MDL",
+                  operation: "add",
+                  amount: "",
+                  reason: "",
+                });
+              }}
+              title="Modifică soldul"
+            >
+              <WalletIcon className="h-4 w-4" />
+              Sold
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSuccessMessage(null);
+                setInviteResultUrl(null);
+                setEditState({
+                  id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  status: user.status,
+                  preferred_locale: user.preferred_locale,
+                  role_ids: user.roles.map((role) => role.id),
+                  assigned_content_ids: user.assigned_content_ids,
+                });
+                setIsEditModalOpen(true);
+              }}
+              title="Editează utilizatorul"
+            >
+              <EditIcon className="h-4 w-4" />
+            </Button>
+          </div>
         ) : null,
     },
   ];
@@ -249,9 +306,53 @@ export function Users() {
     }
   }
 
+  async function handleWalletSave() {
+    if (!walletState) return;
+
+    const amount = Number(walletState.amount);
+    if (!Number.isFinite(amount) || amount < 0 || (walletState.operation === "add" && amount <= 0)) {
+      setError("Introdu o sumă validă.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await adminApi.adjustUserWallet(walletState.userId, {
+        operation: walletState.operation,
+        amount,
+        reason: walletState.reason.trim() || undefined,
+      });
+      setSuccessMessage(
+        `Soldul utilizatorului ${walletState.userName} este acum ${formatMoney(response.wallet.balance_amount, response.wallet.currency)}.`,
+      );
+      setWalletState(null);
+      await loadData();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Nu am putut modifica soldul utilizatorului.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function toggleSelection(values: number[], value: number) {
     return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
   }
+
+  const walletAmount = Number(walletState?.amount ?? "");
+  const walletAmountIsValid = walletState !== null
+    && walletState.amount.trim() !== ""
+    && Number.isFinite(walletAmount)
+    && walletAmount >= 0
+    && (walletState.operation === "add" || Math.round(walletAmount * 100) !== Math.round(walletState.currentBalance * 100))
+    && (walletState.operation === "set" || walletAmount > 0);
+  const walletPreview = walletState && walletAmountIsValid
+    ? walletState.operation === "add"
+      ? walletState.currentBalance + walletAmount
+      : walletAmount
+    : walletState?.currentBalance ?? 0;
 
   return (
     <div className="space-y-6">
@@ -335,6 +436,98 @@ export function Users() {
           </div>
         </CardContent>
       </Card>
+
+      <Modal
+        isOpen={walletState !== null}
+        onClose={() => {
+          if (!isSubmitting) setWalletState(null);
+        }}
+        title="Modifică soldul utilizatorului"
+        footer={
+          <>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setWalletState(null)} disabled={isSubmitting}>
+              Anulează
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => void handleWalletSave()}
+              disabled={isSubmitting || !walletAmountIsValid || walletPreview > 1000000}
+            >
+              {isSubmitting ? "Se salvează..." : walletState?.operation === "add" ? "Adaugă bani" : "Setează soldul"}
+            </Button>
+          </>
+        }
+      >
+        {walletState ? (
+          <div className="space-y-5">
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="break-words font-medium">{walletState.userName}</p>
+              <p className="break-all text-sm text-muted-foreground">{walletState.userEmail}</p>
+              <div className="mt-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <span className="text-sm text-muted-foreground">Sold curent</span>
+                <span className="text-2xl font-bold tabular-nums">
+                  {formatMoney(walletState.currentBalance, walletState.currency)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                aria-pressed={walletState.operation === "add"}
+                className={`rounded-lg border p-4 text-left transition ${
+                  walletState.operation === "add" ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+                }`}
+                onClick={() => setWalletState((current) => current ? { ...current, operation: "add", amount: "" } : current)}
+              >
+                <span className="block font-medium">Adaugă la sold</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Suma introdusă se adaugă peste soldul actual.</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={walletState.operation === "set"}
+                className={`rounded-lg border p-4 text-left transition ${
+                  walletState.operation === "set" ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+                }`}
+                onClick={() => setWalletState((current) => current ? { ...current, operation: "set", amount: String(current.currentBalance) } : current)}
+              >
+                <span className="block font-medium">Setează soldul final</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Înlocuiește soldul actual cu suma introdusă.</span>
+              </button>
+            </div>
+
+            <FormField
+              label={walletState.operation === "add" ? "Suma de adăugat (MDL)" : "Soldul final (MDL)"}
+              type="number"
+              min={walletState.operation === "add" ? "0.01" : "0"}
+              max="1000000"
+              step="0.01"
+              inputMode="decimal"
+              value={walletState.amount}
+              onChange={(event) => setWalletState((current) => current ? { ...current, amount: event.target.value } : current)}
+              helperText="Sunt acceptate maximum două zecimale."
+            />
+
+            <FormField
+              label="Motiv / notă internă"
+              type="textarea"
+              rows={3}
+              maxLength={500}
+              value={walletState.reason}
+              onChange={(event) => setWalletState((current) => current ? { ...current, reason: event.target.value } : current)}
+              placeholder="Ex.: bonus promoțional, corectarea unei plăți..."
+            />
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <span>Sold după modificare</span>
+                <strong className="text-lg tabular-nums">{formatMoney(walletPreview, walletState.currency)}</strong>
+              </div>
+              <p className="mt-2 text-xs text-amber-800">Modificarea va fi salvată în istoricul tranzacțiilor și în jurnalul de audit.</p>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal
         isOpen={isInviteModalOpen}

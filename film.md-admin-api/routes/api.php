@@ -1,9 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AccountingTransactionController;
 use App\Http\Controllers\Api\Admin\AdCampaignController;
 use App\Http\Controllers\Api\Admin\AdStatsController;
 use App\Http\Controllers\Api\Admin\AdTestController;
-use App\Http\Controllers\Api\Admin\AccountingTransactionController;
 use App\Http\Controllers\Api\Admin\AnalyticsController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
@@ -61,6 +61,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('register/verify', [AuthController::class, 'verifyRegistration']);
         Route::post('register/resend', [AuthController::class, 'resendRegistrationCode']);
+        Route::get('register/confirm/{token}', [AuthController::class, 'confirmRegistrationLink'])
+            ->where('token', '[A-Fa-f0-9]{64}')
+            ->middleware('throttle:30,1')
+            ->name('auth.register.confirm');
         Route::post('login', [AuthController::class, 'login']);
         Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
 
@@ -230,6 +234,7 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('users', [UserController::class, 'index'])->middleware('permission:users.view');
             Route::post('users/invite', [UserController::class, 'invite'])->middleware('permission:users.invite');
+            Route::patch('users/{user}/wallet', [UserController::class, 'adjustWallet'])->middleware('permission:users.edit');
             Route::patch('users/{user}', [UserController::class, 'update'])->middleware('permission:users.edit');
 
             Route::get('roles', [RoleController::class, 'index'])->middleware('permission:settings.manage_roles');
