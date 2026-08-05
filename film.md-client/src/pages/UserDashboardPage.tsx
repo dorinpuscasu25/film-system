@@ -427,10 +427,13 @@ export function UserDashboardPage() {
                     {currency} {balance.toFixed(2)}
                   </h2>
                   <button
-                    onClick={() => setIsWalletModalOpen(true)}
-                    className="w-full rounded-xl bg-accentGreen py-3 font-bold text-background transition-colors hover:bg-green-600"
+                    onClick={() => {
+                      if (!activeProfile.isKids) setIsWalletModalOpen(true);
+                    }}
+                    disabled={activeProfile.isKids}
+                    className="w-full rounded-xl bg-accentGreen py-3 font-bold text-background transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-400"
                   >
-                    {t("dashboard.wallet_details")}
+                    {activeProfile.isKids ? t("wallet.kids_restricted_short") : t("dashboard.wallet_details")}
                   </button>
                 </div>
               </div>
@@ -657,7 +660,7 @@ export function UserDashboardPage() {
         </div>
       </div>
 
-      <WalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} />
+      <WalletModal isOpen={isWalletModalOpen && !activeProfile.isKids} onClose={() => setIsWalletModalOpen(false)} />
     </div>
   );
 }

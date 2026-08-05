@@ -106,6 +106,7 @@ class PublicCatalogController extends ApiController
             'year' => $request->query('year'),
             'country' => $request->query('country'),
             'min_rating' => $request->query('min_rating'),
+            'sort' => $request->query('sort'),
             'page' => $page,
             'page_size' => $pageSize,
         ];

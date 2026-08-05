@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeftIcon, MailIcon, RefreshCcwIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, EyeIcon, EyeOffIcon, MailIcon, RefreshCcwIcon, XIcon } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { correctPopularEmailAddress } from "../lib/emailAddress";
@@ -22,6 +22,7 @@ export function AuthModal() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export function AuthModal() {
     setInfoMessage(null);
     setCorrectedEmail(null);
     setCode("");
+    setShowPassword(false);
 
     if (pendingRegistration) {
       clearPendingRegistration();
@@ -114,7 +116,6 @@ export function AuthModal() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={closeAuthModal}
       />
 
       <motion.div
@@ -234,14 +235,25 @@ export function AuthModal() {
                 ) : null}
               </div>
 
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={t("auth.password")}
-                className="w-full rounded-lg border border-white/10 bg-surfaceHover px-4 py-3 text-white placeholder-gray-500 transition-colors focus:border-accent focus:outline-none"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={t("auth.password")}
+                  className="w-full rounded-lg border border-white/10 bg-surfaceHover px-4 py-3 pr-12 text-white placeholder-gray-500 transition-colors focus:border-accent focus:outline-none"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? t("auth.hide_password") : t("auth.show_password")}
+                  title={showPassword ? t("auth.hide_password") : t("auth.show_password")}
+                  className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-gray-400 transition hover:text-white"
+                >
+                  {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                </button>
+              </div>
             </>
           )}
 

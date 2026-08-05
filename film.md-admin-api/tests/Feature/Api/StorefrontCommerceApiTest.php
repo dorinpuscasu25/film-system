@@ -108,6 +108,36 @@ class StorefrontCommerceApiTest extends TestCase
             ->assertJsonValidationErrors('billing_address');
     }
 
+    public function test_kids_profile_cannot_start_wallet_top_up(): void
+    {
+        $user = $this->createActiveViewer('kids-top-up@example.com');
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+        $kidsProfile = app(AccountProfileService::class)->create($user, [
+            'name' => 'Kids',
+            'avatar_label' => 'K',
+            'is_kids' => true,
+        ]);
+
+        $this->postJson('/api/v1/storefront/wallet/top-ups', [
+            'amount' => 200,
+            'currency' => 'MDL',
+            'account_profile_id' => $kidsProfile->id,
+            'phone' => '+37369484967',
+            'locale' => 'ro',
+            'billing_address' => [
+                'full_name' => 'Kids Profile',
+                'country_code' => 'MD',
+                'city' => 'Chișinău',
+                'postal_code' => 'MD-2001',
+                'address_line1' => 'Strada Test 10',
+            ],
+        ], [
+            'Authorization' => 'Bearer '.$token,
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Suplinirea contului este disponibilă numai dintr-un profil pentru adulți.');
+    }
+
     public function test_storefront_account_returns_saved_default_billing_address(): void
     {
         $user = $this->createActiveViewer('billing-account@example.com');
@@ -395,7 +425,7 @@ class StorefrontCommerceApiTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_kids_profile_cannot_purchase_content_above_12_plus(): void
+    public function test_kids_profile_cannot_purchase_content(): void
     {
         $user = $this->createActiveViewer('kids-purchase@example.com');
         [, $token] = PersonalAccessToken::issue($user, 'client-test');
@@ -408,7 +438,7 @@ class StorefrontCommerceApiTest extends TestCase
             ->where('name', 'Forever Full HD')
             ->whereHas('content', fn ($query) => $query->where('slug', 'carbon'))
             ->firstOrFail();
-        $offer->content->forceFill(['age_rating' => 'I.M.-18'])->save();
+        $offer->content->forceFill(['age_rating' => 'A.G.'])->save();
 
         $this->postJson("/api/v1/storefront/offers/{$offer->id}/purchase?locale=ro", [
             'account_profile_id' => $kidsProfile->id,
@@ -416,7 +446,7 @@ class StorefrontCommerceApiTest extends TestCase
             'Authorization' => 'Bearer '.$token,
         ])
             ->assertForbidden()
-            ->assertJsonPath('message', 'Acest conținut depășește limita de vârstă permisă pentru profilul copil.');
+            ->assertJsonPath('message', 'Plățile sunt disponibile numai dintr-un profil pentru adulți.');
     }
 
     public function test_series_playback_can_resolve_episode_video_for_owned_content(): void

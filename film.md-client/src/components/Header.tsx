@@ -173,17 +173,17 @@ export function Header() {
       <header
         className={`fixed top-0 w-full z-40 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'bg-background/95 backdrop-blur-md shadow-lg py-3' : 'bg-gradient-to-b from-black/80 to-transparent py-5'}`}>
         
-        <div className="container mx-auto px-4 md:px-8 flex items-center justify-between">
+        <div className="container mx-auto flex min-w-0 items-center justify-between gap-2 px-3 sm:px-4 md:px-8">
           {/* Logo & Desktop Nav */}
-          <div className="flex items-center space-x-8">
+          <div className="flex min-w-0 items-center space-x-8">
             <Link
               to="/"
-              className="text-2xl font-bold tracking-tighter text-white">
+              className="shrink-0 whitespace-nowrap text-lg font-bold tracking-tighter text-white min-[360px]:text-xl sm:text-2xl">
               
               filmoteca<span className="text-accent">.</span>md
             </Link>
 
-            <nav className="hidden md:flex items-center space-x-6">
+            <nav className="hidden items-center space-x-6 xl:flex">
               {menuItems.length > 0 ? (
                 menuItems.map((item) => (
                   <DesktopMenuNode key={item.id} item={item} isActive={location.pathname === item.resolved_url} />
@@ -211,17 +211,17 @@ export function Header() {
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center space-x-4 md:space-x-6">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4 md:gap-6">
             {/* Search — always visible */}
             <button
               onClick={() => navigate('/search')}
-              className="text-gray-300 hover:text-white transition-colors">
+              className="hidden text-gray-300 transition-colors hover:text-white min-[360px]:block">
               
               <SearchIcon className="w-5 h-5" />
             </button>
 
             {/* Language Switcher */}
-            <div className="hidden md:flex items-center space-x-1 bg-surface/50 rounded-full px-2 py-1 border border-white/5">
+            <div className="hidden items-center space-x-1 rounded-full border border-white/5 bg-surface/50 px-2 py-1 xl:flex">
               {languages.map((lang) =>
               <button
                 key={lang.code}
@@ -237,18 +237,18 @@ export function Header() {
             isAuthenticated ?
             <>
                 {/* Wallet */}
-                <button
+                {!activeProfile?.isKids ? <button
                 onClick={() => setIsWalletModalOpen(true)}
-                className="hidden md:flex items-center space-x-2 bg-surfaceHover hover:bg-white/10 transition-colors px-3 py-1.5 rounded-full border border-white/10 group">
+                className="group hidden items-center space-x-2 rounded-full border border-white/10 bg-surfaceHover px-3 py-1.5 transition-colors hover:bg-white/10 xl:flex">
                 
                   <WalletIcon className="w-4 h-4 text-accentGreen group-hover:scale-110 transition-transform" />
                   <span className="text-sm font-bold text-white">
                     {currency} {balance.toFixed(2)}
                   </span>
-                </button>
+                </button> : null}
                 <button
                   onClick={() => navigate('/dashboard?tab=favorites')}
-                  className="hidden md:flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10"
+                  className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-surfaceHover text-white transition-colors hover:bg-white/10 xl:flex"
                   aria-label={t('dashboard.favorites')}
                   title={t('dashboard.favorites')}
                 >
@@ -282,9 +282,9 @@ export function Header() {
                           <p className="text-sm text-white font-medium">
                             {activeProfile.name}
                           </p>
-                          <p className="text-xs text-accentGreen font-bold md:hidden">
+                          {!activeProfile.isKids ? <p className="text-xs font-bold text-accentGreen xl:hidden">
                             {currency} {balance.toFixed(2)}
-                          </p>
+                          </p> : null}
                         </div>
                         <Link
                     to="/dashboard"
@@ -326,7 +326,7 @@ export function Header() {
 
             <button
               onClick={openAuthModal}
-              className="bg-accent hover:bg-red-700 text-white px-4 py-1.5 rounded font-medium transition-colors text-sm">
+              className="rounded bg-accent px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 min-[360px]:px-3 sm:px-4 sm:text-sm">
               
                 {t('auth.login')}
               </button>
@@ -334,7 +334,7 @@ export function Header() {
 
             {/* Mobile Menu Toggle — always visible */}
             <button
-              className="md:hidden text-gray-300 hover:text-white"
+              className="text-gray-300 hover:text-white xl:hidden"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
               
               {isMobileMenuOpen ?
@@ -348,7 +348,7 @@ export function Header() {
 
         {/* Mobile Menu — always available */}
         {isMobileMenuOpen &&
-        <div className="absolute left-0 top-full max-h-[calc(100vh-72px)] w-full overflow-y-auto border-b border-white/10 bg-background px-4 pb-5 pt-3 shadow-2xl shadow-black/60 backdrop-blur-xl md:hidden">
+        <div className="absolute left-0 top-full max-h-[calc(100vh-72px)] w-full overflow-y-auto border-b border-white/10 bg-background px-4 pb-5 pt-3 shadow-2xl shadow-black/60 backdrop-blur-xl xl:hidden">
             <nav className="flex flex-col gap-1">
               {menuItems.length > 0 ? (
                 menuItems.map((item) => (
@@ -398,7 +398,7 @@ export function Header() {
               {isAuthenticated ?
             <>
                 <div className="my-2 border-t border-white/10" />
-                <button
+                {!activeProfile?.isKids ? <button
                   onClick={() => {
                     setIsWalletModalOpen(true);
                     setIsMobileMenuOpen(false);
@@ -407,7 +407,7 @@ export function Header() {
                 
                     <WalletIcon className="w-5 h-5" />
                     <span>{t('wallet.title')}: {currency} {balance.toFixed(2)}</span>
-                  </button>
+                  </button> : null}
                 <button
                   onClick={() => {
                     navigate('/dashboard?tab=favorites');
@@ -435,7 +435,7 @@ export function Header() {
       </header>
 
       <WalletModal
-        isOpen={isWalletModalOpen}
+        isOpen={isWalletModalOpen && !activeProfile?.isKids}
         onClose={() => setIsWalletModalOpen(false)} />
       
     </>);

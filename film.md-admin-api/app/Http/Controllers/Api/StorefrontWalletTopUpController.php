@@ -46,6 +46,7 @@ class StorefrontWalletTopUpController extends ApiController
             $data = $request->validate([
                 'amount' => ['required', 'numeric', 'min:20', 'max:20000'],
                 'currency' => ['nullable', 'string', Rule::in(['MDL', 'EUR', 'USD'])],
+                'account_profile_id' => ['nullable', 'integer'],
                 'phone' => [
                     'required',
                     'string',
@@ -80,6 +81,23 @@ class StorefrontWalletTopUpController extends ApiController
             ]);
 
             throw $exception;
+        }
+
+        $profileId = (int) ($data['account_profile_id'] ?? 0);
+        if ($profileId > 0) {
+            $profile = $user->profiles()->whereKey($profileId)->first();
+
+            if ($profile === null) {
+                return response()->json([
+                    'message' => 'The requested profile was not found.',
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($profile->is_kids) {
+                return response()->json([
+                    'message' => 'Suplinirea contului este disponibilă numai dintr-un profil pentru adulți.',
+                ], Response::HTTP_FORBIDDEN);
+            }
         }
 
         $data['currency'] = strtoupper((string) ($data['currency'] ?? $wallet->currency));

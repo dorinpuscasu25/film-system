@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\ApiController;
 use App\Mail\UserInvitationMail;
 use App\Models\Content;
+use App\Models\EmailVerificationCode;
 use App\Models\Invitation;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use App\Services\AccountProfileService;
 use App\Services\AuditLogService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +26,7 @@ class UserController extends ApiController
 {
     public function __construct(
         protected AuditLogService $auditLog,
+        protected AccountProfileService $profiles,
         protected WalletService $wallets,
     ) {}
 
@@ -174,6 +177,82 @@ class UserController extends ApiController
 
         return response()->json([
             'user' => $this->userData($user->fresh()),
+        ]);
+    }
+
+    public function verifyEmail(Request $request, User $user): JsonResponse
+    {
+        $result = DB::transaction(function () use ($user): array {
+            $lockedUser = User::query()
+                ->whereKey($user->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $wasPendingRegistration = $lockedUser->status === 'pending_verification';
+            $changed = $lockedUser->email_verified_at === null || $wasPendingRegistration;
+
+            if (! $changed) {
+                return [
+                    'user' => $lockedUser,
+                    'changed' => false,
+                    'completed_registration' => false,
+                ];
+            }
+
+            $lockedUser->forceFill([
+                'email_verified_at' => $lockedUser->email_verified_at ?? now(),
+                'status' => $wasPendingRegistration ? 'active' : $lockedUser->status,
+            ])->save();
+
+            if ($wasPendingRegistration) {
+                $viewerRole = Role::query()
+                    ->where('is_default', true)
+                    ->firstOrFail();
+                $lockedUser->roles()->syncWithoutDetaching([$viewerRole->id]);
+            }
+
+            EmailVerificationCode::query()
+                ->where('user_id', $lockedUser->id)
+                ->where('purpose', EmailVerificationCode::PURPOSE_REGISTRATION)
+                ->whereNull('consumed_at')
+                ->update(['consumed_at' => now()]);
+
+            return [
+                'user' => $lockedUser,
+                'changed' => true,
+                'completed_registration' => $wasPendingRegistration,
+            ];
+        });
+
+        /** @var User $verifiedUser */
+        $verifiedUser = $result['user'];
+
+        if ($result['completed_registration']) {
+            $this->wallets->ensureWallet($verifiedUser);
+            $this->profiles->ensureDefaultProfile($verifiedUser);
+        }
+
+        if ($result['changed']) {
+            $this->auditLog->record(
+                'user.email_verified_manually',
+                'user',
+                $verifiedUser->id,
+                [
+                    'email' => $verifiedUser->email,
+                    'completed_registration' => $result['completed_registration'],
+                ],
+                $request->user(),
+                $request,
+            );
+        }
+
+        return response()->json([
+            'user' => $this->userData($verifiedUser->fresh()->load(
+                'roles.permissions',
+                'contentAccesses.content',
+                'wallet',
+                'profiles.favorites',
+            )),
+            'already_verified' => ! $result['changed'],
         ]);
     }
 

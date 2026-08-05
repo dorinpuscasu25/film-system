@@ -4,6 +4,7 @@ import { PlusIcon, XIcon, WalletIcon } from 'lucide-react';
 import { Movie, Offer } from '../types';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { WalletModal } from './WalletModal';
 import { resizedImageUrl } from '../lib/images';
 import type { StorefrontAccessLocation } from '../lib/session';
@@ -64,12 +65,12 @@ function buildFallbackOffers(movie: Movie): Offer[] {
 
 function groupLabel(offer: Offer, t: (key: string, options?: Record<string, unknown>) => string) {
   if (offer.accessType === 'free') return t('checkout.free_access');
-  return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { days: offer.rentalDays || 2 });
+  return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { count: offer.rentalDays || 2 });
 }
 
 function offerDurationLabel(offer: Offer, t: (key: string, options?: Record<string, unknown>) => string) {
   if (offer.accessType === 'free') return t('checkout.free_access');
-  return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { days: offer.rentalDays || 2 });
+  return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { count: offer.rentalDays || 2 });
 }
 
 export function PurchaseModal({
@@ -80,6 +81,8 @@ export function PurchaseModal({
 }: PurchaseModalProps) {
   const { balance, currency, purchaseAccess } = useWallet();
   const { t } = useLanguage();
+  const { activeProfile } = useAuth();
+  const isKidsProfile = Boolean(activeProfile?.isKids);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
@@ -190,6 +193,20 @@ export function PurchaseModal({
               <h2 className="mb-1 max-w-[85%] text-center text-xl font-bold leading-tight text-white drop-shadow-lg sm:mb-2 sm:max-w-none sm:text-3xl">
                 {movie.title}
               </h2>
+              {isKidsProfile ? (
+                <div className="mt-8 w-full max-w-lg rounded-2xl border border-amber-400/30 bg-black/55 p-6 text-center backdrop-blur-md">
+                  <WalletIcon className="mx-auto mb-4 h-10 w-10 text-amber-300" />
+                  <p className="text-base font-semibold text-white">{t('checkout.kids_restricted')}</p>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-6 w-full rounded-xl bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200"
+                  >
+                    {t('common.close')}
+                  </button>
+                </div>
+              ) : (
+                <>
               <p className="mb-5 max-w-lg text-center text-sm text-gray-300 drop-shadow sm:mb-10 sm:text-base">
                 {t('checkout.choose_option')}
               </p>
@@ -268,11 +285,13 @@ export function PurchaseModal({
                 }
                 </button>
               </div>
+                </>
+              )}
             </div>
           </motion.div>
 
           <AnimatePresence>
-            {isAccessLocationStepOpen &&
+            {isAccessLocationStepOpen && !isKidsProfile &&
           <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
                 <motion.div
               initial={{ opacity: 0 }}
@@ -348,7 +367,7 @@ export function PurchaseModal({
           </AnimatePresence>
 
           <WalletModal
-            isOpen={isWalletModalOpen}
+            isOpen={isWalletModalOpen && !isKidsProfile}
             onClose={() => setIsWalletModalOpen(false)}
             returnContext={{
               movieId: movie.id,

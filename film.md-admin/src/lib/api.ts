@@ -647,6 +647,12 @@ export const adminApi = {
       data: payload,
     });
   },
+  verifyUserEmail(userId: number) {
+    return request<{ user: AdminUser; already_verified: boolean }>(
+      "PATCH",
+      `/admin/users/${userId}/verify-email`,
+    );
+  },
   adjustUserWallet(
     userId: number,
     payload: {

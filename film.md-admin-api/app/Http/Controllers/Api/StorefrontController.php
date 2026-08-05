@@ -95,6 +95,12 @@ class StorefrontController extends ApiController
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            if ($profile->is_kids) {
+                return response()->json([
+                    'message' => 'Plățile sunt disponibile numai dintr-un profil pentru adulți.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+
             if ($offer->content !== null && ! $this->parentalControls->canAccessContent($profile, $offer->content)) {
                 return response()->json([
                     'message' => 'Acest conținut depășește limita de vârstă permisă pentru profilul copil.',

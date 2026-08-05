@@ -1,6 +1,6 @@
 import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDownIcon, FilterIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, FilterIcon, SearchIcon, XIcon } from "lucide-react";
 import { MovieCard } from "../components/MovieCard";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getCatalogPage } from "../lib/storefront";
@@ -8,6 +8,7 @@ import type { CatalogFilterOption, CatalogFilters, CatalogQuery } from "../lib/s
 import type { Movie } from "../types";
 
 type ContentType = NonNullable<CatalogQuery["type"]>;
+type CatalogSort = NonNullable<CatalogQuery["sort"]>;
 
 const CONTENT_TYPE_VALUES: ContentType[] = ["movie", "documentary", "short", "animation", "series"];
 const CATALOG_PAGE_SIZE = 24;
@@ -27,9 +28,24 @@ interface FilterOptionState {
   countriesScope: string;
 }
 
+function ActiveFilterChip({ label, onRemove, removeLabel }: { label: string; onRemove: () => void; removeLabel: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex min-h-7 items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-left transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+      aria-label={removeLabel}
+      title={removeLabel}
+    >
+      <span>{label}</span>
+      <XIcon className="h-3 w-3" aria-hidden="true" />
+    </button>
+  );
+}
+
 export function SearchPage() {
   const { currentLanguage, t } = useLanguage();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(searchParams.get("type"));
@@ -37,6 +53,10 @@ export function SearchPage() {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedPrice, setSelectedPrice] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<number>(0);
+  const [selectedSort, setSelectedSort] = useState<CatalogSort>(() => {
+    const value = searchParams.get("sort");
+    return isCatalogSort(value) ? value : "default";
+  });
   const [results, setResults] = useState<Movie[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptionState>({
     filters: EMPTY_FILTERS,
@@ -97,6 +117,8 @@ export function SearchPage() {
 
   useEffect(() => {
     setSelectedType(searchParams.get("type"));
+    const sort = searchParams.get("sort");
+    setSelectedSort(isCatalogSort(sort) ? sort : "default");
   }, [searchParams]);
 
   useEffect(() => {
@@ -115,6 +137,7 @@ export function SearchPage() {
           year: selectedYear ?? undefined,
           country: selectedCountry ?? undefined,
           minRating: normalizedMinRating > 0 ? normalizedMinRating : undefined,
+          sort: selectedSort,
           page: 1,
           pageSize: CATALOG_PAGE_SIZE,
         });
@@ -184,6 +207,7 @@ export function SearchPage() {
     normalizedType,
     selectedCountry,
     selectedGenre,
+    selectedSort,
     selectedYear,
     yearsScope,
   ]);
@@ -191,12 +215,36 @@ export function SearchPage() {
   function clearFilters() {
     setQuery("");
     setSelectedGenre(null);
-    const routeType = searchParams.get("type");
-    setSelectedType(isContentType(routeType) ? routeType : null);
+    setSelectedType(null);
     setSelectedYear(null);
     setSelectedCountry(null);
     setSelectedPrice(null);
     setMinRating(0);
+    setSelectedSort("default");
+    setSearchParams({}, { replace: true });
+  }
+
+  function changeSort(nextSort: CatalogSort) {
+    setSelectedSort(nextSort);
+    const nextSearchParams = new URLSearchParams(searchParams);
+
+    if (nextSort === "default") {
+      nextSearchParams.delete("sort");
+    } else {
+      nextSearchParams.set("sort", nextSort);
+    }
+
+    setSearchParams(nextSearchParams, { replace: true });
+  }
+
+  function removeTypeFilter() {
+    setSelectedType(null);
+
+    if (searchParams.has("type")) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete("type");
+      setSearchParams(nextSearchParams, { replace: true });
+    }
   }
 
   async function loadMore() {
@@ -217,6 +265,7 @@ export function SearchPage() {
         year: selectedYear ?? undefined,
         country: selectedCountry ?? undefined,
         minRating: normalizedMinRating > 0 ? normalizedMinRating : undefined,
+        sort: selectedSort,
         page: nextPage,
         pageSize: CATALOG_PAGE_SIZE,
       });
@@ -295,7 +344,6 @@ export function SearchPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("search.placeholder")}
               className="h-12 w-full rounded-xl border border-white/10 bg-surface pl-11 pr-4 text-base text-white shadow-lg shadow-black/20 transition-colors placeholder:text-gray-500 focus:border-accent focus:outline-none"
-              autoFocus
             />
           </div>
         </div>
@@ -306,6 +354,19 @@ export function SearchPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <select
+                value={selectedSort}
+                onChange={(event) => changeSort(event.target.value as CatalogSort)}
+                aria-label={t("search.sort_by")}
+                className="h-8 min-w-[138px] appearance-none rounded-md border border-white/20 bg-white/5 px-2.5 pr-7 text-[11px] font-semibold text-white outline-none transition hover:border-white/50 hover:bg-white/10 focus:border-white/60"
+              >
+                <option value="default">{t("search.sort_default")}</option>
+                <option value="rating">{t("search.sort_rating")}</option>
+                <option value="newest">{t("search.sort_newest")}</option>
+              </select>
+              <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
+            </div>
             <button
               type="button"
               onClick={() => setIsFiltersOpen((value) => !value)}
@@ -436,7 +497,8 @@ export function SearchPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="ml-auto h-8 rounded-md bg-white px-3 text-[11px] font-bold text-background transition hover:bg-gray-200"
+                disabled={activeFilterCount === 0 && query.length === 0}
+                className="ml-auto h-8 rounded-md bg-white px-3 text-[11px] font-bold text-background transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {t("common.clear_filters")}
               </button>
@@ -444,12 +506,50 @@ export function SearchPage() {
 
             {activeFilterCount > 0 ? (
               <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                {normalizedType ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedTypeLabel ?? normalizedType}</span> : null}
-                {selectedGenre ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedGenreLabel ?? selectedGenre}</span> : null}
-                {selectedCountry ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedCountryLabel ?? selectedCountry}</span> : null}
-                {selectedYear ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedYearLabel ?? selectedYear}</span> : null}
-                {selectedPrice ? <span className="rounded-full bg-white/10 px-2 py-0.5">{selectedPrice === "free" ? t("common.free") : t("common.paid")}</span> : null}
-                {minRating > 0 ? <span className="rounded-full bg-white/10 px-2 py-0.5">IMDb {minRating}+</span> : null}
+                {normalizedType ? (
+                  <ActiveFilterChip
+                    label={selectedTypeLabel ?? normalizedType}
+                    onRemove={removeTypeFilter}
+                    removeLabel={t("search.remove_filter", { filter: selectedTypeLabel ?? normalizedType })}
+                  />
+                ) : null}
+                {selectedGenre ? (
+                  <ActiveFilterChip
+                    label={selectedGenreLabel ?? selectedGenre}
+                    onRemove={() => setSelectedGenre(null)}
+                    removeLabel={t("search.remove_filter", { filter: selectedGenreLabel ?? selectedGenre })}
+                  />
+                ) : null}
+                {selectedCountry ? (
+                  <ActiveFilterChip
+                    label={selectedCountryLabel ?? selectedCountry}
+                    onRemove={() => setSelectedCountry(null)}
+                    removeLabel={t("search.remove_filter", { filter: selectedCountryLabel ?? selectedCountry })}
+                  />
+                ) : null}
+                {selectedYear ? (
+                  <ActiveFilterChip
+                    label={selectedYearLabel ?? selectedYear}
+                    onRemove={() => setSelectedYear(null)}
+                    removeLabel={t("search.remove_filter", { filter: selectedYearLabel ?? selectedYear })}
+                  />
+                ) : null}
+                {selectedPrice ? (
+                  <ActiveFilterChip
+                    label={selectedPrice === "free" ? t("common.free") : t("common.paid")}
+                    onRemove={() => setSelectedPrice(null)}
+                    removeLabel={t("search.remove_filter", {
+                      filter: selectedPrice === "free" ? t("common.free") : t("common.paid"),
+                    })}
+                  />
+                ) : null}
+                {minRating > 0 ? (
+                  <ActiveFilterChip
+                    label={`IMDb ${minRating}+`}
+                    onRemove={() => setMinRating(0)}
+                    removeLabel={t("search.remove_filter", { filter: `IMDb ${minRating}+` })}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -474,7 +574,7 @@ export function SearchPage() {
           <>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-6">
               {results.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} />
+                <MovieCard key={movie.id} movie={movie} fluid />
               ))}
             </div>
             {canLoadMore ? (
@@ -521,6 +621,10 @@ function getCountryLabel(
 
 function isContentType(value: string | null): value is ContentType {
   return value !== null && CONTENT_TYPE_VALUES.includes(value as ContentType);
+}
+
+function isCatalogSort(value: string | null): value is CatalogSort {
+  return value === "default" || value === "rating" || value === "newest";
 }
 
 function mergeFilterOptions(

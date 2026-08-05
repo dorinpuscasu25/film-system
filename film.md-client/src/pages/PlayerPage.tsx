@@ -11,6 +11,7 @@ import {
   updateStorefrontWatchProgress,
 } from "../lib/session";
 import { Movie } from "../types";
+import { formatCompactDuration } from "../lib/time";
 
 export function PlayerPage() {
   const { id } = useParams<{ id: string }>();
@@ -174,7 +175,10 @@ export function PlayerPage() {
               <p className="text-sm text-white/60">{t("player.starts_at")}</p>
               <p className="mt-1 text-xl font-medium">{startsAt.toLocaleString()}</p>
               <p className="mt-3 text-sm text-white/70">
-                {t("player.remaining", { hours: hours > 0 ? `${hours}h ` : "", minutes: `${minutes}m` })}
+                {t("player.remaining", {
+                  hours: "",
+                  minutes: formatCompactDuration({ hours, minutes }, currentLanguage.code),
+                })}
               </p>
             </div>
           </div>
@@ -227,7 +231,6 @@ export function PlayerPage() {
         quality={playbackQuality}
         drm={playbackDrm}
         episodeTitle={episodeTitle}
-        sessionToken={sessionToken}
         initialPositionSeconds={initialPositionSeconds}
         subtitles={subtitles}
         seasonsData={movie.seasonsData ?? []}
@@ -252,7 +255,7 @@ export function PlayerPage() {
             session_token: sessionToken,
             content_id: playbackContentId,
             content_format_id: contentFormatId,
-            episode_id: episodeId ?? null,
+            episode_id: currentEpisodeId ?? null,
             position_seconds: payload.position_seconds,
             duration_seconds: payload.duration_seconds,
             watch_time_seconds: payload.watch_time_seconds,

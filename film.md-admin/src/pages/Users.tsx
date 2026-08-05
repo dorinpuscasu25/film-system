@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { EditIcon, MailIcon, PlusIcon, WalletIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BadgeCheckIcon, EditIcon, MailIcon, PlusIcon, WalletIcon } from "lucide-react";
 import { DataTable } from "../components/shared/DataTable";
 import { Badge } from "../components/shared/Badge";
 import { Modal } from "../components/shared/Modal";
@@ -44,7 +44,8 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleString();
 }
 
-function userStatusLabel(status: "active" | "suspended") {
+function userStatusLabel(status: AdminUser["status"]) {
+  if (status === "pending_verification") return "Așteaptă confirmarea";
   return status === "active" ? "Activ" : "Suspendat";
 }
 
@@ -86,6 +87,7 @@ export function Users() {
     assigned_content_ids: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verifyingUserId, setVerifyingUserId] = useState<number | null>(null);
 
   async function loadData() {
     setIsLoading(true);
@@ -135,6 +137,9 @@ export function Users() {
           <div>
             <div className="font-medium">{user.name}</div>
             <div className="text-xs text-muted-foreground">{user.email}</div>
+            <div className={`mt-1 text-xs ${user.email_verified_at ? "text-emerald-700" : "text-amber-700"}`}>
+              {user.email_verified_at ? "Email confirmat" : "Email neconfirmat"}
+            </div>
           </div>
         </div>
       ),
@@ -178,7 +183,9 @@ export function Users() {
       key: "status",
       header: "Stare",
       render: (user: AdminUser) => (
-        <Badge variant={user.status === "active" ? "published" : "archived"}>{userStatusLabel(user.status)}</Badge>
+        <Badge variant={user.status === "active" ? "published" : user.status === "pending_verification" ? "ready" : "archived"}>
+          {userStatusLabel(user.status)}
+        </Badge>
       ),
     },
     {
@@ -204,6 +211,21 @@ export function Users() {
       render: (user: AdminUser) =>
         can("users.edit") ? (
           <div className="flex items-center justify-end gap-1">
+            {!user.email_verified_at ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={verifyingUserId === user.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleVerifyEmail(user);
+                }}
+                title="Confirmă manual adresa de email"
+              >
+                <BadgeCheckIcon className="h-4 w-4" />
+                {verifyingUserId === user.id ? "Se confirmă..." : "Confirmă emailul"}
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
@@ -227,28 +249,30 @@ export function Users() {
               <WalletIcon className="h-4 w-4" />
               Sold
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(event) => {
-                event.stopPropagation();
-                setSuccessMessage(null);
-                setInviteResultUrl(null);
-                setEditState({
-                  id: user.id,
-                  name: user.name,
-                  email: user.email,
-                  status: user.status,
-                  preferred_locale: user.preferred_locale,
-                  role_ids: user.roles.map((role) => role.id),
-                  assigned_content_ids: user.assigned_content_ids,
-                });
-                setIsEditModalOpen(true);
-              }}
-              title="Editează utilizatorul"
-            >
-              <EditIcon className="h-4 w-4" />
-            </Button>
+            {user.status !== "pending_verification" ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSuccessMessage(null);
+                  setInviteResultUrl(null);
+                  setEditState({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    status: user.status,
+                    preferred_locale: user.preferred_locale,
+                    role_ids: user.roles.map((role) => role.id),
+                    assigned_content_ids: user.assigned_content_ids,
+                  });
+                  setIsEditModalOpen(true);
+                }}
+                title="Editează utilizatorul"
+              >
+                <EditIcon className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
         ) : null,
     },
@@ -303,6 +327,32 @@ export function Users() {
       setError(submitError instanceof Error ? submitError.message : "Nu am putut actualiza utilizatorul.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleVerifyEmail(user: AdminUser) {
+    const confirmed = window.confirm(
+      `Confirmi manual adresa ${user.email}? Utilizatorul nu va mai avea nevoie de codul primit pe email.`,
+    );
+    if (!confirmed) return;
+
+    setVerifyingUserId(user.id);
+    setError(null);
+    setSuccessMessage(null);
+    setInviteResultUrl(null);
+
+    try {
+      const response = await adminApi.verifyUserEmail(user.id);
+      setUsers((current) => current.map((item) => (item.id === response.user.id ? response.user : item)));
+      setSuccessMessage(
+        response.already_verified
+          ? `Emailul utilizatorului ${user.name} era deja confirmat.`
+          : `Emailul utilizatorului ${user.name} a fost confirmat, iar contul poate fi folosit.`,
+      );
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Nu am putut confirma emailul utilizatorului.");
+    } finally {
+      setVerifyingUserId(null);
     }
   }
 

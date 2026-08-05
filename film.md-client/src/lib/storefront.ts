@@ -292,6 +292,7 @@ export interface CatalogQuery {
   year?: string;
   country?: string;
   minRating?: number;
+  sort?: "default" | "rating" | "newest";
   page?: number;
   pageSize?: number;
 }
@@ -632,6 +633,7 @@ export async function getCatalogPage(locale: LocaleCode, query: CatalogQuery = {
     year: query.year,
     country: query.country,
     min_rating: query.minRating,
+    sort: query.sort,
     page: query.page ?? 1,
     page_size: query.pageSize ?? DEFAULT_PAGE_SIZE,
   });

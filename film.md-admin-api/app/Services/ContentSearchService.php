@@ -178,11 +178,16 @@ class ContentSearchService
 
     protected function searchWithMeilisearch(string $locale, array $filters, int $page, int $pageSize): array
     {
+        $sortMode = (string) Arr::get($filters, 'sort', 'default');
         $searchParams = [
             'limit' => $pageSize,
             'offset' => ($page - 1) * $pageSize,
             'facets' => ['genre_slugs', 'release_year', 'country_codes', 'type', 'is_free'],
-            'sort' => ['is_featured:desc', 'sort_order:asc', 'release_year:desc', 'published_timestamp:desc'],
+            'sort' => match ($sortMode) {
+                'rating' => ['imdb_rating:desc', 'release_year:desc', 'published_timestamp:desc'],
+                'newest' => ['release_year:desc', 'published_timestamp:desc', 'imdb_rating:desc'],
+                default => ['is_featured:desc', 'sort_order:asc', 'release_year:desc', 'published_timestamp:desc'],
+            },
             'locales' => config("search.locales.{$locale}", [$locale]),
         ];
 
@@ -239,11 +244,26 @@ class ContentSearchService
 
     protected function makeDatabaseQuery(array $filters): Builder
     {
-        $query = Content::query()
-            ->orderByDesc('is_featured')
-            ->orderBy('sort_order')
-            ->orderByDesc('release_year')
-            ->orderByDesc('published_at');
+        $query = Content::query();
+        $sortMode = (string) Arr::get($filters, 'sort', 'default');
+
+        if ($sortMode === 'rating') {
+            $query
+                ->orderByDesc('imdb_rating')
+                ->orderByDesc('release_year')
+                ->orderByDesc('published_at');
+        } elseif ($sortMode === 'newest') {
+            $query
+                ->orderByDesc('release_year')
+                ->orderByDesc('published_at')
+                ->orderByDesc('imdb_rating');
+        } else {
+            $query
+                ->orderByDesc('is_featured')
+                ->orderBy('sort_order')
+                ->orderByDesc('release_year')
+                ->orderByDesc('published_at');
+        }
 
         $status = trim((string) Arr::get($filters, 'status', ''));
         if ($status !== '') {
@@ -926,6 +946,7 @@ class ContentSearchService
                 'country_code',
                 'country_codes',
                 'is_free',
+                'imdb_rating',
             ]),
             $index->updateSortableAttributes([
                 'is_featured',

@@ -532,6 +532,7 @@ export async function purchaseStorefrontOffer(
 export async function createStorefrontWalletTopUp(payload: {
   amount: number;
   currency: string;
+  account_profile_id?: string | number | null;
   phone?: string;
   billing_address: StorefrontBillingAddressPayload;
   locale?: "en" | "ro" | "ru";

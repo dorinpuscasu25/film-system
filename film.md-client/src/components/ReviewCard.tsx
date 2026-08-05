@@ -1,15 +1,24 @@
 import { Review } from '../types';
-import { Trash2Icon } from 'lucide-react';
+import { PencilIcon, Trash2Icon } from 'lucide-react';
 import { StarRating } from './StarRating';
 
 interface ReviewCardProps {
   review: Review;
   onDelete?: () => void;
+  onEdit?: () => void;
   isDeleting?: boolean;
   deleteLabel?: string;
+  editLabel?: string;
 }
 
-export function ReviewCard({ review, onDelete, isDeleting = false, deleteLabel = 'Delete review' }: ReviewCardProps) {
+export function ReviewCard({
+  review,
+  onDelete,
+  onEdit,
+  isDeleting = false,
+  deleteLabel = 'Delete review',
+  editLabel = 'Edit review',
+}: ReviewCardProps) {
   return (
     <div className="glass-panel flex flex-col space-y-4 rounded-xl p-6">
       <div className="flex items-center justify-between">
@@ -26,6 +35,17 @@ export function ReviewCard({ review, onDelete, isDeleting = false, deleteLabel =
         </div>
         <div className="flex items-center gap-3">
           <StarRating rating={review.rating} size="sm" />
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label={editLabel}
+              title={editLabel}
+              className="rounded-full p-2 text-gray-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <PencilIcon className="h-4 w-4" />
+            </button>
+          ) : null}
           {onDelete ? (
             <button
               type="button"

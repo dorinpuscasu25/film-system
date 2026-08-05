@@ -10,6 +10,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { imageSrcSet, resizedImageUrl } from '../lib/images';
 interface MovieCardProps {
   movie: Movie;
+  fluid?: boolean;
 }
 
 function supportsInlineTrailerPreview(url?: string) {
@@ -20,7 +21,7 @@ function supportsInlineTrailerPreview(url?: string) {
   return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
 }
 
-export function MovieCard({ movie }: MovieCardProps) {
+export function MovieCard({ movie, fluid = false }: MovieCardProps) {
   const navigate = useNavigate();
   const { isFavorite, toggleFavorite } = useWallet();
   const { t } = useLanguage();
@@ -36,7 +37,11 @@ export function MovieCard({ movie }: MovieCardProps) {
   movie.price;
   return (
     <motion.div
-      className="relative group cursor-pointer rounded-lg overflow-hidden flex-shrink-0 w-40 sm:w-44 md:w-52 lg:w-56 2xl:w-64 min-[2200px]:w-72 min-[3000px]:w-80 aspect-[2/3] bg-surface"
+      className={`relative group cursor-pointer rounded-lg overflow-hidden aspect-[2/3] bg-surface ${
+        fluid
+          ? "min-w-0 w-full"
+          : "flex-shrink-0 w-40 sm:w-44 md:w-52 lg:w-56 2xl:w-64 min-[2200px]:w-72 min-[3000px]:w-80"
+      }`}
       whileHover={{
         scale: 1.05,
         zIndex: 10
@@ -55,7 +60,11 @@ export function MovieCard({ movie }: MovieCardProps) {
           { width: 320, height: 480, descriptor: '320w' },
           { width: 480, height: 720, descriptor: '480w' },
         ])}
-        sizes="(min-width: 3000px) 320px, (min-width: 2200px) 288px, (min-width: 1536px) 256px, (min-width: 1024px) 224px, (min-width: 768px) 208px, (min-width: 640px) 176px, 160px"
+        sizes={
+          fluid
+            ? "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, calc((100vw - 48px) / 2)"
+            : "(min-width: 3000px) 320px, (min-width: 2200px) 288px, (min-width: 1536px) 256px, (min-width: 1024px) 224px, (min-width: 768px) 208px, (min-width: 640px) 176px, 160px"
+        }
         alt={movie.title}
         className="w-full h-full object-cover"
         loading="lazy"

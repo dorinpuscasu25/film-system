@@ -9,15 +9,67 @@
 /* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   body {
     @apply bg-background text-white font-sans antialiased selection:bg-accent selection:text-white;
     overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   html {
     scroll-behavior: smooth;
   }
 }
 @layer utilities {
+  .player-viewport {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .player-safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-bottom: 1rem;
+  }
+
+  .player-safe-bottom {
+    padding-top: 1rem;
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  @media (min-width: 640px) {
+    .player-safe-top,
+    .player-safe-bottom {
+      padding: 1.5rem;
+    }
+  }
+
+  @media (orientation: landscape) and (max-height: 520px) {
+    .player-safe-top {
+      padding-top: max(0.5rem, env(safe-area-inset-top));
+      padding-right: max(0.75rem, env(safe-area-inset-right));
+      padding-bottom: 0.5rem;
+      padding-left: max(0.75rem, env(safe-area-inset-left));
+    }
+
+    .player-safe-bottom {
+      padding-top: 0.5rem;
+      padding-right: max(0.75rem, env(safe-area-inset-right));
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+      padding-left: max(0.75rem, env(safe-area-inset-left));
+    }
+  }
+
   .glass-panel {
     @apply bg-white/5 backdrop-blur-xl border border-white/10;
   }

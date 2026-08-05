@@ -6,7 +6,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Badge } from "../components/Badge";
 import { Carousel } from "../components/Carousel";
-import { HomeHeroSlide, HomeSections, getHomeSections } from "../lib/storefront";
+import { HomeHeroSlide, HomeSections, getCatalogPage, getHomeSections } from "../lib/storefront";
+import type { Movie } from "../types";
 import { fetchContinueWatching } from "../lib/session";
 import { HomeSkeleton } from "../components/HomeSkeleton";
 import { imageSrcSet, resizedImageUrl } from "../lib/images";
@@ -52,6 +53,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const [homeSections, setHomeSections] = useState<HomeSections>(EMPTY_HOME);
+  const [topRated, setTopRated] = useState<Movie[]>([]);
   const [continueWatching, setContinueWatching] = useState<Array<{
     contentSlug: string;
     title: string;
@@ -71,12 +73,21 @@ export function HomePage() {
       setError(null);
 
       try {
-        const response = await getHomeSections(currentLanguage.code);
+        const [response, topRatedResponse] = await Promise.all([
+          getHomeSections(currentLanguage.code),
+          getCatalogPage(currentLanguage.code, {
+            minRating: 1,
+            sort: "rating",
+            page: 1,
+            pageSize: 12,
+          }).catch(() => null),
+        ]);
         if (!active) {
           return;
         }
 
         setHomeSections(response);
+        setTopRated(topRatedResponse?.items ?? []);
         setCurrentHeroIndex(0);
       } catch (loadError) {
         if (!active) {
@@ -380,6 +391,15 @@ export function HomePage() {
               ))}
             </div>
           </section>
+        ) : null}
+
+        {topRated.length > 0 ? (
+          <Carousel
+            title={t("home.top_rated")}
+            subtitle={t("home.top_rated_hint")}
+            movies={topRated}
+            onSeeAll={() => navigate("/search?sort=rating")}
+          />
         ) : null}
 
         {homeSections.sections.length > 0 ? (

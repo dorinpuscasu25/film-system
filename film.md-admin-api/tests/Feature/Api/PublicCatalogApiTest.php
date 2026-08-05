@@ -137,6 +137,16 @@ class PublicCatalogApiTest extends TestCase
         }
     }
 
+    public function test_public_catalog_can_sort_titles_by_rating(): void
+    {
+        $this->getJson('/api/v1/public/catalog?locale=ro&sort=rating&page_size=4')
+            ->assertOk()
+            ->assertJsonPath('items.0.slug', 'carbon')
+            ->assertJsonPath('items.0.imdb_rating', 8.3)
+            ->assertJsonPath('items.1.slug', 'hackerville')
+            ->assertJsonPath('items.1.imdb_rating', 8);
+    }
+
     public function test_public_catalog_can_search_localized_titles_and_people(): void
     {
         $this->getJson('/api/v1/public/catalog?'.http_build_query([

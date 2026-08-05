@@ -29,6 +29,7 @@ class ApiController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'email_verified_at' => $user->email_verified_at?->toIso8601String(),
             'preferred_locale' => $user->preferred_locale,
             'status' => $user->status,
             'avatar_url' => $user->avatar_url,

@@ -86,6 +86,36 @@ class StorefrontReviewApiTest extends TestCase
         $this->assertNull($content->fresh()->platform_rating);
     }
 
+    public function test_user_can_edit_their_own_review(): void
+    {
+        $user = $this->createViewer('review-editor@example.com');
+        [, $token] = PersonalAccessToken::issue($user, 'client-test');
+
+        $headers = ['Authorization' => 'Bearer '.$token];
+        $this->postJson('/api/v1/storefront/content/carbon/reviews', [
+            'rating' => 3,
+            'comment' => 'Prima versiune a recenziei.',
+            'locale' => 'ro',
+        ], $headers)->assertOk();
+
+        $this->postJson('/api/v1/storefront/content/carbon/reviews', [
+            'rating' => 5,
+            'comment' => 'Versiunea actualizată a recenziei.',
+            'locale' => 'ro',
+        ], $headers)
+            ->assertOk()
+            ->assertJsonPath('review.rating', 5)
+            ->assertJsonPath('review.comment', 'Versiunea actualizată a recenziei.')
+            ->assertJsonPath('summary.count', 1);
+
+        $this->assertDatabaseCount('content_reviews', 1);
+        $this->assertDatabaseHas('content_reviews', [
+            'user_id' => $user->id,
+            'rating' => 5,
+            'comment' => 'Versiunea actualizată a recenziei.',
+        ]);
+    }
+
     public function test_user_cannot_delete_another_users_review(): void
     {
         $owner = $this->createViewer('owner@example.com');

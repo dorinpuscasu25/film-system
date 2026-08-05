@@ -10,6 +10,7 @@ import {
   unfavoriteStorefrontContent,
 } from "../lib/session";
 import type { StorefrontAccessLocation, StorefrontBillingAddressPayload, StorefrontTopUpPayload } from "../lib/session";
+import { formatCompactDuration } from "../lib/time";
 
 interface WalletContextType {
   balance: number;
@@ -67,7 +68,7 @@ function mapPurchase(item: Awaited<ReturnType<typeof fetchStorefrontAccount>>["l
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user, activeProfile, isLoading: isAuthLoading } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, t } = useLanguage();
   const [balance, setBalance] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("MDL");
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -141,9 +142,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [currentLanguage.code, isAuthenticated, isAuthLoading, user?.id]);
 
   const addFunds = async (amount: number, options: { phone?: string; billingAddress: StorefrontBillingAddressPayload }) => {
+    if (activeProfile?.isKids) {
+      throw new Error(t("wallet.kids_restricted"));
+    }
+
     const response = await createStorefrontWalletTopUp({
       amount,
       currency,
+      account_profile_id: activeProfile?.id ?? null,
       phone: options?.phone,
       billing_address: options.billingAddress,
       locale: currentLanguage.code,
@@ -165,6 +171,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const purchaseAccess = async (offerId: string, options?: { accessLocation?: StorefrontAccessLocation | null }) => {
+    if (activeProfile?.isKids) {
+      throw new Error(t("checkout.kids_restricted"));
+    }
+
     await purchaseStorefrontOffer(offerId, currentLanguage.code, {
       accountProfileId: activeProfile?.id ?? null,
       accessLocation: options?.accessLocation ?? null,
@@ -207,14 +217,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
     if (diffDays > 0) {
-      return `${diffDays}d ${diffHrs}h`;
+      return formatCompactDuration({ days: diffDays, hours: diffHrs }, currentLanguage.code);
     }
 
     if (diffHrs > 0) {
-      return `${diffHrs}h ${diffMins}m`;
+      return formatCompactDuration({ hours: diffHrs, minutes: diffMins }, currentLanguage.code);
     }
 
-    return `${diffMins}m`;
+    return formatCompactDuration({ minutes: diffMins }, currentLanguage.code);
   };
 
   const toggleFavorite = async (movieId: string) => {

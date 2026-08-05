@@ -22,8 +22,9 @@ export interface AdminUser {
   id: number;
   name: string;
   email: string;
+  email_verified_at: string | null;
   preferred_locale: "en" | "ro" | "ru";
-  status: "active" | "suspended";
+  status: "active" | "suspended" | "pending_verification";
   avatar_url: string | null;
   last_seen_at: string | null;
   created_at: string | null;

@@ -38,7 +38,8 @@ interface WalletModalProps {
 export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps) {
   const { balance, currency, addFunds, paymentPhone, billingAddress } = useWallet();
   const { t, currentLanguage } = useLanguage();
-  const { user } = useAuth();
+  const { user, activeProfile } = useAuth();
+  const isKidsProfile = Boolean(activeProfile?.isKids);
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<CountryCode>(DEFAULT_COUNTRY);
@@ -231,6 +232,20 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
               {t('wallet.title')}
             </h2>
 
+            {isKidsProfile ? (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-6 text-center">
+                <CreditCardIcon className="mx-auto mb-4 h-10 w-10 text-amber-300" />
+                <p className="font-semibold text-white">{t('wallet.kids_restricted')}</p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-6 w-full rounded-xl bg-white px-5 py-3 font-bold text-background transition hover:bg-gray-200"
+                >
+                  {t('common.close')}
+                </button>
+              </div>
+            ) : (
+              <>
             <div className="bg-surface p-4 rounded-xl mb-6 flex items-center justify-between border border-white/5">
               <span className="text-gray-400">{t('wallet.current_balance')}</span>
               <span className="text-2xl font-bold text-accentGreen">
@@ -493,6 +508,8 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                 {t('wallet.view_transactions')}
               </button>
             </div>
+              </>
+            )}
           </motion.div>
         </div>
       }

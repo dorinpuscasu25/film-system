@@ -7,6 +7,7 @@ import {
   StarIcon,
   ClockIcon,
   HeartIcon,
+  InfoIcon,
   XIcon,
 } from "lucide-react";
 import { useWallet } from "../contexts/WalletContext";
@@ -29,8 +30,9 @@ import { deleteStorefrontReview, fetchStorefrontRecommendations, submitStorefron
 import { applyMovieSeo, movieShareDescription, movieSharePreviewUrl } from "../lib/seo";
 import { imageSrcSet, resizedImageUrl } from "../lib/images";
 import { Movie, Review } from "../types";
+import { formatCompactDuration, formatRuntimeMinutes, type SupportedLocale } from "../lib/time";
 
-function formatCountdown(targetDate: string | undefined, liveLabel: string) {
+function formatCountdown(targetDate: string | undefined, liveLabel: string, locale: SupportedLocale) {
   if (!targetDate) {
     return null;
   }
@@ -49,14 +51,10 @@ function formatCountdown(targetDate: string | undefined, liveLabel: string) {
   const minutes = totalMinutes % 60;
 
   if (days > 0) {
-    return `${days}d ${hours}h ${minutes}m`;
+    return formatCompactDuration({ days, hours, minutes }, locale);
   }
 
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-
-  return `${minutes}m`;
+  return formatCompactDuration({ hours, minutes }, locale);
 }
 
 function contentTypeLabel(movie: Movie, t: (key: string) => string) {
@@ -75,39 +73,106 @@ function comparableLabel(value: string) {
     .toLowerCase();
 }
 
-function formatRuntime(minutes?: number) {
+function formatRuntime(minutes: number | undefined, locale: SupportedLocale) {
   if (!minutes || minutes <= 0) {
     return null;
   }
 
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}h ${remainingMinutes}m`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-
-  return `${minutes}m`;
+  return formatRuntimeMinutes(minutes, locale);
 }
 
-function formatAgeRating(ageRating?: string, ageRatingLabel?: string) {
-  if (!ageRating) {
-    return null;
-  }
+const AGE_RATING_DETAILS: Record<string, { code: string; translationKey: string }> = {
+  AG: { code: "A.G.", translationKey: "AG" },
+  "A.G.": { code: "A.G.", translationKey: "AG" },
+  "A.P.-12": { code: "A.P.-12", translationKey: "AP12" },
+  "AP-12": { code: "A.P.-12", translationKey: "AP12" },
+  N12: { code: "A.P.-12", translationKey: "AP12" },
+  "N-12": { code: "A.P.-12", translationKey: "AP12" },
+  "12+": { code: "A.P.-12", translationKey: "AP12" },
+  "N-15": { code: "N-15", translationKey: "N15" },
+  "15+": { code: "N-15", translationKey: "N15" },
+  "I.M.-18": { code: "I.M.-18", translationKey: "IM18" },
+  "18+": { code: "I.M.-18", translationKey: "IM18" },
+  "I.M.-18-XXX": { code: "I.M.-18-XXX", translationKey: "IM18XXX" },
+  IC: { code: "I.C.", translationKey: "IC" },
+  "I.C.": { code: "I.C.", translationKey: "IC" },
+};
 
-  const shortLabels: Record<string, string> = {
-    AG: "AG",
-    "A.P.-12": "12+",
-    "N-15": "15+",
-    "I.M.-18": "18+",
-    "I.M.-18-XXX": "18+",
-  };
+function AgeRatingBadge({ ageRating, fallbackLabel }: { ageRating: string; fallbackLabel?: string }) {
+  const { t } = useLanguage();
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLSpanElement | null>(null);
+  const pointerTypeRef = useRef<string>("");
+  const details = AGE_RATING_DETAILS[ageRating.trim().toUpperCase()];
 
-  return shortLabels[ageRating] ?? ageRatingLabel ?? ageRating;
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  if (!details) return <>{fallbackLabel || ageRating}</>;
+
+  const description = t(`movie.age_ratings.${details.translationKey}`);
+  const tooltipId = `age-rating-${details.translationKey.toLowerCase()}`;
+
+  return (
+    <span
+      ref={containerRef}
+      className="relative inline-flex"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <button
+        type="button"
+        className="inline-flex min-h-7 items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 text-sm font-bold text-white transition hover:border-white/35 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        aria-expanded={isOpen}
+        aria-describedby={isOpen ? tooltipId : undefined}
+        aria-label={`${details.code}: ${description}`}
+        title={description}
+        onPointerDown={(event) => {
+          pointerTypeRef.current = event.pointerType;
+        }}
+        onClick={() => {
+          if (pointerTypeRef.current === "touch") {
+            setIsOpen((value) => !value);
+            return;
+          }
+
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={(event) => {
+          if (!containerRef.current?.contains(event.relatedTarget as Node | null)) setIsOpen(false);
+        }}
+      >
+        {details.code}
+        <InfoIcon className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+      </button>
+      {isOpen ? (
+        <span
+          id={tooltipId}
+          role="tooltip"
+          className="fixed bottom-4 left-4 right-4 z-[60] w-auto rounded-lg border border-white/15 bg-neutral-950 px-3 py-2.5 text-left text-xs font-normal leading-relaxed text-gray-200 shadow-2xl shadow-black/60 sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:z-30 sm:mt-2 sm:w-[min(18rem,calc(100vw-2rem))]"
+        >
+          <strong className="mb-1 block text-sm text-white">{details.code}</strong>
+          {description}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 function formatLocaleList(locales: string[] | undefined, displayLocale: string) {
@@ -196,6 +261,7 @@ export function MovieDetailPage() {
   const [errorCode, setErrorCode] = useState<StorefrontErrorCode | null>(null);
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
   const shareButtonRef = useRef<HTMLButtonElement | null>(null);
+  const reviewTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -481,7 +547,7 @@ export function MovieDetailPage() {
   const activeVideo = videos.find((video) => video.id === activeVideoId) || primaryVideo;
   const galleryImages = movie.previewImages ?? [];
   const activeGalleryImage = activeGalleryIndex !== null ? galleryImages[activeGalleryIndex] : null;
-  const premiereCountdown = formatCountdown(movie.premiereEvent?.startsAt, t("movie.now_live"));
+  const premiereCountdown = formatCountdown(movie.premiereEvent?.startsAt, t("movie.now_live"), currentLanguage.code);
   const seasonsData = movie.seasonsData && movie.seasonsData.length > 0
     ? movie.seasonsData
     : movie.type === "series"
@@ -543,7 +609,8 @@ export function MovieDetailPage() {
 
   const handleShare = async (platform: string) => {
     const shareUrl = movie.canonicalUrl || window.location.href;
-    const platformShareUrl = platform === "facebook" ? movieSharePreviewUrl(movie, currentLanguage.code) : shareUrl;
+    const usesServerPreview = ["facebook", "whatsapp", "telegram", "x"].includes(platform);
+    const platformShareUrl = usesServerPreview ? movieSharePreviewUrl(movie, currentLanguage.code) : shareUrl;
     const description = movieShareDescription(movie);
 
     if (platform === "native") {
@@ -650,6 +717,17 @@ export function MovieDetailPage() {
     }
   };
 
+  const handleEditReview = (review: Review) => {
+    setReviewRating(review.rating);
+    setReviewComment(review.comment);
+    setReviewError(null);
+
+    window.requestAnimationFrame(() => {
+      reviewTextareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      reviewTextareaRef.current?.focus({ preventScroll: true });
+    });
+  };
+
   const tabs = [
     { id: "description", label: t("movie.description") },
     ...(movie.type === "series" ? [{ id: "episodes", label: t("movie.episodes") }] : []),
@@ -660,8 +738,8 @@ export function MovieDetailPage() {
   ];
 
   const currentSeason = seasonsData.find((season) => season.seasonNumber === activeSeason) || seasonsData[0];
-  const runtimeLabel = formatRuntime(movie.runtimeMinutes);
-  const ageRatingLabel = formatAgeRating(movie.ageRating, movie.ageRatingLabel);
+  const runtimeLabel = formatRuntime(movie.runtimeMinutes, currentLanguage.code);
+  const ownReview = userId ? reviews.find((review) => String(review.userId) === String(userId)) : undefined;
   const audioLabel = formatLocaleList(movie.audioLocales, currentLanguage.code);
   const subtitleLabel = formatLocaleList(movie.subtitleLocales, currentLanguage.code);
   const typeLabel = contentTypeLabel(movie, t);
@@ -670,11 +748,16 @@ export function MovieDetailPage() {
     .filter((genre) => comparableLabel(genre) !== typeComparableLabel);
   const movieFacts = [
     runtimeLabel ? { label: t("movie.duration"), value: runtimeLabel } : null,
-    ageRatingLabel ? { label: t("movie.age_rating"), value: ageRatingLabel } : null,
+    movie.ageRating
+      ? {
+          label: t("movie.age_rating"),
+          value: <AgeRatingBadge ageRating={movie.ageRating} fallbackLabel={movie.ageRatingLabel} />,
+        }
+      : null,
     movie.country ? { label: t("movie.production_countries"), value: movie.country } : null,
     audioLabel ? { label: t("movie.audio_languages"), value: audioLabel } : null,
     subtitleLabel ? { label: t("movie.subtitles"), value: subtitleLabel } : null,
-  ].filter((item): item is { label: string; value: string } => item !== null);
+  ].filter((item): item is { label: string; value: React.ReactNode } => item !== null);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -946,7 +1029,7 @@ export function MovieDetailPage() {
                               </div>
                             </div>
                             <div className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-1 text-xs font-medium text-white">
-                              {episode.runtimeMinutes ? `${episode.runtimeMinutes}m` : "45m"}
+                              {formatRuntimeMinutes(episode.runtimeMinutes ?? 45, currentLanguage.code)}
                             </div>
                           </div>
                           <h4 className="font-bold text-white">{episode.title}</h4>
@@ -1066,6 +1149,7 @@ export function MovieDetailPage() {
                           <StarRating rating={reviewRating} interactive onRate={setReviewRating} size="md" />
                         </div>
                         <textarea
+                          ref={reviewTextareaRef}
                           value={reviewComment}
                           onChange={(event) => setReviewComment(event.target.value)}
                           disabled={!isAuthenticated || isReviewSubmitting}
@@ -1079,7 +1163,13 @@ export function MovieDetailPage() {
                             disabled={isReviewSubmitting || isAuthLoading}
                             className="rounded-lg bg-accent px-5 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
                           >
-                            {!isAuthenticated ? t("movie.review_login_button") : isReviewSubmitting ? t("movie.review_saving") : t("movie.review_save")}
+                            {!isAuthenticated
+                              ? t("movie.review_login_button")
+                              : isReviewSubmitting
+                                ? t("movie.review_saving")
+                                : ownReview
+                                  ? t("movie.review_update")
+                                  : t("movie.review_save")}
                           </button>
                         </div>
                       </div>
@@ -1094,8 +1184,10 @@ export function MovieDetailPage() {
                         <ReviewCard
                           key={review.id}
                           review={review}
+                          onEdit={isAuthenticated && String(review.userId) === String(userId) ? () => handleEditReview(review) : undefined}
                           onDelete={isAuthenticated && String(review.userId) === String(userId) ? () => void handleDeleteReview(review) : undefined}
                           isDeleting={deletingReviewId === review.id}
+                          editLabel={t("movie.review_edit")}
                           deleteLabel={t("movie.review_delete")}
                         />
                       ))
