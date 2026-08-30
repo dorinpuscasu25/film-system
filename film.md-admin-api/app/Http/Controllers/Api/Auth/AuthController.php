@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\PersonalAccessToken;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use App\Services\AccountProfileService;
 use App\Services\EmailAddressNormalizer;
 use App\Services\EmailVerificationService;
@@ -177,6 +178,14 @@ class AuthController extends ApiController
             ], Response::HTTP_FORBIDDEN);
         }
 
+        // Deleted accounts keep an anonymised row for accounting; the original
+        // email is released, so this is only reachable via the placeholder address.
+        if ($user->status === AccountDeletionService::STATUS_DELETED) {
+            return response()->json([
+                'message' => 'Invalid email or password.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $app = $validated['app'] ?? 'client';
 
         if ($app === 'admin' && ! $user->hasAdminPanelAccess()) {
@@ -210,14 +219,43 @@ class AuthController extends ApiController
         $user = User::query()->where('email', $email)->first();
 
         if ($user !== null && $user->hasAdminPanelAccess()) {
+            // Admins reset through the Fortify web flow.
             Password::broker()->sendResetLink([
                 'email' => $email,
             ]);
+        } elseif ($user !== null && $user->status === 'active') {
+            // Storefront customers get a 6-digit code, so the same flow works
+            // in the browser and in the mobile apps.
+            $this->emailVerification->issuePasswordResetCode($user);
         }
 
         return response()->json([
-            'message' => 'Dacă există un cont admin asociat acestui email, vei primi instrucțiuni pentru resetarea parolei.',
+            'message' => 'Dacă există un cont asociat acestui email, vei primi instrucțiuni pentru resetarea parolei.',
         ], Response::HTTP_ACCEPTED);
+    }
+
+    /**
+     * Completes the code-based reset for storefront customers.
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $this->normalizeRequestEmail($request);
+
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string', 'size:6'],
+            'password' => $this->passwordRules(),
+        ]);
+
+        $this->emailVerification->consumePasswordResetCode(
+            $validated['email'],
+            $validated['code'],
+            $validated['password'],
+        );
+
+        return response()->json([
+            'message' => 'Parola a fost schimbată. Autentifică-te cu parola nouă.',
+        ]);
     }
 
     public function me(Request $request): JsonResponse

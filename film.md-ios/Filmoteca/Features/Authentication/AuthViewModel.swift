@@ -12,6 +12,15 @@ final class AuthViewModel {
     var pendingEmail: String?
     var state: LoadableState = .idle
 
+    // Password reset
+    var resetEmail = ""
+    var resetCode = ""
+    var resetPassword = ""
+    var resetCodeSent = false
+
+    var canRequestReset: Bool { resetEmail.contains("@") && resetEmail.count >= 5 }
+    var canConfirmReset: Bool { resetCode.count == 6 && resetPassword.count >= 8 }
+
     init(container: AppContainer) { session = container.sessionRepository }
 
     var canSubmitCredentials: Bool { !email.isEmpty && password.count >= 6 && (mode == 0 || !name.trimmingCharacters(in: .whitespaces).isEmpty) }
@@ -48,5 +57,51 @@ final class AuthViewModel {
         guard let pendingEmail else { return }
         do { try await session.resend(email: pendingEmail) }
         catch { state = .failed(message: error.localizedDescription) }
+    }
+
+    // MARK: - Password reset
+
+    /// Requests a 6-digit reset code.
+    ///
+    /// The API answers the same way whether or not the address exists, so the
+    /// screen advances regardless — revealing which emails are registered would
+    /// be an account-enumeration leak.
+    func requestPasswordReset() async -> Bool {
+        state = .loading
+        do {
+            try await session.forgotPassword(email: resetEmail.trimmingCharacters(in: .whitespacesAndNewlines))
+            resetCodeSent = true
+            state = .loaded
+            return true
+        } catch {
+            state = .failed(message: error.localizedDescription)
+            return false
+        }
+    }
+
+    func confirmPasswordReset() async -> Bool {
+        state = .loading
+        do {
+            try await session.resetPassword(
+                email: resetEmail.trimmingCharacters(in: .whitespacesAndNewlines),
+                code: resetCode,
+                password: resetPassword
+            )
+            state = .loaded
+            return true
+        } catch {
+            state = .failed(message: error.localizedDescription)
+            return false
+        }
+    }
+
+    func sanitizeResetCode() { resetCode = String(resetCode.filter(\.isNumber).prefix(6)) }
+
+    func preparePasswordReset() {
+        resetEmail = email
+        resetCode = ""
+        resetPassword = ""
+        resetCodeSent = false
+        state = .idle
     }
 }

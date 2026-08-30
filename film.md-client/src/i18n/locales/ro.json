@@ -67,7 +67,15 @@
     "failed": "Autentificarea a eșuat.",
     "forgot_password": "Ai uitat parola?",
     "login_register": "Autentificare / Înregistrare",
-    "expires_at": "Expiră la {{time}}"
+    "expires_at": "Expiră la {{time}}",
+    "back_to_login": "Înapoi la autentificare",
+    "reset_intro": "Îți trimitem un cod din 6 cifre pe email pentru a-ți alege o parolă nouă.",
+    "reset_send": "Trimite codul",
+    "reset_code_sent": "Dacă există un cont cu acest email, codul a fost trimis. Verifică inbox-ul și folderul spam.",
+    "reset_code": "Cod de resetare",
+    "new_password": "Parolă nouă",
+    "reset_confirm": "Schimbă parola",
+    "reset_done": "Parola a fost schimbată. Autentifică-te cu parola nouă."
   },
   "btn": {
     "watch": "Vizionează acum",
@@ -366,7 +374,20 @@
     "default": "Implicit",
     "billing_library": "Plăți și bibliotecă",
     "owned_titles": "Titluri procurate",
-    "favorites_active": "Favorite pe profilul activ"
+    "favorites_active": "Favorite pe profilul activ",
+    "danger_zone": "Zonă periculoasă",
+    "delete_account_intro": "Ștergerea contului este definitivă și nu poate fi anulată.",
+    "delete_account_wallet": "Soldul din portofel ({{amount}}) se pierde și nu se restituie.",
+    "delete_account_titles": "Accesul la cele {{count}} titluri cumpărate se pierde definitiv.",
+    "delete_account_data": "Profilurile, favoritele, progresul de vizionare și recenziile se șterg.",
+    "delete_account": "Șterge contul",
+    "delete_account_confirm_title": "Ștergi contul definitiv?",
+    "delete_account_confirm_body": "Confirmă cu parola actuală. Contul, soldul și accesul la titlurile cumpărate se pierd definitiv.",
+    "delete_account_type_confirm": "Scrie {{word}} pentru a confirma",
+    "delete_account_reason": "Motiv (opțional)",
+    "delete_account_confirm": "Șterge definitiv",
+    "delete_account_pending": "Se șterge…",
+    "delete_account_failed": "Contul nu a putut fi șters."
   },
   "profiles": {
     "manage": "Gestionează profile",

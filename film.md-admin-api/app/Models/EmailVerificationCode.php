@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class EmailVerificationCode extends Model
 {
     public const PURPOSE_REGISTRATION = 'registration';
+    public const PURPOSE_PASSWORD_RESET = 'password_reset';
 
     public function user(): BelongsTo
     {

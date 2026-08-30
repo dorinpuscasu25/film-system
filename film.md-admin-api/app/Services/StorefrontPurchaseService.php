@@ -16,6 +16,7 @@ class StorefrontPurchaseService
 {
     public function __construct(
         protected WalletService $wallets,
+        protected RightsReportingService $reporting,
     ) {
     }
 
@@ -135,6 +136,8 @@ class StorefrontPurchaseService
                     'playback_url' => $lockedOffer->playback_url,
                 ],
             ]);
+
+            $this->reporting->capturePurchase($entitlement, $transaction);
 
             return [
                 'wallet' => $wallet->fresh(),

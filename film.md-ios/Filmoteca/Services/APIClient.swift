@@ -80,6 +80,10 @@ final class APIClient {
         try await request("public/menus/footer", query: [.init(name: "locale", value: locale.rawValue)])
     }
 
+    func page(slug: String, locale: LocaleCode) async throws -> CmsPage {
+        try await request("public/pages/\(slug)", query: [.init(name: "locale", value: locale.rawValue)])
+    }
+
     func content(slug: String, locale: LocaleCode) async throws -> Content {
         try await request("public/content/\(slug)", query: [.init(name: "locale", value: locale.rawValue)])
     }
@@ -106,6 +110,20 @@ final class APIClient {
         return try await request("auth/register/resend", method: "POST", body: Body(email: email))
     }
 
+    func forgotPassword(email: String) async throws -> MessageResponse {
+        struct Body: Encodable { let email: String }
+        return try await request("auth/forgot-password", method: "POST", body: Body(email: email))
+    }
+
+    func resetPassword(email: String, code: String, password: String) async throws -> MessageResponse {
+        struct Body: Encodable { let email: String; let code: String; let password: String; let password_confirmation: String }
+        return try await request(
+            "auth/reset-password",
+            method: "POST",
+            body: Body(email: email, code: code, password: password, password_confirmation: password)
+        )
+    }
+
     func me() async throws -> UserResponse { try await request("auth/me", authenticated: true) }
     func account(locale: LocaleCode) async throws -> AccountResponse { try await request("storefront/account", query: [.init(name: "locale", value: locale.rawValue)], authenticated: true) }
     func updateAccount(name: String, email: String, locale: LocaleCode) async throws -> User {
@@ -128,6 +146,17 @@ final class APIClient {
         )
         return response.message
     }
+    /// Permanent account deletion, required by App Store Review Guideline 5.1.1(v).
+    func deleteAccount(currentPassword: String, reason: String?) async throws -> AccountDeletionResponse {
+        struct Body: Encodable { let current_password: String; let reason: String? }
+        return try await request(
+            "settings/account",
+            method: "DELETE",
+            body: Body(current_password: currentPassword, reason: reason),
+            authenticated: true
+        )
+    }
+
     func continueWatching(locale: LocaleCode, profileID: String?) async throws -> ContinueResponse {
         var query = [URLQueryItem(name: "locale", value: locale.rawValue)]
         if let profileID { query.append(.init(name: "account_profile_id", value: profileID)) }

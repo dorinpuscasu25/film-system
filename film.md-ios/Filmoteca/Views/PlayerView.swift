@@ -15,6 +15,7 @@ struct PlayerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: PlayerViewModel
     @State private var bunnyWebFallbackURL: URL?
+    @State private var settingsPresented = false
 
     init(request: PlayerRequest, container: AppContainer) {
         _viewModel = State(initialValue: PlayerViewModel(request: request, container: container))
@@ -68,8 +69,20 @@ struct PlayerView: View {
                                 .background(.black.opacity(0.7), in: Circle())
                         }
                         .accessibilityLabel("Deschide sursa video")
-                    } else if case .native = viewModel.request.source {
-                        AirPlayButton().frame(width: 38, height: 38)
+                    } else {
+                        if viewModel.hasPlaybackSettings {
+                            Button { settingsPresented = true } label: {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.headline)
+                                    .frame(width: 44, height: 44)
+                                    .background(.black.opacity(0.7), in: Circle())
+                                    .overlay(Circle().stroke(.white.opacity(0.18)))
+                            }
+                            .accessibilityLabel("Setări de redare")
+                        }
+                        if case .native = viewModel.request.source {
+                            AirPlayButton().frame(width: 38, height: 38)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -81,6 +94,10 @@ struct PlayerView: View {
         .statusBarHidden()
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
+        .sheet(isPresented: $settingsPresented) {
+            PlaybackSettingsSheet(viewModel: viewModel)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     @ViewBuilder
@@ -117,6 +134,99 @@ struct PlayerView: View {
                 }
             }
         }
+    }
+}
+
+/// Subtitle, audio, quality and speed controls — the web player has had these
+/// for a while; this brings the iOS player to parity.
+private struct PlaybackSettingsSheet: View {
+    let viewModel: PlayerViewModel
+
+    @Environment(FilmotecaModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if !viewModel.subtitleOptions.isEmpty {
+                    Section(app.t("subtitles")) {
+                        selectionRow(
+                            title: app.t("subtitles_off"),
+                            isSelected: viewModel.selectedSubtitleID == nil
+                        ) { viewModel.selectSubtitle(id: nil) }
+
+                        ForEach(viewModel.subtitleOptions) { option in
+                            selectionRow(
+                                title: option.title,
+                                isSelected: viewModel.selectedSubtitleID == option.id
+                            ) { viewModel.selectSubtitle(id: option.id) }
+                        }
+                    }
+                }
+
+                if viewModel.audioOptions.count > 1 {
+                    Section(app.t("audio_track")) {
+                        ForEach(viewModel.audioOptions) { option in
+                            selectionRow(
+                                title: option.title,
+                                isSelected: viewModel.selectedAudioID == option.id
+                            ) { viewModel.selectAudio(id: option.id) }
+                        }
+                    }
+                }
+
+                Section(app.t("quality")) {
+                    ForEach(PlaybackQuality.allCases) { option in
+                        selectionRow(
+                            title: app.t("quality_\(option.rawValue)"),
+                            isSelected: viewModel.quality == option
+                        ) { viewModel.selectQuality(option) }
+                    }
+                }
+
+                Section(app.t("playback_speed")) {
+                    ForEach(PlayerViewModel.availableSpeeds, id: \.self) { value in
+                        selectionRow(
+                            title: value == 1.0 ? app.t("speed_normal") : "\(value.formatted(.number.precision(.fractionLength(0...2))))×",
+                            isSelected: viewModel.speed == value
+                        ) { viewModel.selectSpeed(value) }
+                    }
+                }
+
+                if viewModel.subtitleOptions.isEmpty && viewModel.audioOptions.count <= 1 {
+                    Section {
+                        Text(app.t("no_tracks_available"))
+                            .font(.footnote)
+                            .foregroundStyle(FilmotecaTheme.muted)
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(FilmotecaTheme.background)
+            .navigationTitle(app.t("playback_settings"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(app.t("close")) { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func selectionRow(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title).foregroundStyle(.white)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FilmotecaTheme.accent)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

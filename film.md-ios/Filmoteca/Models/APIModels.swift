@@ -291,6 +291,23 @@ struct PublicMenuResponse: Codable {
     @FlexibleArray var items: [PublicMenuItem]
 }
 
+/// Legal and informational pages served by the CMS. Rendered natively so the
+/// privacy policy and terms stay reachable in-app (App Store requirement)
+/// without depending on the website being up.
+struct CmsPage: Codable, Identifiable, Hashable {
+    let id: Int
+    let title: String
+    let slug: String
+    let excerpt: String?
+    let content: String
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, slug, excerpt, content
+        case updatedAt = "updated_at"
+    }
+}
+
 struct Profile: Codable, Identifiable, Hashable {
     let idValue: StringOrInt
     var name: String
@@ -420,6 +437,7 @@ struct FavoriteResponse: Codable { let favoritesByProfile: [String: [String]]; e
 struct PurchaseResponse: Codable { let message: String; let alreadyOwned: Bool; let wallet: Wallet; let libraryItem: LibraryItem; enum CodingKeys: String, CodingKey { case message, wallet; case alreadyOwned = "already_owned"; case libraryItem = "library_item" } }
 struct DeviceLookup: Codable { let userCode: String; let deviceName: String?; let expiresAt: String?; enum CodingKeys: String, CodingKey { case userCode = "user_code"; case deviceName = "device_name"; case expiresAt = "expires_at" } }
 struct MessageResponse: Codable { let message: String }
+struct AccountDeletionResponse: Codable { let message: String; let deletedAt: String?; let forfeitedBalance: Double?; let currency: String?; enum CodingKeys: String, CodingKey { case message, currency; case deletedAt = "deleted_at"; case forfeitedBalance = "forfeited_balance" } }
 struct WalletTopUp: Codable, Identifiable {
     let id: String
     let amount: Double

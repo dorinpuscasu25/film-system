@@ -67,7 +67,15 @@
     "failed": "Authentication failed.",
     "forgot_password": "Forgot your password?",
     "login_register": "Log in / Register",
-    "expires_at": "Expires {{time}}"
+    "expires_at": "Expires {{time}}",
+    "back_to_login": "Back to sign in",
+    "reset_intro": "We'll email you a 6-digit code so you can choose a new password.",
+    "reset_send": "Send code",
+    "reset_code_sent": "If an account exists for this email, the code has been sent. Check your inbox and spam folder.",
+    "reset_code": "Reset code",
+    "new_password": "New password",
+    "reset_confirm": "Change password",
+    "reset_done": "Password changed. Sign in with your new password."
   },
   "btn": {
     "watch": "Watch now",
@@ -365,7 +373,20 @@
     "default": "Default",
     "billing_library": "Billing & library",
     "owned_titles": "Purchased titles",
-    "favorites_active": "Favorites on active profile"
+    "favorites_active": "Favorites on active profile",
+    "danger_zone": "Danger zone",
+    "delete_account_intro": "Deleting your account is permanent and cannot be undone.",
+    "delete_account_wallet": "Your wallet balance ({{amount}}) is forfeited and will not be refunded.",
+    "delete_account_titles": "Access to your {{count}} purchased titles is lost permanently.",
+    "delete_account_data": "Profiles, favourites, watch progress and reviews are deleted.",
+    "delete_account": "Delete account",
+    "delete_account_confirm_title": "Delete your account permanently?",
+    "delete_account_confirm_body": "Confirm with your current password. Your account, balance and access to purchased titles are lost permanently.",
+    "delete_account_type_confirm": "Type {{word}} to confirm",
+    "delete_account_reason": "Reason (optional)",
+    "delete_account_confirm": "Delete permanently",
+    "delete_account_pending": "Deleting…",
+    "delete_account_failed": "The account could not be deleted."
   },
   "profiles": {
     "manage": "Manage profiles",

@@ -52,13 +52,19 @@ class ExportController extends ApiController
             'filters' => ['nullable', 'array'],
         ]);
 
-        // Excel/CSV restricted to admins (`exports.manage`).
-        // PDF is broader — any user with `commerce.view_billing` (admin + creators).
+        // Editable and full-platform exports remain admin-only. A scoped titular
+        // may only request the privacy-safe PDF statement.
         $user = $request->user();
         if (in_array($payload['format'], ['xlsx', 'excel', 'csv', 'json'], true) && ! $user?->hasPermission('exports.manage')) {
             return response()->json([
                 'message' => 'Doar administratorii pot exporta date editabile (Excel/CSV). Creators pot exporta în format PDF.',
             ], Response::HTTP_FORBIDDEN);
+        }
+        if ($payload['scope'] === 'reporting-holder' && ! $user?->hasPermission('content.view_financials')) {
+            return response()->json(['message' => 'Nu ai acces la raportul titularului.'], Response::HTTP_FORBIDDEN);
+        }
+        if ($payload['scope'] !== 'reporting-holder' && ! $user?->hasPermission('exports.manage')) {
+            return response()->json(['message' => 'Acest tip de export este disponibil doar administratorilor.'], Response::HTTP_FORBIDDEN);
         }
 
         $job = ExportJob::query()->create([

@@ -116,4 +116,6 @@ return [
 
     'registration_code_ttl_minutes' => env('REGISTRATION_CODE_TTL_MINUTES', 15),
 
+    'password_reset_code_ttl_minutes' => env('PASSWORD_RESET_CODE_TTL_MINUTES', 15),
+
 ];

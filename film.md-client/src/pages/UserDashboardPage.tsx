@@ -8,11 +8,14 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Tabs } from "../components/Tabs";
 import { WalletModal } from "../components/WalletModal";
 import { getFullCatalog } from "../lib/storefront";
-import { fetchContinueWatching } from "../lib/session";
+import { deleteCurrentAccount, fetchContinueWatching } from "../lib/session";
 import { resizedImageUrl } from "../lib/images";
 import { Movie } from "../types";
 
 const DASHBOARD_TABS = ["myfilms", "favorites", "wallet", "settings"];
+
+/** Typed confirmation for irreversible account deletion. */
+const DELETE_CONFIRMATION_WORD = "STERGE";
 
 export function UserDashboardPage() {
   const {
@@ -20,6 +23,7 @@ export function UserDashboardPage() {
     activeProfile,
     updateAccount,
     changePassword,
+    logout,
   } = useAuth();
   const { balance, currency, transactions, purchases, favorites, refreshWallet } = useWallet();
   const { currentLanguage, setLanguage, t } = useLanguage();
@@ -43,6 +47,12 @@ export function UserDashboardPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isSavingAccount, setIsSavingAccount] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -163,6 +173,34 @@ export function UserDashboardPage() {
       .filter((item): item is Movie => item !== undefined),
     [catalog, favorites],
   );
+
+  const closeDeleteAccount = () => {
+    setIsDeleteAccountOpen(false);
+    setDeletePassword("");
+    setDeleteReason("");
+    setDeleteConfirmation("");
+    setDeleteError(null);
+  };
+
+  const handleDeleteAccount = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setDeleteError(null);
+    setIsDeletingAccount(true);
+
+    try {
+      await deleteCurrentAccount({
+        currentPassword: deletePassword,
+        reason: deleteReason.trim() || null,
+      });
+      closeDeleteAccount();
+      logout();
+      navigate("/", { replace: true });
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : t("dashboard.delete_account_failed"));
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
   const handleAccountSave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -654,6 +692,26 @@ export function UserDashboardPage() {
                     <p className="mt-1 text-2xl font-bold text-white">{favorites.length}</p>
                   </div>
                 </div>
+
+                <div className="space-y-4 rounded-2xl border border-red-500/30 bg-red-500/5 p-8 lg:col-span-2">
+                  <h3 className="border-b border-red-500/20 pb-4 text-xl font-bold text-red-200">
+                    {t("dashboard.danger_zone")}
+                  </h3>
+                  <p className="text-sm text-gray-300">{t("dashboard.delete_account_intro")}</p>
+                  <ul className="space-y-2 text-sm text-gray-400">
+                    <li>
+                      • {t("dashboard.delete_account_wallet", { amount: `${currency} ${balance.toFixed(2)}` })}
+                    </li>
+                    <li>• {t("dashboard.delete_account_titles", { count: purchases.length })}</li>
+                    <li>• {t("dashboard.delete_account_data")}</li>
+                  </ul>
+                  <button
+                    onClick={() => setIsDeleteAccountOpen(true)}
+                    className="rounded-lg border border-red-500/50 bg-red-500/10 px-6 py-2 font-medium text-red-200 transition-colors hover:bg-red-500/20"
+                  >
+                    {t("dashboard.delete_account")}
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -661,6 +719,81 @@ export function UserDashboardPage() {
       </div>
 
       <WalletModal isOpen={isWalletModalOpen && !activeProfile.isKids} onClose={() => setIsWalletModalOpen(false)} />
+
+      {isDeleteAccountOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-red-500/30 bg-background p-6 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white">{t("dashboard.delete_account_confirm_title")}</h2>
+            <p className="mt-3 text-sm text-gray-300">{t("dashboard.delete_account_confirm_body")}</p>
+
+            <form onSubmit={handleDeleteAccount} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-400">
+                  {t("dashboard.current_password")}
+                </label>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-white outline-none focus:border-red-500/60"
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-400">
+                  {t("dashboard.delete_account_type_confirm", { word: DELETE_CONFIRMATION_WORD })}
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-white outline-none focus:border-red-500/60"
+                  autoComplete="off"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-400">
+                  {t("dashboard.delete_account_reason")}
+                </label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(event) => setDeleteReason(event.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-white outline-none focus:border-red-500/60"
+                />
+              </div>
+
+              {deleteError && <p className="text-sm text-red-400">{deleteError}</p>}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeDeleteAccount}
+                  disabled={isDeletingAccount}
+                  className="rounded-lg border border-white/10 px-5 py-2 text-gray-300 transition-colors hover:bg-white/5 disabled:opacity-50"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    isDeletingAccount
+                    || deletePassword.length === 0
+                    || deleteConfirmation.trim().toUpperCase() !== DELETE_CONFIRMATION_WORD
+                  }
+                  className="rounded-lg bg-red-600 px-5 py-2 font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isDeletingAccount ? t("dashboard.delete_account_pending") : t("dashboard.delete_account_confirm")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

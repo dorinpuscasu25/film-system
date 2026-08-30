@@ -4,6 +4,7 @@ struct AuthView: View {
     @Environment(FilmotecaModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: AuthViewModel
+    @State private var passwordResetPresented = false
 
     init(container: AppContainer) {
         _viewModel = State(initialValue: AuthViewModel(container: container))
@@ -23,7 +24,11 @@ struct AuthView: View {
                     Text("Prin continuare accepți Termenii și Politica de confidențialitate FILMOTECA.md.").font(.caption2).foregroundStyle(.tertiary).multilineTextAlignment(.center)
                 }.padding(22)
             }.background(FilmotecaTheme.background)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Închide") { dismiss() }.foregroundStyle(.white) } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(app.t("close")) { dismiss() }.foregroundStyle(.white) } }
+            .sheet(isPresented: $passwordResetPresented) {
+                PasswordResetSheet(viewModel: viewModel)
+                    .presentationDetents([.medium])
+            }
         }
     }
 
@@ -36,6 +41,14 @@ struct AuthView: View {
             field("Email", text: Binding(get: { viewModel.email }, set: { viewModel.email = $0 }), icon: "envelope", keyboard: .emailAddress)
             SecureField("Parolă", text: Binding(get: { viewModel.password }, set: { viewModel.password = $0 })).textContentType(viewModel.mode == 0 ? .password : .newPassword).padding(15).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 13)).overlay(RoundedRectangle(cornerRadius: 13).stroke(FilmotecaTheme.hairline))
             Button { Task { if let response = await viewModel.submit(locale: app.locale) { await app.authenticate(response) } } } label: { if viewModel.state.isLoading { ProgressView().tint(.white) } else { Text(viewModel.mode == 0 ? "Intră în cont" : "Continuă") } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(viewModel.state.isLoading || !viewModel.canSubmitCredentials).opacity(viewModel.canSubmitCredentials ? 1 : 0.5).frame(maxWidth: .infinity)
+            if viewModel.mode == 0 {
+                Button(app.t("forgot_password")) {
+                    viewModel.preparePasswordReset()
+                    passwordResetPresented = true
+                }
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.75))
+            }
         }
     }
 
@@ -51,4 +64,101 @@ struct AuthView: View {
         HStack { Image(systemName: icon).foregroundStyle(.secondary); TextField(placeholder, text: text).textInputAutocapitalization(keyboard == .emailAddress ? .never : .words).keyboardType(keyboard) }.padding(15).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 13)).overlay(RoundedRectangle(cornerRadius: 13).stroke(FilmotecaTheme.hairline))
     }
 
+}
+
+/// Two-step password reset: request a 6-digit code by email, then set the new
+/// password. Mirrors the registration confirmation flow the app already uses.
+private struct PasswordResetSheet: View {
+    let viewModel: AuthViewModel
+
+    @Environment(FilmotecaModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var didFinish = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if didFinish {
+                    Section {
+                        Label(app.t("password_reset_done"), systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                    }
+                } else if viewModel.resetCodeSent {
+                    Section {
+                        Text(app.t("password_reset_code_sent"))
+                            .font(.footnote)
+                            .foregroundStyle(FilmotecaTheme.muted)
+                    }
+                    Section(app.t("password_reset_code")) {
+                        TextField("000000", text: Binding(get: { viewModel.resetCode }, set: { viewModel.resetCode = $0 }))
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.center)
+                            .font(.system(size: 26, weight: .bold, design: .monospaced))
+                            .tracking(6)
+                            .onChange(of: viewModel.resetCode) { _, _ in viewModel.sanitizeResetCode() }
+                    }
+                    Section(app.t("password_new")) {
+                        SecureField(app.t("password_new"), text: Binding(get: { viewModel.resetPassword }, set: { viewModel.resetPassword = $0 }))
+                            .textContentType(.newPassword)
+                        Text(app.t("password_min_length"))
+                            .font(.caption)
+                            .foregroundStyle(FilmotecaTheme.muted)
+                    }
+                } else {
+                    Section {
+                        Text(app.t("password_reset_intro"))
+                            .font(.footnote)
+                            .foregroundStyle(FilmotecaTheme.muted)
+                    }
+                    Section("Email") {
+                        TextField("email@exemplu.md", text: Binding(get: { viewModel.resetEmail }, set: { viewModel.resetEmail = $0 }))
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .textContentType(.emailAddress)
+                    }
+                }
+
+                if let error = viewModel.state.errorMessage {
+                    Section { Text(error).font(.footnote).foregroundStyle(.red) }
+                }
+
+                if !didFinish {
+                    Section {
+                        Button {
+                            Task {
+                                if viewModel.resetCodeSent {
+                                    if await viewModel.confirmPasswordReset() { didFinish = true }
+                                } else {
+                                    _ = await viewModel.requestPasswordReset()
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                if viewModel.state.isLoading { ProgressView().padding(.trailing, 6) }
+                                Text(viewModel.resetCodeSent ? app.t("password_reset_confirm") : app.t("password_reset_send"))
+                                    .fontWeight(.bold)
+                                Spacer()
+                            }
+                        }
+                        .disabled(
+                            viewModel.state.isLoading
+                                || (viewModel.resetCodeSent ? !viewModel.canConfirmReset : !viewModel.canRequestReset)
+                        )
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(FilmotecaTheme.background)
+            .navigationTitle(app.t("forgot_password"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(didFinish ? app.t("close") : app.t("cancel")) { dismiss() }
+                }
+            }
+        }
+    }
 }

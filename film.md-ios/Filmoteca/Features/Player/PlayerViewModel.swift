@@ -3,6 +3,32 @@ import Foundation
 import Observation
 import OSLog
 
+/// A selectable subtitle or audio track exposed to the player UI.
+struct PlayerMediaOption: Identifiable, Hashable {
+    let id: String
+    let title: String
+}
+
+/// Caps the HLS variant the player is allowed to pick.
+///
+/// AVPlayer always adapts to the network, so these are ceilings rather than
+/// fixed resolutions — `auto` removes the cap entirely.
+enum PlaybackQuality: String, CaseIterable, Identifiable {
+    case auto, high, medium, low
+
+    var id: String { rawValue }
+
+    /// Peak bitrate in bits per second; `0` means unlimited.
+    var preferredPeakBitRate: Double {
+        switch self {
+        case .auto: 0
+        case .high: 6_000_000
+        case .medium: 3_000_000
+        case .low: 1_200_000
+        }
+    }
+}
+
 @MainActor @Observable
 final class PlayerViewModel {
     enum LoadingState: Equatable {
@@ -11,6 +37,9 @@ final class PlayerViewModel {
         case ready
         case failed(String)
     }
+
+    /// Playback speeds offered in the settings sheet.
+    static let availableSpeeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
 
     private let playback: any PlaybackRepositoryProtocol
     private let configuration: AppConfiguration
@@ -24,6 +53,27 @@ final class PlayerViewModel {
     private var preparationTask: Task<Void, Never>?
     private var readinessTimeoutTask: Task<Void, Never>?
     private let logger = Logger(subsystem: "md.filmoteca.ios", category: "Player")
+
+    // MARK: - Track, quality and speed selection
+
+    private(set) var subtitleOptions: [PlayerMediaOption] = []
+    private(set) var audioOptions: [PlayerMediaOption] = []
+    /// `nil` means subtitles are off.
+    private(set) var selectedSubtitleID: String?
+    private(set) var selectedAudioID: String?
+    private(set) var quality: PlaybackQuality = .auto
+    private(set) var speed: Float = 1.0
+
+    private var legibleGroup: AVMediaSelectionGroup?
+    private var audibleGroup: AVMediaSelectionGroup?
+    private var mediaOptionsTask: Task<Void, Never>?
+
+    /// Embedded (iframe) sources are driven by the remote page, so the native
+    /// settings sheet only applies once we own an `AVPlayer`.
+    var hasPlaybackSettings: Bool {
+        if case .embedded = request.source { return false }
+        return player != nil
+    }
 
     init(request: PlayerRequest, container: AppContainer) {
         self.request = request
@@ -151,6 +201,7 @@ final class PlayerViewModel {
         if request.startPosition > 2, player.currentTime().seconds < 1 {
             player.seek(to: CMTime(seconds: request.startPosition, preferredTimescale: 600))
         }
+        if let item = player.currentItem { loadMediaOptions(for: item) }
         player.play()
         guard observer == nil else { return }
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 10, preferredTimescale: 1), queue: .main) { [weak self] _ in
@@ -158,9 +209,83 @@ final class PlayerViewModel {
         }
     }
 
+    // MARK: - Playback settings
+
+    /// Reads the subtitle and audio tracks the HLS stream advertises.
+    ///
+    /// Called once the item is ready — media selection groups are not populated
+    /// before the master playlist has been parsed.
+    private func loadMediaOptions(for item: AVPlayerItem) {
+        mediaOptionsTask?.cancel()
+        mediaOptionsTask = Task { [weak self] in
+            let asset = item.asset
+            let legible = try? await asset.loadMediaSelectionGroup(for: .legible)
+            let audible = try? await asset.loadMediaSelectionGroup(for: .audible)
+
+            guard !Task.isCancelled, let self else { return }
+
+            self.legibleGroup = legible
+            self.audibleGroup = audible
+            self.subtitleOptions = Self.options(from: legible)
+            self.audioOptions = Self.options(from: audible)
+
+            let selection = item.currentMediaSelection
+            if let legible, let current = selection.selectedMediaOption(in: legible) {
+                self.selectedSubtitleID = legible.options.firstIndex(of: current).map(String.init)
+            }
+            if let audible, let current = selection.selectedMediaOption(in: audible) {
+                self.selectedAudioID = audible.options.firstIndex(of: current).map(String.init)
+            }
+        }
+    }
+
+    private static func options(from group: AVMediaSelectionGroup?) -> [PlayerMediaOption] {
+        guard let group else { return [] }
+        return group.options.enumerated().map { index, option in
+            PlayerMediaOption(id: String(index), title: option.displayName)
+        }
+    }
+
+    /// Passing `nil` turns subtitles off.
+    func selectSubtitle(id: String?) {
+        selectedSubtitleID = id
+        apply(optionID: id, in: legibleGroup)
+    }
+
+    func selectAudio(id: String?) {
+        selectedAudioID = id
+        apply(optionID: id, in: audibleGroup)
+    }
+
+    private func apply(optionID: String?, in group: AVMediaSelectionGroup?) {
+        guard let group, let item = player?.currentItem else { return }
+
+        guard let optionID, let index = Int(optionID), group.options.indices.contains(index) else {
+            item.select(nil, in: group)
+            return
+        }
+
+        item.select(group.options[index], in: group)
+    }
+
+    func selectQuality(_ newQuality: PlaybackQuality) {
+        quality = newQuality
+        player?.currentItem?.preferredPeakBitRate = newQuality.preferredPeakBitRate
+    }
+
+    func selectSpeed(_ newSpeed: Float) {
+        speed = newSpeed
+        guard let player else { return }
+        // `defaultRate` keeps the speed after the user pauses and resumes.
+        player.defaultRate = newSpeed
+        if player.timeControlStatus != .paused { player.rate = newSpeed }
+    }
+
     func stop() {
         preparationTask?.cancel()
         preparationTask = nil
+        mediaOptionsTask?.cancel()
+        mediaOptionsTask = nil
         readinessTimeoutTask?.cancel()
         readinessTimeoutTask = nil
         if player != nil { report(event: "pause") }
@@ -179,6 +304,14 @@ final class PlayerViewModel {
         playbackFailureObserver = nil
         player = nil
         fairPlayLoader = nil
+        mediaOptionsTask?.cancel()
+        mediaOptionsTask = nil
+        legibleGroup = nil
+        audibleGroup = nil
+        subtitleOptions = []
+        audioOptions = []
+        selectedSubtitleID = nil
+        selectedAudioID = nil
     }
 
     private func configureAudioSession() {

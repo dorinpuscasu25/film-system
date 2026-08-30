@@ -504,6 +504,47 @@ export async function updateAccountPassword(payload: {
   }, undefined, true);
 }
 
+export async function requestPasswordReset(email: string) {
+  return requestJson<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function confirmPasswordReset(payload: {
+  email: string;
+  code: string;
+  password: string;
+}) {
+  return requestJson<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      email: payload.email,
+      code: payload.code,
+      password: payload.password,
+      password_confirmation: payload.password,
+    }),
+  });
+}
+
+export async function deleteCurrentAccount(payload: {
+  currentPassword: string;
+  reason?: string | null;
+}) {
+  return requestJson<{
+    message: string;
+    deleted_at: string;
+    forfeited_balance: number;
+    currency: string;
+  }>("/settings/account", {
+    method: "DELETE",
+    body: JSON.stringify({
+      current_password: payload.currentPassword,
+      reason: payload.reason ?? null,
+    }),
+  }, undefined, true);
+}
+
 export async function fetchStorefrontAccount(locale?: "en" | "ro" | "ru") {
   return requestJson<StorefrontAccountPayload>("/storefront/account", {}, {
     locale,

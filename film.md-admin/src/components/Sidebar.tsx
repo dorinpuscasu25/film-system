@@ -5,6 +5,7 @@ import {
   ActivityIcon,
   CreditCardIcon,
   DollarSignIcon,
+  ChartNoAxesCombinedIcon,
   FileTextIcon,
   FilmIcon,
   FlaskConicalIcon,
@@ -47,6 +48,12 @@ export function Sidebar() {
     {
       title: t("nav.dashboard"),
       items: [
+        {
+          id: "reporting",
+          label: "Raportare",
+          icon: ChartNoAxesCombinedIcon,
+          show: can("content.view_financials"),
+        },
         {
           id: "dashboard",
           label: t("nav.dashboard"),

@@ -14,6 +14,7 @@ export type AdminPage =
   | 'taxonomies'
   | 'collections'
   | 'billing'
+  | 'reporting'
   | 'price-settings'
   | 'coupons'
   | 'geo-stats'
@@ -47,6 +48,7 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
     taxonomies: '/taxonomies',
     collections: '/collections',
     billing: '/billing',
+    reporting: '/reporting',
     'price-settings': '/prices',
     coupons: '/coupons',
     'geo-stats': '/geo-stats',
@@ -81,6 +83,7 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     taxonomies: 'Taxonomii',
     collections: 'Colecții',
     billing: 'Costuri & venituri',
+    reporting: 'Raportare',
     'price-settings': 'Setări prețuri',
     coupons: 'Cupoane',
     'geo-stats': 'Distribuție geografică',
@@ -136,6 +139,7 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
     taxonomies: 'taxonomies.view',
     collections: 'taxonomies.view',
     billing: 'commerce.view_billing',
+    reporting: 'content.view_financials',
     'price-settings': 'commerce.view_billing',
     coupons: 'commerce.view',
     'geo-stats': 'commerce.view_billing',
@@ -160,6 +164,7 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
 export function firstAvailablePage(user: AdminUser | null): AdminPage {
   const candidates: AdminPage[] = [
     'dashboard',
+    'reporting',
     'users',
     'roles',
     'catalog',

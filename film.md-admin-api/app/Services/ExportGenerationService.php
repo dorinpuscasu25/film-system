@@ -33,6 +33,7 @@ class ExportGenerationService
     public function __construct(
         protected ContentScopeService $contentScope,
         protected AccountingLedgerService $accountingLedger,
+        protected RightsReportingService $rightsReporting,
     ) {}
 
     public function generate(ExportJob $job, ?User $actor = null): ExportJob
@@ -78,10 +79,84 @@ class ExportGenerationService
         return match ($job->scope) {
             'billing' => $this->buildBillingExport($job, $actor),
             'accounting' => $this->buildAccountingExport($job),
+            'reporting-accounting' => $this->buildRightsAccountingExport($job, $actor),
+            'reporting-holder' => $this->buildRightsHolderExport($job, $actor),
             'creator-statements' => $this->buildCreatorStatementsExport($job, $actor),
             'full-platform' => $this->buildFullPlatformExport($job, $actor),
             default => throw new \RuntimeException('Unsupported export scope.'),
         };
+    }
+
+    /**
+     * Immutable, allocation-level ledger for accounting and fiscal audit.
+     *
+     * @return array{0:string,1:string,2:string,3:array<string,mixed>}
+     */
+    protected function buildRightsAccountingExport(ExportJob $job, ?User $actor): array
+    {
+        if ($actor === null || ! $actor->hasPermission('exports.manage')) {
+            throw new \RuntimeException('Doar administratorii pot exporta registrul contabil complet.');
+        }
+
+        $rows = $this->rightsReporting->exportRows($actor, $job->filters ?? [])->map(fn (array $row) => ['tip_rand' => 'TRANZACTIE', ...$row]);
+        $totals = [
+            'tip_rand' => 'TOTAL',
+            'suma_achitata' => round((float) $rows->sum('suma_achitata'), 2),
+            'tva_vanzare' => round((float) $rows->sum('tva_vanzare'), 2),
+            'suma_fara_tva' => round((float) $rows->sum('suma_fara_tva'), 2),
+            'cota_609_film' => round((float) $rows->sum('cota_609_film'), 2),
+            'cota_titular' => round((float) $rows->sum('cota_titular'), 2),
+            'retinere_la_sursa' => round((float) $rows->sum('retinere_la_sursa'), 2),
+            'net_titular' => round((float) $rows->sum('net_titular'), 2),
+            'refund' => round((float) $rows->sum('refund'), 2),
+        ];
+        $exportRows = $rows->push($totals);
+        $isExcel = in_array($job->format, ['excel', 'xlsx'], true);
+
+        return [
+            $isExcel ? $this->toXlsx($exportRows) : $this->toCsv($exportRows),
+            $isExcel ? 'xlsx' : 'csv',
+            $isExcel ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv',
+            ['row_count' => $rows->count(), 'filters' => $job->filters ?? [], 'totals' => $totals],
+        ];
+    }
+
+    /**
+     * Privacy-safe statement: it intentionally contains no buyer identity.
+     *
+     * @return array{0:string,1:string,2:string,3:array<string,mixed>}
+     */
+    protected function buildRightsHolderExport(ExportJob $job, ?User $actor): array
+    {
+        if ($actor === null || ! $actor->hasPermission('content.view_financials')) {
+            throw new \RuntimeException('Nu ai acces la raportul titularului.');
+        }
+
+        $rows = $this->rightsReporting->exportRows($actor, $job->filters ?? []);
+        $holderNames = $rows->pluck('titular')->filter()->unique()->implode(', ') ?: 'Titular';
+        $lines = [
+            'FILMOTECA.MD — RAPORT TITULAR',
+            'Titular: '.$holderNames,
+            'Perioada: '.Arr::get($job->filters ?? [], 'from', 'început').' — '.Arr::get($job->filters ?? [], 'to', 'astăzi'),
+            'Generat: '.now()->format('Y-m-d H:i'),
+            '',
+            sprintf('Cumpărări: %d', $rows->where('suma_achitata', '>', 0)->count()),
+            sprintf('Vânzări brute: %.2f MDL', $rows->sum('suma_achitata')),
+            sprintf('Cota titularului: %.2f MDL', $rows->sum('cota_titular')),
+            sprintf('Impozite / rețineri: %.2f MDL', $rows->sum('retinere_la_sursa')),
+            sprintf('Net de plată: %.2f MDL', $rows->sum('net_titular')),
+            '', 'DETALIU PE FILME',
+        ];
+        foreach ($rows->groupBy('film') as $film => $filmRows) {
+            $lines[] = sprintf('%s — %d cumpărări — brut %.2f — net %.2f MDL', $film, $filmRows->count(), $filmRows->sum('suma_achitata'), $filmRows->sum('net_titular'));
+        }
+        $lines[] = '';
+        $lines[] = 'TRANZACȚII (fără date personale ale cumpărătorilor)';
+        foreach ($rows->take(500) as $row) {
+            $lines[] = sprintf('%s | %s | %s | %s | %.2f MDL', $row['data'] ?? '', $row['film'] ?? '', $row['tara'] ?? '', $row['oferta'] ?? '', $row['suma_achitata'] ?? 0);
+        }
+
+        return [$this->toSimplePdf($lines), 'pdf', 'application/pdf', ['row_count' => $rows->count(), 'filters' => $job->filters ?? []]];
     }
 
     /**

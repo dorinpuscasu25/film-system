@@ -36,6 +36,16 @@ class ContentCreator extends Model
         return $this->hasMany(CreatorMonthlyStatement::class);
     }
 
+    public function contractVersions(): HasMany
+    {
+        return $this->hasMany(CreatorContractVersion::class);
+    }
+
+    public function fiscalProfiles(): HasMany
+    {
+        return $this->hasMany(CreatorFiscalProfile::class);
+    }
+
     protected function casts(): array
     {
         return [

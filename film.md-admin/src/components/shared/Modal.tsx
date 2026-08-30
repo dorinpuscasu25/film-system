@@ -20,6 +20,8 @@ export function Modal({
   footer,
   size = "md",
 }: ModalProps) {
+  const titleId = React.useId();
+
   if (!isOpen) {
     return null;
   }
@@ -37,6 +39,9 @@ export function Modal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={cn(
           "relative z-10 flex w-full flex-col overflow-hidden rounded-xl border bg-background",
           sizeClasses[size],
@@ -45,10 +50,10 @@ export function Modal({
       >
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
-            <h3 className="text-lg font-semibold">{title}</h3>
+            <h3 id={titleId} className="text-lg font-semibold">{title}</h3>
           </div>
 
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Închide fereastra">
             <XIcon className="h-4 w-4" />
           </Button>
         </div>

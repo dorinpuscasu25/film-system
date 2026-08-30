@@ -94,6 +94,12 @@ final class FilmotecaModel {
 
     func logout() {
         Task { await container.sessionRepository.logout() }
+        clearSession()
+    }
+
+    /// Drops local session state without calling the API. Used after account
+    /// deletion, where the token is already revoked server-side.
+    func clearSession() {
         user = nil; activeProfile = nil; account = nil; session = .guest
     }
 
@@ -120,6 +126,29 @@ final class FilmotecaModel {
             "discover_subtitle": [.ro: "Explorează filmele moldovenești și internaționale.", .ru: "Откройте молдавские и зарубежные фильмы.", .en: "Explore Moldovan and international films."],
             "adjust_filters": [.ro: "Încearcă alt titlu sau modifică filtrele.", .ru: "Попробуйте другой запрос или измените фильтры.", .en: "Try another title or adjust the filters."],
             "loading_legal": [.ro: "Se încarcă meniul legal…", .ru: "Загрузка правового меню…", .en: "Loading legal menu…"],
+            "close": [.ro: "Închide", .ru: "Закрыть", .en: "Close"],
+            "cancel": [.ro: "Anulează", .ru: "Отмена", .en: "Cancel"],
+            "forgot_password": [.ro: "Ai uitat parola?", .ru: "Забыли пароль?", .en: "Forgot your password?"],
+            "password_reset_intro": [.ro: "Îți trimitem un cod din 6 cifre pe email pentru a-ți alege o parolă nouă.", .ru: "Мы отправим на почту код из 6 цифр, чтобы вы задали новый пароль.", .en: "We'll email you a 6-digit code so you can choose a new password."],
+            "password_reset_send": [.ro: "Trimite codul", .ru: "Отправить код", .en: "Send code"],
+            "password_reset_code_sent": [.ro: "Dacă există un cont cu acest email, codul a fost trimis. Verifică inbox-ul și folderul spam.", .ru: "Если аккаунт с такой почтой существует, код отправлен. Проверьте входящие и спам.", .en: "If an account exists for this email, the code has been sent. Check your inbox and spam folder."],
+            "password_reset_code": [.ro: "Cod de resetare", .ru: "Код сброса", .en: "Reset code"],
+            "password_new": [.ro: "Parolă nouă", .ru: "Новый пароль", .en: "New password"],
+            "password_min_length": [.ro: "Folosește cel puțin 8 caractere.", .ru: "Используйте не менее 8 символов.", .en: "Use at least 8 characters."],
+            "password_reset_confirm": [.ro: "Schimbă parola", .ru: "Изменить пароль", .en: "Change password"],
+            "password_reset_done": [.ro: "Parola a fost schimbată. Autentifică-te cu parola nouă.", .ru: "Пароль изменён. Войдите с новым паролем.", .en: "Password changed. Sign in with your new password."],
+            "playback_settings": [.ro: "Setări redare", .ru: "Настройки воспроизведения", .en: "Playback settings"],
+            "subtitles": [.ro: "Subtitrări", .ru: "Субтитры", .en: "Subtitles"],
+            "subtitles_off": [.ro: "Dezactivate", .ru: "Выключены", .en: "Off"],
+            "audio_track": [.ro: "Pistă audio", .ru: "Аудиодорожка", .en: "Audio track"],
+            "quality": [.ro: "Calitate", .ru: "Качество", .en: "Quality"],
+            "quality_auto": [.ro: "Automat", .ru: "Автоматически", .en: "Auto"],
+            "quality_high": [.ro: "Înaltă", .ru: "Высокое", .en: "High"],
+            "quality_medium": [.ro: "Medie", .ru: "Среднее", .en: "Medium"],
+            "quality_low": [.ro: "Redusă (economie date)", .ru: "Низкое (экономия трафика)", .en: "Low (data saver)"],
+            "playback_speed": [.ro: "Viteză de redare", .ru: "Скорость воспроизведения", .en: "Playback speed"],
+            "speed_normal": [.ro: "Normală", .ru: "Обычная", .en: "Normal"],
+            "no_tracks_available": [.ro: "Acest titlu nu are subtitrări sau piste audio suplimentare.", .ru: "У этого фильма нет субтитров или дополнительных аудиодорожек.", .en: "This title has no subtitles or additional audio tracks."],
         ]
         return values[key]?[locale] ?? key
     }

@@ -217,6 +217,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
     }
 }

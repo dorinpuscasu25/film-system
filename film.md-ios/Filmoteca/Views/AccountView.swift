@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Identifies a CMS page opened from the footer menu.
+private struct CmsPageRoute: Identifiable, Hashable {
+    let slug: String
+    let title: String
+    var id: String { slug }
+}
+
 struct AccountView: View {
     private enum AccountSection: String, CaseIterable, Identifiable {
         case films = "Filmele mele"
@@ -21,6 +28,8 @@ struct AccountView: View {
     @State private var selectedContent: Content?
     @State private var accountSettingsPresented = false
     @State private var passwordSettingsPresented = false
+    @State private var deleteAccountPresented = false
+    @State private var cmsPage: CmsPageRoute?
     @State private var isDashboardLoading = false
 
     var body: some View {
@@ -50,6 +59,8 @@ struct AccountView: View {
         }
         .sheet(isPresented: $accountSettingsPresented) { AccountSettingsSheet() }
         .sheet(isPresented: $passwordSettingsPresented) { PasswordSettingsSheet() }
+        .sheet(isPresented: $deleteAccountPresented) { DeleteAccountSheet() }
+        .sheet(item: $cmsPage) { route in CmsPageView(slug: route.slug, fallbackTitle: route.title) }
         .task(id: app.locale) { await loadFooterMenu() }
         .task(id: "\(app.activeProfile?.id ?? "guest")-\(app.locale.rawValue)") {
             if app.isAuthenticated { await loadDashboard() }
@@ -233,6 +244,15 @@ struct AccountView: View {
             .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
             .clipShape(RoundedRectangle(cornerRadius: 18))
 
+            accountSectionTitle("Zonă periculoasă", icon: "exclamationmark.triangle")
+            VStack(spacing: 0) {
+                Button(role: .destructive) { deleteAccountPresented = true } label: {
+                    accountRowLabel("Șterge contul", icon: "trash", value: nil).foregroundStyle(.red)
+                }
+            }
+            .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+
             accountSectionTitle("Rezumat", icon: "chart.bar")
             HStack(spacing: 10) {
                 summaryCard("\(app.user?.profiles?.count ?? 0)", label: "Profiluri")
@@ -324,6 +344,15 @@ struct AccountView: View {
 
     private func openFooterItem(_ item: PublicMenuItem) {
         let rawURL = item.resolvedURL.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // CMS pages are rendered natively from the API so the legal pages stay
+        // reachable in-app even when the website is unavailable. Anything the
+        // app cannot render itself still falls back to the browser.
+        if let slug = cmsSlug(from: rawURL) {
+            cmsPage = CmsPageRoute(slug: slug, title: item.label)
+            return
+        }
+
         if let url = URL(string: rawURL), url.scheme != nil {
             inAppURL = url
             return
@@ -332,6 +361,31 @@ struct AccountView: View {
         let path = rawURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         inAppURL = app.container.configuration.webBaseURL.appending(path: path)
     }
+
+    /// Maps a footer link to a CMS slug the app can render natively.
+    ///
+    /// Handles the `/page/{slug}` route plus the standalone web routes that map
+    /// one-to-one onto CMS pages. External hosts are never treated as CMS pages.
+    private func cmsSlug(from rawURL: String) -> String? {
+        var path = rawURL
+
+        if let url = URL(string: rawURL), url.scheme != nil {
+            guard let host = url.host(), host == app.container.configuration.webBaseURL.host() else { return nil }
+            path = url.path
+        }
+
+        let segments = path
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+
+        if segments.count == 2, segments[0] == "page" { return segments[1] }
+        if segments.count == 1, Self.standaloneCmsRoutes.contains(segments[0]) { return segments[0] }
+
+        return nil
+    }
+
+    /// Web routes that render a CMS page without the `/page/` prefix.
+    private static let standaloneCmsRoutes: Set<String> = ["contacte", "politica-de-preturi"]
 
     private func icon(for label: String) -> String {
         let normalized = label.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
@@ -515,6 +569,147 @@ private struct AccountSettingsSheet: View {
             app.locale = locale
             app.applyUser(user)
             await app.refreshAccount()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+/// Permanent account deletion, required by App Store Review Guideline 5.1.1(v).
+///
+/// Deletion is irreversible, so the flow asks for three separate signals before
+/// enabling the button: the current password, a typed confirmation word, and an
+/// explicit alert. The consequences that cost the user money — the wallet
+/// balance and the purchased titles — are stated before anything else.
+private struct DeleteAccountSheet: View {
+    @Environment(FilmotecaModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    private static let confirmationWord = "ȘTERGE"
+
+    @State private var password = ""
+    @State private var reason = ""
+    @State private var typedConfirmation = ""
+    @State private var isDeleting = false
+    @State private var confirmAlertPresented = false
+    @State private var error: String?
+
+    private var ownedTitles: Int { app.account?.library.count ?? 0 }
+
+    private var canSubmit: Bool {
+        !isDeleting
+            && !password.isEmpty
+            && typedConfirmation.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == Self.confirmationWord
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Această acțiune este definitivă", systemImage: "exclamationmark.triangle.fill")
+                            .font(.headline)
+                            .foregroundStyle(.red)
+                        Text("Contul nu poate fi recuperat după ștergere.")
+                            .font(.footnote)
+                            .foregroundStyle(FilmotecaTheme.muted)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section("Ce pierzi") {
+                    consequenceRow(
+                        icon: "wallet.pass",
+                        title: "Soldul din portofel",
+                        detail: "\(app.balance.formatted(.number.precision(.fractionLength(2)))) \(app.currency) se pierd și nu se restituie."
+                    )
+                    consequenceRow(
+                        icon: "film.stack",
+                        title: ownedTitles == 1 ? "1 titlu cumpărat" : "\(ownedTitles) titluri cumpărate",
+                        detail: "Accesul la filmele cumpărate se pierde definitiv."
+                    )
+                    consequenceRow(
+                        icon: "person.2",
+                        title: "Profiluri, favorite și istoric",
+                        detail: "Toate profilurile, lista de favorite, progresul de vizionare și recenziile se șterg."
+                    )
+                }
+
+                Section("Confirmare") {
+                    SecureField("Parola actuală", text: $password)
+                        .textContentType(.password)
+                    TextField("Scrie \(Self.confirmationWord)", text: $typedConfirmation)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                }
+
+                Section("Motiv (opțional)") {
+                    TextField("Ne ajută să ne îmbunătățim", text: $reason, axis: .vertical)
+                        .lineLimit(2...4)
+                }
+
+                if let error {
+                    Section { Text(error).font(.footnote).foregroundStyle(.red) }
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        confirmAlertPresented = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if isDeleting { ProgressView().padding(.trailing, 6) }
+                            Text(isDeleting ? "Se șterge…" : "Șterge contul definitiv").fontWeight(.bold)
+                            Spacer()
+                        }
+                    }
+                    .disabled(!canSubmit)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(FilmotecaTheme.background)
+            .navigationTitle("Șterge contul")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Anulează") { dismiss() }.disabled(isDeleting)
+                }
+            }
+            .alert("Ștergi contul definitiv?", isPresented: $confirmAlertPresented) {
+                Button("Anulează", role: .cancel) {}
+                Button("Șterge", role: .destructive) { Task { await performDeletion() } }
+            } message: {
+                Text("Contul, soldul și accesul la titlurile cumpărate se pierd definitiv. Acțiunea nu poate fi anulată.")
+            }
+        }
+        .interactiveDismissDisabled(isDeleting)
+    }
+
+    private func consequenceRow(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .frame(width: 24)
+                .foregroundStyle(.red)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(detail).font(.caption).foregroundStyle(FilmotecaTheme.muted)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func performDeletion() async {
+        isDeleting = true
+        error = nil
+        defer { isDeleting = false }
+
+        do {
+            _ = try await app.container.sessionRepository.deleteAccount(
+                currentPassword: password,
+                reason: reason.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank
+            )
+            app.clearSession()
             dismiss()
         } catch {
             self.error = error.localizedDescription

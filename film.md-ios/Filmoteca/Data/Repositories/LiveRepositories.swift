@@ -20,6 +20,7 @@ final class LiveCatalogRepository: CatalogRepositoryProtocol {
         try await api.catalog(locale: locale, search: search, type: type, genre: genre, year: year, country: country, access: access, minRating: minRating, page: page)
     }
     func footerMenu(locale: LocaleCode) async throws -> PublicMenuResponse { try await api.footerMenu(locale: locale) }
+    func page(slug: String, locale: LocaleCode) async throws -> CmsPage { try await api.page(slug: slug, locale: locale) }
     func content(slug: String, locale: LocaleCode) async throws -> Content { try await api.content(slug: slug, locale: locale) }
     func reviews(slug: String) async throws -> ReviewsResponse { try await api.reviews(slug: slug) }
     func submitReview(slug: String, rating: Int, comment: String) async throws { _ = try await api.submitReview(slug: slug, rating: rating, comment: comment) }
@@ -36,10 +37,19 @@ final class LiveSessionRepository: SessionRepositoryProtocol {
     func register(name: String, email: String, password: String, locale: LocaleCode) async throws -> RegistrationResponse { try await api.register(name: name, email: email, password: password, locale: locale) }
     func verify(email: String, code: String) async throws -> AuthResponse { try await api.verify(email: email, code: code) }
     func resend(email: String) async throws { _ = try await api.resend(email: email) }
+    func forgotPassword(email: String) async throws { _ = try await api.forgotPassword(email: email) }
+    func resetPassword(email: String, code: String, password: String) async throws {
+        _ = try await api.resetPassword(email: email, code: code, password: password)
+    }
     func currentUser() async throws -> User { try await api.me().user }
     func account(locale: LocaleCode) async throws -> AccountResponse { try await api.account(locale: locale) }
     func updateAccount(name: String, email: String, locale: LocaleCode) async throws -> User { try await api.updateAccount(name: name, email: email, locale: locale) }
     func updatePassword(currentPassword: String, password: String) async throws { _ = try await api.updatePassword(currentPassword: currentPassword, password: password) }
+    func deleteAccount(currentPassword: String, reason: String?) async throws -> AccountDeletionResponse {
+        let response = try await api.deleteAccount(currentPassword: currentPassword, reason: reason)
+        KeychainStore.deleteToken()
+        return response
+    }
     func topUp(amount: Double, currency: String, phone: String, billingAddress: BillingAddress, locale: LocaleCode) async throws -> WalletTopUp {
         try await api.topUp(amount: amount, currency: currency, phone: phone, billingAddress: billingAddress, locale: locale).topUp
     }

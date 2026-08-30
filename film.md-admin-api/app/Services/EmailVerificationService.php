@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\PasswordResetCodeMail;
 use App\Mail\RegistrationVerificationCodeMail;
 use App\Models\EmailVerificationCode;
 use App\Models\User;
@@ -114,6 +115,85 @@ class EmailVerificationService
             }
 
             $verification->forceFill(['consumed_at' => now()])->save();
+
+            return $user;
+        });
+    }
+
+    /**
+     * Issues a 6-digit password reset code.
+     *
+     * Storefront customers reset by code rather than by emailed link: the same
+     * flow then works identically in the browser and in the mobile apps, where
+     * a web reset page would need deep linking to come back.
+     */
+    public function issuePasswordResetCode(User $user): EmailVerificationCode
+    {
+        return DB::transaction(function () use ($user): EmailVerificationCode {
+            EmailVerificationCode::query()
+                ->where('user_id', $user->id)
+                ->where('purpose', EmailVerificationCode::PURPOSE_PASSWORD_RESET)
+                ->whereNull('consumed_at')
+                ->delete();
+
+            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $expiresInMinutes = (int) config('auth.password_reset_code_ttl_minutes', 15);
+            $expiresAt = now()->addMinutes($expiresInMinutes);
+
+            $verification = EmailVerificationCode::query()->create([
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'purpose' => EmailVerificationCode::PURPOSE_PASSWORD_RESET,
+                'code_hash' => hash('sha256', $code),
+                'expires_at' => $expiresAt,
+                'meta' => [
+                    'delivery' => 'email',
+                ],
+            ]);
+
+            Mail::to($user->email)->locale($this->localeFor($user))->send(new PasswordResetCodeMail(
+                user: $user,
+                code: $code,
+                expiresInMinutes: $expiresInMinutes,
+            ));
+
+            return $verification;
+        });
+    }
+
+    /**
+     * Validates the reset code and sets the new password.
+     *
+     * Every existing API token is revoked so a session that was open on a
+     * stolen device cannot survive the reset.
+     */
+    public function consumePasswordResetCode(string $email, string $code, string $password): User
+    {
+        return DB::transaction(function () use ($email, $code, $password): User {
+            $normalizedEmail = strtolower(trim($email));
+            $user = User::query()
+                ->where('email', $normalizedEmail)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->first();
+
+            $verification = $user === null ? null : EmailVerificationCode::query()
+                ->where('user_id', $user->id)
+                ->where('purpose', EmailVerificationCode::PURPOSE_PASSWORD_RESET)
+                ->active()
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            if ($user === null || $verification === null || ! hash_equals($verification->code_hash, hash('sha256', trim($code)))) {
+                throw ValidationException::withMessages([
+                    'code' => ['The reset code is invalid or expired.'],
+                ]);
+            }
+
+            $verification->forceFill(['consumed_at' => now()])->save();
+            $user->forceFill(['password' => $password])->save();
+            $user->apiTokens()->delete();
 
             return $user;
         });

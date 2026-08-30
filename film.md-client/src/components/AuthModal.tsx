@@ -4,6 +4,7 @@ import { ArrowLeftIcon, EyeIcon, EyeOffIcon, MailIcon, RefreshCcwIcon, XIcon } f
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { correctPopularEmailAddress } from "../lib/emailAddress";
+import { confirmPasswordReset, requestPasswordReset } from "../lib/session";
 
 export function AuthModal() {
   const {
@@ -28,6 +29,13 @@ export function AuthModal() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [correctedEmail, setCorrectedEmail] = useState<string | null>(null);
+
+  // Password reset: request a 6-digit code, then set the new password.
+  const [isResetStep, setIsResetStep] = useState(false);
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetDone, setResetDone] = useState(false);
 
   const isVerificationStep = pendingRegistration !== null;
   const modalTitle = useMemo(() => {
@@ -94,6 +102,47 @@ export function AuthModal() {
     }
   };
 
+  const openPasswordReset = () => {
+    setIsResetStep(true);
+    setResetCodeSent(false);
+    setResetDone(false);
+    setResetCode("");
+    setResetPassword("");
+    setErrorMessage(null);
+    setInfoMessage(null);
+  };
+
+  const closePasswordReset = () => {
+    setIsResetStep(false);
+    setErrorMessage(null);
+    setInfoMessage(null);
+  };
+
+  const handlePasswordReset = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setErrorMessage(null);
+    setInfoMessage(null);
+    setIsLoading(true);
+
+    try {
+      if (!resetCodeSent) {
+        await requestPasswordReset(email);
+        setResetCodeSent(true);
+        // Deliberately identical whether or not the address exists, to avoid
+        // leaking which emails are registered.
+        setInfoMessage(t("auth.reset_code_sent"));
+      } else {
+        await confirmPasswordReset({ email, code: resetCode, password: resetPassword });
+        setResetDone(true);
+        setInfoMessage(t("auth.reset_done"));
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("auth.failed"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleResend = async () => {
     setErrorMessage(null);
     setInfoMessage(null);
@@ -140,7 +189,88 @@ export function AuthModal() {
           <p className="text-sm text-gray-400">{modalTitle}</p>
         </div>
 
-        {!isVerificationStep && (
+        {isResetStep && (
+          <form onSubmit={handlePasswordReset} className="space-y-5">
+            <button
+              type="button"
+              onClick={closePasswordReset}
+              className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white"
+            >
+              <ArrowLeftIcon className="h-4 w-4" />
+              {t("auth.back_to_login")}
+            </button>
+
+            {resetDone ? (
+              <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+                {t("auth.reset_done")}
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-400">{t("auth.reset_intro")}</p>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-400">
+                    {t("auth.email")}
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    disabled={resetCodeSent}
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-white outline-none focus:border-accent disabled:opacity-60"
+                    required
+                  />
+                </div>
+
+                {resetCodeSent && (
+                  <>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-400">
+                        {t("auth.reset_code")}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={resetCode}
+                        onChange={(event) => setResetCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-center font-mono text-2xl tracking-[0.4em] text-white outline-none focus:border-accent"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-400">
+                        {t("auth.new_password")}
+                      </label>
+                      <input
+                        type="password"
+                        value={resetPassword}
+                        onChange={(event) => setResetPassword(event.target.value)}
+                        autoComplete="new-password"
+                        className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-white outline-none focus:border-accent"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading || (resetCodeSent && (resetCode.length !== 6 || resetPassword.length < 8))}
+                  className="w-full rounded-lg bg-accent py-3 font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {resetCodeSent ? t("auth.reset_confirm") : t("auth.reset_send")}
+                </button>
+              </>
+            )}
+
+            {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
+            {infoMessage && !resetDone && <p className="text-sm text-gray-300">{infoMessage}</p>}
+          </form>
+        )}
+
+        {!isVerificationStep && !isResetStep && (
           <div className="mb-8 flex space-x-6 border-b border-white/10">
             <button
               onClick={() => switchMode("login")}
@@ -161,7 +291,7 @@ export function AuthModal() {
           </div>
         )}
 
-        {isVerificationStep && (
+        {isVerificationStep && !isResetStep && (
           <div className="mb-6 rounded-xl border border-white/10 bg-surfaceHover/60 p-4">
             <div className="mb-3 flex items-center gap-3">
               <div className="rounded-full border border-white/10 bg-white/5 p-2">
@@ -191,6 +321,7 @@ export function AuthModal() {
           </div>
         )}
 
+        {!isResetStep && (
         <form onSubmit={handleSubmit} className="space-y-5">
           <AnimatePresence mode="wait">
             {!isVerificationStep && mode === "register" && (
@@ -298,8 +429,9 @@ export function AuthModal() {
             )}
           </button>
         </form>
+        )}
 
-        {isVerificationStep && (
+        {isVerificationStep && !isResetStep && (
           <div className="mt-6 flex items-center justify-between gap-3">
             <button
               type="button"
@@ -322,9 +454,13 @@ export function AuthModal() {
           </div>
         )}
 
-        {!isVerificationStep && mode === "login" && (
+        {!isVerificationStep && !isResetStep && mode === "login" && (
           <div className="mt-6 text-center">
-            <button type="button" className="text-sm text-gray-400 transition-colors hover:text-white">
+            <button
+              type="button"
+              onClick={openPasswordReset}
+              className="text-sm text-gray-400 transition-colors hover:text-white"
+            >
               {t("auth.forgot_password")}
             </button>
           </div>

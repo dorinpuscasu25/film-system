@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\Admin\PaymentTopUpController;
 use App\Http\Controllers\Api\Admin\PlatformSettingsController;
 use App\Http\Controllers\Api\Admin\PlaybackOpsController;
 use App\Http\Controllers\Api\Admin\RoleController;
+use App\Http\Controllers\Api\Admin\RightsReportingController;
 use App\Http\Controllers\Api\Admin\StorefrontCacheController;
 use App\Http\Controllers\Api\Admin\SubtitleController;
 use App\Http\Controllers\Api\Admin\TaxonomyController;
@@ -66,7 +67,8 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('throttle:30,1')
             ->name('auth.register.confirm');
         Route::post('login', [AuthController::class, 'login']);
-        Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:10,1');
+        Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 
         // Device pairing (TV "log in with a code", RFC 8628)
         Route::post('device/code', [DeviceAuthController::class, 'requestCode'])->middleware('throttle:30,1');
@@ -118,6 +120,8 @@ Route::prefix('v1')->group(function (): void {
         Route::prefix('settings')->group(function (): void {
             Route::put('profile', [SettingsController::class, 'updateProfile']);
             Route::put('password', [SettingsController::class, 'updatePassword']);
+            // App Store Review Guideline 5.1.1(v) — in-app account deletion.
+            Route::delete('account', [SettingsController::class, 'destroyAccount'])->middleware('throttle:5,1');
         });
 
         // Device pairing — the logged-in user approves a TV code from their phone/PC.
@@ -164,13 +168,19 @@ Route::prefix('v1')->group(function (): void {
             Route::get('analytics', [AnalyticsController::class, 'index']);
             Route::get('accounting/transactions', [AccountingTransactionController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::get('financial-summary', [FinancialSummaryController::class, 'show'])->middleware('permission:commerce.view_billing');
+            Route::get('reporting', [RightsReportingController::class, 'dashboard'])->middleware('permission:content.view_financials');
+            Route::get('reporting/profiles', [RightsReportingController::class, 'profiles'])->middleware('permission:reporting.manage_profiles');
+            Route::post('reporting/contracts', [RightsReportingController::class, 'storeContract'])->middleware('permission:reporting.manage_profiles');
+            Route::post('reporting/fiscal-profiles', [RightsReportingController::class, 'storeFiscalProfile'])->middleware('permission:reporting.manage_profiles');
+            Route::post('reporting/settings', [RightsReportingController::class, 'storeSettings'])->middleware('permission:reporting.manage_profiles');
+            Route::post('reporting/capture-missing', [RightsReportingController::class, 'captureMissing'])->middleware('permission:reporting.manage_profiles');
             Route::get('payments/top-ups', [PaymentTopUpController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::post('payments/top-ups/{topUp}/refunds', [PaymentTopUpController::class, 'refund'])->middleware('permission:commerce.process_refunds');
             Route::get('cost-settings', [CostSettingsController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::post('cost-settings', [CostSettingsController::class, 'store'])->middleware('permission:commerce.manage_costs');
             Route::get('exports', [ExportController::class, 'index'])->middleware('permission:commerce.view_billing');
-            Route::post('exports', [ExportController::class, 'store'])->middleware('permission:exports.manage');
-            Route::get('exports/{exportJob}/download', [ExportController::class, 'download'])->middleware('permission:commerce.view_billing');
+            Route::post('exports', [ExportController::class, 'store'])->middleware('permission:content.view_financials');
+            Route::get('exports/{exportJob}/download', [ExportController::class, 'download'])->middleware('permission:content.view_financials');
             Route::get('home-curation', [HomeCurationController::class, 'index'])->middleware('permission:settings.edit_home_curation');
             Route::put('home-curation', [HomeCurationController::class, 'update'])->middleware('permission:settings.edit_home_curation');
             Route::delete('cache', [StorefrontCacheController::class, 'destroy'])->middleware('permission:settings.edit_home_curation');

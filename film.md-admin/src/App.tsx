@@ -16,6 +16,7 @@ import { SearchDiscovery } from './pages/SearchDiscovery';
 import { PlaybackOps } from './pages/PlaybackOps';
 import { Users } from './pages/Users';
 import { Billing } from './pages/Billing';
+import { Reporting } from './pages/Reporting';
 import { CMSPages } from './pages/CMSPages';
 import { CMSPageEditor } from './pages/CMSPageEditor';
 import { CMSSettings } from './pages/CMSSettings';
@@ -142,6 +143,7 @@ function AdminRouter() {
       <Route path="/taxonomies" element={<RoutePage page="taxonomies" breadcrumbs={['Taxonomii']}><Taxonomies /></RoutePage>} />
       <Route path="/collections" element={<RoutePage page="collections" breadcrumbs={['Colecții']}><Taxonomies /></RoutePage>} />
       <Route path="/billing" element={<RoutePage page="billing" breadcrumbs={['Costuri & venituri']}><Billing /></RoutePage>} />
+      <Route path="/reporting" element={<RoutePage page="reporting" breadcrumbs={['Raportare și drepturi']}><Reporting /></RoutePage>} />
       <Route path="/prices" element={<RoutePage page="price-settings" breadcrumbs={['Setări prețuri']}><PriceSettings /></RoutePage>} />
       <Route path="/coupons" element={<RoutePage page="coupons" breadcrumbs={['Cupoane']}><Coupons /></RoutePage>} />
       <Route path="/geo-stats" element={<RoutePage page="geo-stats" breadcrumbs={['Distribuție geografică']}><GeoStats /></RoutePage>} />

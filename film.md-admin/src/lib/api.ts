@@ -272,6 +272,35 @@ export const adminApi = {
     );
   },
 
+  getRightsReporting<T = unknown>(filters: Record<string, string | number | undefined> = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") searchParams.set(key, String(value));
+    });
+    const query = searchParams.toString();
+    return request<T>("GET", `/admin/reporting${query ? `?${query}` : ""}`);
+  },
+
+  getRightsReportingProfiles<T = unknown>() {
+    return request<T>("GET", "/admin/reporting/profiles");
+  },
+
+  createRightsContract<T = unknown>(payload: Record<string, unknown>) {
+    return request<T>("POST", "/admin/reporting/contracts", { data: payload });
+  },
+
+  createFiscalProfile<T = unknown>(payload: Record<string, unknown>) {
+    return request<T>("POST", "/admin/reporting/fiscal-profiles", { data: payload });
+  },
+
+  createReportingSettings<T = unknown>(payload: Record<string, unknown>) {
+    return request<T>("POST", "/admin/reporting/settings", { data: payload });
+  },
+
+  captureMissingReportingSales() {
+    return request<{ captured: number }>("POST", "/admin/reporting/capture-missing");
+  },
+
   getCostSettings() {
     return request<CostSettingsResponse>("GET", "/admin/cost-settings");
   },
