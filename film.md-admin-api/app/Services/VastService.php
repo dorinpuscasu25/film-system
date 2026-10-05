@@ -40,14 +40,23 @@ class VastService
         return null;
     }
 
-    public function buildVastXml(AdCampaign $campaign, string $trackingBaseUrl, ?int $playbackSessionId = null): string
-    {
+    /**
+     * @param array<string, scalar|null> $extraTrackingParams
+     *        Merged into every tracking URL (content id, placement, platform),
+     *        so the partner report can break results down by each axis.
+     */
+    public function buildVastXml(
+        AdCampaign $campaign,
+        string $trackingBaseUrl,
+        ?int $playbackSessionId = null,
+        array $extraTrackingParams = [],
+    ): string {
         $creative = $campaign->creatives->where('is_active', true)->sortByDesc('id')->first();
         $duration = gmdate('H:i:s', max(1, (int) ($creative?->duration_seconds ?? 1)));
         $mediaUrl = htmlspecialchars((string) $creative?->media_url, ENT_XML1);
         $clickUrl = htmlspecialchars((string) ($campaign->click_through_url ?: $campaign->vast_tag_url ?: ''), ENT_XML1);
 
-        $url = function (string $event) use ($trackingBaseUrl, $campaign, $creative, $playbackSessionId): string {
+        $url = function (string $event) use ($trackingBaseUrl, $campaign, $creative, $playbackSessionId, $extraTrackingParams): string {
             $params = [
                 'event' => $event,
                 'campaign_id' => $campaign->id,
@@ -58,6 +67,12 @@ class VastService
             if ($playbackSessionId !== null) {
                 $params['session_id'] = $playbackSessionId;
             }
+            foreach ($extraTrackingParams as $key => $value) {
+                if ($value !== null && $value !== '') {
+                    $params[$key] = $value;
+                }
+            }
+
             return htmlspecialchars($trackingBaseUrl.'?'.http_build_query($params), ENT_XML1);
         };
 

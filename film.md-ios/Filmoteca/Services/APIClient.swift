@@ -3,12 +3,53 @@ import Foundation
 struct APIError: LocalizedError {
     let status: Int
     let message: String
+    /// The untranslated text the server sent — match on this, never on `message`.
+    let serverMessage: String
+
+    init(status: Int, message: String) {
+        self.status = status
+        self.serverMessage = message
+        self.message = ServerMessages.localized(message)
+    }
+
     var errorDescription: String? { message }
+}
+
+/// The API answers auth/account errors in English; show them in the app's language.
+/// Reads the locale the same way `FilmotecaModel` persists it.
+nonisolated enum ServerMessages {
+    private static let table: [String: [LocaleCode: String]] = [
+        "Invalid email or password.": [.ro: "Email sau parolă greșită.", .ru: "Неверная почта или пароль.", .en: "Invalid email or password."],
+        "Confirm your email with the verification code we sent before logging in.": [.ro: "Confirmă emailul cu codul primit înainte de autentificare.", .ru: "Подтвердите почту кодом из письма, прежде чем войти.", .en: "Confirm your email with the verification code we sent before logging in."],
+        "This account is suspended. Contact an administrator.": [.ro: "Acest cont este suspendat. Contactează-ne.", .ru: "Этот аккаунт заблокирован. Свяжитесь с нами.", .en: "This account is suspended. Please contact us."],
+        "The email has already been taken.": [.ro: "Există deja un cont cu acest email.", .ru: "Аккаунт с такой почтой уже существует.", .en: "An account with this email already exists."],
+        "The given password has appeared in a data leak. Please choose a different password.": [.ro: "Această parolă a apărut într-o scurgere de date. Alege alta.", .ru: "Этот пароль встречался в утечках данных. Выберите другой.", .en: "This password has appeared in a data leak. Please choose a different one."],
+        "Unauthenticated.": [.ro: "Sesiunea a expirat. Autentifică-te din nou.", .ru: "Сессия истекла. Войдите снова.", .en: "Your session expired. Please sign in again."],
+        "Autentifică-te pentru a continua.": [.ro: "Autentifică-te pentru a continua.", .ru: "Войдите, чтобы продолжить.", .en: "Sign in to continue."],
+        "Răspuns invalid de la server.": [.ro: "Răspuns invalid de la server.", .ru: "Некорректный ответ сервера.", .en: "Invalid server response."],
+        "Acest titlu nu este disponibil pentru profilul KID.": [.ro: "Acest titlu nu este disponibil pentru profilul KID.", .ru: "Этот фильм недоступен для детского профиля.", .en: "This title isn't available on a kids profile."],
+        "Adresa video nu este validă.": [.ro: "Adresa video nu este validă.", .ru: "Некорректный адрес видео.", .en: "The video address is invalid."],
+        "Cererea nu a putut fi finalizată.": [.ro: "Cererea nu a putut fi finalizată.", .ru: "Не удалось выполнить запрос.", .en: "The request couldn't be completed."],
+    ]
+
+    static func localized(_ message: String) -> String {
+        let locale = LocaleCode(rawValue: UserDefaults.standard.string(forKey: "filmoteca.locale") ?? "ro") ?? .ro
+        if let translated = table[message]?[locale] { return translated }
+        // Laravel's password rule messages come in a few shapes; fall back to the app's policy text.
+        if message.hasPrefix("The password field must") || message.hasPrefix("The password must") {
+            switch locale {
+            case .ro: return "Parola trebuie să aibă minimum 12 caractere, cu literă mare, literă mică, cifră și simbol."
+            case .ru: return "Пароль должен содержать минимум 12 символов: заглавную и строчную буквы, цифру и символ."
+            case .en: return "The password needs at least 12 characters, with upper- and lowercase letters, a number and a symbol."
+            }
+        }
+        return message
+    }
 }
 
 @MainActor
 final class APIClient {
-    static let shared = APIClient(baseURL: AppConfiguration.production.apiBaseURL)
+    static let shared = APIClient(baseURL: AppConfiguration.current.apiBaseURL)
     private let baseURL: URL
     private let decoder: JSONDecoder = { let value = JSONDecoder(); return value }()
     private let encoder: JSONEncoder = { let value = JSONEncoder(); return value }()
@@ -90,6 +131,11 @@ final class APIClient {
 
     func reviews(slug: String) async throws -> ReviewsResponse { try await request("public/content/\(slug)/reviews") }
 
+    /// Requires auth (`content.watch`) — same requirement web enforces for this endpoint.
+    func recommendations(slug: String) async throws -> RecommendationsResponse {
+        try await request("storefront/content/\(slug)/recommendations", authenticated: true)
+    }
+
     func login(email: String, password: String) async throws -> AuthResponse {
         struct Body: Encodable { let email: String; let password: String; let app = "client" }
         return try await request("auth/login", method: "POST", body: Body(email: email, password: password))
@@ -163,18 +209,16 @@ final class APIClient {
         return try await request("storefront/continue-watching", query: query, authenticated: true)
     }
 
-    func topUp(amount: Double, currency: String, phone: String, billingAddress: BillingAddress, locale: LocaleCode) async throws -> WalletTopUpResponse {
-        struct Body: Encodable {
-            let amount: Double
-            let currency: String
-            let phone: String
-            let billing_address: BillingAddress
-            let locale: String
-        }
+    func appleIapPacks() async throws -> AppleIapPacksResponse {
+        try await request("storefront/wallet/apple-iap/packs", authenticated: true)
+    }
+
+    func redeemAppleIap(signedTransaction: String) async throws -> AppleIapRedeemResponse {
+        struct Body: Encodable { let signed_transaction: String }
         return try await request(
-            "storefront/wallet/top-ups",
+            "storefront/wallet/apple-iap/redeem",
             method: "POST",
-            body: Body(amount: amount, currency: currency, phone: phone, billing_address: billingAddress, locale: locale.rawValue),
+            body: Body(signed_transaction: signedTransaction),
             authenticated: true
         )
     }
@@ -212,9 +256,11 @@ final class APIClient {
         return try await request("storefront/content/\(slug)/playback/session", method: "POST", body: Body(content_format_id: contentFormatID, account_profile_id: profileID), authenticated: true)
     }
 
-    func track(sessionToken: String, contentID: String, contentFormatID: Int?, episodeID: String?, position: Double, duration: Double, event: String) async throws -> TrackingResponse {
+    /// `watchTimeSeconds` must be the cumulative total for the session: the API
+    /// stores `max(stored, received)`, so a per-call delta would never grow.
+    func track(sessionToken: String, contentID: String, contentFormatID: Int?, episodeID: String?, position: Double, duration: Double, watchTimeSeconds: Double, event: String) async throws -> TrackingResponse {
         struct Body: Encodable { let session_token, content_id: String; let content_format_id: Int?; let episode_id: String?; let position_seconds, duration_seconds, watch_time_seconds: Double; let event_type: String }
-        let body = Body(session_token: sessionToken, content_id: contentID, content_format_id: contentFormatID, episode_id: episodeID, position_seconds: position, duration_seconds: duration, watch_time_seconds: event == "progress" ? 10 : 0, event_type: event)
+        let body = Body(session_token: sessionToken, content_id: contentID, content_format_id: contentFormatID, episode_id: episodeID, position_seconds: position, duration_seconds: duration, watch_time_seconds: max(0, watchTimeSeconds.rounded()), event_type: event)
         return try await request("storefront/tracking/watch-progress", method: "POST", body: body, authenticated: true)
     }
 

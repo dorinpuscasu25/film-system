@@ -11,6 +11,7 @@ final class ContentDetailViewModel {
     var state: LoadableState = .idle
     var content: Content?
     var reviews: ReviewsResponse?
+    var recommendations: [RecommendationItem] = []
     var playerRequest: PlayerRequest?
     var isPurchasePresented = false
     var isReviewPresented = false
@@ -33,11 +34,16 @@ final class ContentDetailViewModel {
             content = loadedContent
             if app.isAuthenticated { await app.refreshAccount() }
             await loadReviews()
+            if app.isAuthenticated { await loadRecommendations() }
             state = .loaded
         } catch { state = .failed(message: error.localizedDescription) }
     }
 
     func loadReviews() async { reviews = try? await catalog.reviews(slug: seed.slug) }
+
+    /// Non-critical: recommendations require auth server-side, and a failure here
+    /// should never block the rest of the detail page from rendering.
+    func loadRecommendations() async { recommendations = (try? await catalog.recommendations(slug: seed.slug)) ?? [] }
 
     func hasAccess(app: FilmotecaModel) -> Bool {
         guard let content else { return false }

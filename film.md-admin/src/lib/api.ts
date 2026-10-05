@@ -1,6 +1,7 @@
 import {
   AccountingFilters,
   AccountingTransactionsResponse,
+  AdCampaignReport,
   AdminInvitation,
   AdminAdCampaign,
   AuditLogsResponse,
@@ -155,6 +156,114 @@ export interface MenuOptions extends CmsOptions {
   contents: Array<{ id: number; title: string; slug: string; status: string }>;
 }
 
+export type BackupComponent = "database" | "analytics" | "redis" | "media";
+export type BackupRunStatus = "queued" | "running" | "completed" | "partial" | "failed";
+export type BackupRemoteStatus = "skipped" | "pending" | "uploading" | "uploaded" | "failed" | "deleted";
+
+export interface BackupArtifact {
+  component: BackupComponent;
+  label?: string;
+  file: string | null;
+  size?: number;
+  sha256?: string | null;
+  status: "completed" | "failed" | "skipped";
+  verified?: boolean;
+  error?: string | null;
+  downloadable?: boolean;
+  tables?: number;
+  row_counts?: Record<string, { restored: number; live: number | null }>;
+  meta?: {
+    database?: string;
+    format?: string;
+    toc_entries?: number;
+    server_version?: string | null;
+    duration_seconds?: number;
+    remote_path?: string;
+    remote_bytes?: number;
+    remote_objects?: number;
+    encrypted?: boolean;
+  };
+}
+
+export interface BackupRun {
+  id: number;
+  name: string;
+  type: "backup" | "restore_test" | "restore";
+  trigger: "manual" | "scheduled" | "cli" | "pre_restore";
+  status: BackupRunStatus;
+  components: BackupComponent[];
+  artifacts: BackupArtifact[];
+  size_bytes: number;
+  encrypted: boolean;
+  remote_status: BackupRemoteStatus;
+  remote_path: string | null;
+  remote_error: string | null;
+  is_locked: boolean;
+  note: string | null;
+  error_message: string | null;
+  has_files: boolean;
+  files_deleted_at: string | null;
+  requested_by: string | null;
+  source_run: { id: number; name: string } | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_seconds: number | null;
+  created_at: string | null;
+  log: string | null;
+}
+
+export interface BackupSettings {
+  enabled: boolean;
+  schedule: string;
+  timezone: string;
+  components: Record<BackupComponent, boolean>;
+  retention: { keep_last: number; keep_days: number };
+  encryption: { enabled: boolean };
+  remote: { enabled: boolean; destination: string; prune: boolean; rclone_config_set: boolean };
+  notifications: { emails: string[]; on_failure: boolean; on_success: boolean; stale_after_hours: number };
+}
+
+export interface BackupSettingsPayload
+  extends Partial<Omit<BackupSettings, "remote">> {
+  remote?: Partial<Omit<BackupSettings["remote"], "rclone_config_set">> & {
+    rclone_config?: string | null;
+    clear_rclone_config?: boolean;
+  };
+}
+
+export interface BackupToolStatus {
+  available: boolean;
+  version: string | null;
+}
+
+export interface BackupsResponse {
+  overview: {
+    last_success_at: string | null;
+    last_run_status: BackupRunStatus | null;
+    is_stale: boolean;
+    next_run_at: string | null;
+    stored_backups: number;
+    stored_bytes: number;
+    disk: { path: string; writable: boolean; free_bytes: number | null; total_bytes: number | null };
+    active_run_id: number | null;
+  };
+  settings: BackupSettings;
+  encryption_available: boolean;
+  media_source: string | null;
+  tools: {
+    pg_dump: BackupToolStatus;
+    pg_restore: BackupToolStatus;
+    psql: BackupToolStatus;
+    redis_cli: BackupToolStatus;
+    rclone: BackupToolStatus;
+    openssl: BackupToolStatus;
+    postgres_server: { version: string | null; compatible: boolean };
+  };
+  pre_migration: Array<{ name: string; size: number; created_at: string }>;
+  runs: BackupRun[];
+  meta: { current_page: number; last_page: number; total: number };
+}
+
 export interface ApiRequestError extends Error {
   status?: number;
   errors?: Record<string, string[]>;
@@ -298,7 +407,14 @@ export const adminApi = {
   },
 
   captureMissingReportingSales() {
-    return request<{ captured: number }>("POST", "/admin/reporting/capture-missing");
+    return request<{ captured: number; repaired: number; still_pending: number }>(
+      "POST",
+      "/admin/reporting/capture-missing",
+    );
+  },
+
+  onboardReportingHolder<T = unknown>(payload: Record<string, unknown>) {
+    return request<T>("POST", "/admin/reporting/holders", { data: payload });
   },
 
   getCostSettings() {
@@ -670,6 +786,7 @@ export const adminApi = {
       role_ids: number[];
       assigned_content_ids?: number[];
       preferred_locale?: "en" | "ro" | "ru";
+      is_test_account?: boolean;
     },
   ) {
     return request<{ user: AdminUser }>("PATCH", `/admin/users/${userId}`, {
@@ -912,6 +1029,17 @@ export const adminApi = {
     }>("GET", `/admin/ad-campaigns/${campaignId}/events${suffix}`);
   },
 
+  /** Advertiser-facing performance report (funnel, VTR, CTR, reach). */
+  adCampaignReport(campaignId: number, params?: { days?: number; from?: string; to?: string }) {
+    const query = new URLSearchParams();
+    if (params?.days) query.set("days", String(params.days));
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+
+    return request<AdCampaignReport>("GET", `/admin/ad-campaigns/${campaignId}/report${suffix}`);
+  },
+
   // === Subtitles per content ===
   getSubtitles(contentId: number) {
     return request<{
@@ -1021,6 +1149,60 @@ export const adminApi = {
         creatives_count: number;
       }>;
     }>("POST", "/admin/ad-test/resolve", { data: payload });
+  },
+
+  // === Backups ===
+  getBackups(filters: { page?: number; type?: BackupRun["type"] | ""; status?: BackupRunStatus | "" } = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        searchParams.set(key, String(value));
+      }
+    });
+    const query = searchParams.toString();
+    return request<BackupsResponse>("GET", `/admin/backups${query ? `?${query}` : ""}`);
+  },
+
+  getBackupRun(id: number) {
+    return request<{ run: BackupRun }>("GET", `/admin/backups/${id}`);
+  },
+
+  startBackup(components?: BackupComponent[]) {
+    return request<{ run: BackupRun }>("POST", "/admin/backups", { data: components ? { components } : {} });
+  },
+
+  updateBackupRun(id: number, payload: { is_locked?: boolean; note?: string | null }) {
+    return request<{ run: BackupRun }>("PATCH", `/admin/backups/${id}`, { data: payload });
+  },
+
+  deleteBackupRun(id: number, withRemote: boolean) {
+    return request<{ message: string }>("DELETE", `/admin/backups/${id}?with_remote=${withRemote ? 1 : 0}`);
+  },
+
+  startRestoreTest(id: number, component: "database" | "analytics") {
+    return request<{ run: BackupRun }>("POST", `/admin/backups/${id}/restore-test`, { data: { component } });
+  },
+
+  getBackupDownloadLink(id: number, file: string) {
+    return request<{ url: string }>("POST", `/admin/backups/${id}/download-link`, { data: { file } });
+  },
+
+  getPreMigrationDownloadLink(file: string) {
+    return request<{ url: string }>("POST", "/admin/backups/pre-migration/download-link", { data: { file } });
+  },
+
+  updateBackupSettings(payload: BackupSettingsPayload) {
+    return request<BackupsResponse>("PUT", "/admin/backups/settings", { data: payload });
+  },
+
+  testBackupRemote(destination?: string) {
+    return request<{ ok: boolean; message: string }>("POST", "/admin/backups/settings/test-remote", {
+      data: destination ? { destination } : {},
+    });
+  },
+
+  testBackupNotification() {
+    return request<{ ok: boolean; message: string }>("POST", "/admin/backups/settings/test-notification");
   },
 
   // === Bunny health check ===

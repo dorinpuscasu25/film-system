@@ -32,6 +32,7 @@ import { GeoStats } from './pages/GeoStats';
 import { PriceSettings } from './pages/PriceSettings';
 import { AdTest } from './pages/AdTest';
 import { BunnyHealth } from './pages/BunnyHealth';
+import { Backups } from './pages/Backups';
 import { Reviews } from './pages/Reviews';
 import { SeoSettings } from './pages/SeoSettings';
 
@@ -167,6 +168,7 @@ function AdminRouter() {
       <Route path="/playback" element={<RoutePage page="playback" breadcrumbs={['Playback']}><PlaybackOps /></RoutePage>} />
       <Route path="/moderation" element={<RoutePage page="moderation" breadcrumbs={['Moderare']}><Moderation /></RoutePage>} />
       <Route path="/bunny-health" element={<RoutePage page="bunny-health" breadcrumbs={['Bunny Health']}><BunnyHealth /></RoutePage>} />
+      <Route path="/backups" element={<RoutePage page="backups" breadcrumbs={['Backup-uri']}><Backups /></RoutePage>} />
       <Route path="/account" element={<RoutePage page="account" breadcrumbs={['Setări cont']}><AccountSettings /></RoutePage>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -34,6 +34,7 @@ class ProcessAdAnalyticsEvent implements ShouldQueue
                 countryCode: $this->payload['country_code'] ?? null,
                 ipAddress: $this->payload['ip_address'] ?? null,
                 userAgent: $this->payload['user_agent'] ?? null,
+                platform: $this->payload['platform'] ?? null,
                 meta: (array) ($this->payload['source_payload'] ?? []),
             );
         }

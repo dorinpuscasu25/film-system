@@ -15,13 +15,13 @@ struct AuthView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     FilmotecaWordmark().padding(.top, 22)
-                    VStack(spacing: 8) { Text(viewModel.pendingEmail == nil ? (viewModel.mode == 0 ? "Bine ai revenit" : "Creează un cont") : "Confirmă emailul").font(.largeTitle.bold()); Text(subtitle).foregroundStyle(FilmotecaTheme.muted).multilineTextAlignment(.center) }
+                    VStack(spacing: 8) { Text(viewModel.pendingEmail == nil ? (viewModel.mode == 0 ? app.tr("Bine ai revenit") : app.tr("Creează un cont")) : app.tr("Confirmă emailul")).font(.largeTitle.bold()); Text(subtitle).foregroundStyle(FilmotecaTheme.muted).multilineTextAlignment(.center) }
                     if viewModel.pendingEmail != nil { verificationForm } else { credentialsForm }
                     if let error = viewModel.state.errorMessage { Text(error).font(.footnote).foregroundStyle(.red).padding(12).frame(maxWidth: .infinity).background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 10)) }
                     if viewModel.pendingEmail == nil {
-                        Button(viewModel.mode == 0 ? "Nu ai cont? Înregistrează-te" : "Ai deja cont? Autentifică-te") { withAnimation { viewModel.mode = viewModel.mode == 0 ? 1 : 0; viewModel.state = .idle } }.foregroundStyle(.white.opacity(0.8))
+                        Button(viewModel.mode == 0 ? app.tr("Nu ai cont? Înregistrează-te") : app.tr("Ai deja cont? Autentifică-te")) { withAnimation { viewModel.mode = viewModel.mode == 0 ? 1 : 0; viewModel.state = .idle } }.foregroundStyle(.white.opacity(0.8))
                     }
-                    Text("Prin continuare accepți Termenii și Politica de confidențialitate FILMOTECA.md.").font(.caption2).foregroundStyle(.tertiary).multilineTextAlignment(.center)
+                    Text(app.tr("Prin continuare accepți Termenii și Politica de confidențialitate FILMOTECA.md.")).font(.caption2).foregroundStyle(.tertiary).multilineTextAlignment(.center)
                 }.padding(22)
             }.background(FilmotecaTheme.background)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(app.t("close")) { dismiss() }.foregroundStyle(.white) } }
@@ -32,15 +32,18 @@ struct AuthView: View {
         }
     }
 
-    private var subtitle: String { viewModel.pendingEmail != nil ? "Am trimis un cod din 6 cifre la \(viewModel.pendingEmail ?? "")." : "Filmele tale, pe orice ecran, cu progres sincronizat." }
+    private var subtitle: String { viewModel.pendingEmail != nil ? app.tr("Am trimis un cod din 6 cifre la {0}.", viewModel.pendingEmail ?? "") : app.tr("Filmele tale, pe orice ecran, cu progres sincronizat.") }
 
     private var credentialsForm: some View {
         VStack(spacing: 14) {
-            Picker("Mod", selection: Binding(get: { viewModel.mode }, set: { viewModel.mode = $0 })) { Text("Autentificare").tag(0); Text("Cont nou").tag(1) }.pickerStyle(.segmented)
-            if viewModel.mode == 1 { field("Nume", text: Binding(get: { viewModel.name }, set: { viewModel.name = $0 }), icon: "person") }
-            field("Email", text: Binding(get: { viewModel.email }, set: { viewModel.email = $0 }), icon: "envelope", keyboard: .emailAddress)
-            SecureField("Parolă", text: Binding(get: { viewModel.password }, set: { viewModel.password = $0 })).textContentType(viewModel.mode == 0 ? .password : .newPassword).padding(15).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 13)).overlay(RoundedRectangle(cornerRadius: 13).stroke(FilmotecaTheme.hairline))
-            Button { Task { if let response = await viewModel.submit(locale: app.locale) { await app.authenticate(response) } } } label: { if viewModel.state.isLoading { ProgressView().tint(.white) } else { Text(viewModel.mode == 0 ? "Intră în cont" : "Continuă") } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(viewModel.state.isLoading || !viewModel.canSubmitCredentials).opacity(viewModel.canSubmitCredentials ? 1 : 0.5).frame(maxWidth: .infinity)
+            Picker(app.tr("Mod"), selection: Binding(get: { viewModel.mode }, set: { viewModel.mode = $0 })) { Text(app.tr("Autentificare")).tag(0); Text(app.tr("Cont nou")).tag(1) }.pickerStyle(.segmented)
+            if viewModel.mode == 1 { field(app.tr("Nume"), text: Binding(get: { viewModel.name }, set: { viewModel.name = $0 }), icon: "person") }
+            field(app.tr("Email"), text: Binding(get: { viewModel.email }, set: { viewModel.email = $0 }), icon: "envelope", keyboard: .emailAddress)
+            SecureField(app.tr("Parolă"), text: Binding(get: { viewModel.password }, set: { viewModel.password = $0 })).textContentType(viewModel.mode == 0 ? .password : .newPassword).padding(15).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 13)).overlay(RoundedRectangle(cornerRadius: 13).stroke(FilmotecaTheme.hairline))
+            if viewModel.mode == 1 {
+                Text(app.t("password_min_length")).font(.caption).foregroundStyle(PasswordPolicy.isValid(viewModel.password) ? .green : FilmotecaTheme.muted).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button { Task { if let response = await viewModel.submit(locale: app.locale) { await app.authenticate(response) } } } label: { if viewModel.state.isLoading { ProgressView().tint(.white) } else { Text(viewModel.mode == 0 ? app.tr("Intră în cont") : app.tr("Continuă")) } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(viewModel.state.isLoading || !viewModel.canSubmitCredentials).opacity(viewModel.canSubmitCredentials ? 1 : 0.5).frame(maxWidth: .infinity)
             if viewModel.mode == 0 {
                 Button(app.t("forgot_password")) {
                     viewModel.preparePasswordReset()
@@ -55,8 +58,8 @@ struct AuthView: View {
     private var verificationForm: some View {
         VStack(spacing: 16) {
             TextField("000000", text: Binding(get: { viewModel.code }, set: { viewModel.code = $0 })).keyboardType(.numberPad).multilineTextAlignment(.center).font(.system(size: 30, weight: .bold, design: .monospaced)).tracking(8).padding().background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 14)).onChange(of: viewModel.code) { _, _ in viewModel.sanitizeCode() }
-            Button { Task { if let response = await viewModel.verify() { await app.authenticate(response) } } } label: { if viewModel.state.isLoading { ProgressView().tint(.white) } else { Text("Confirmă contul") } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(!viewModel.canVerify)
-            Button("Retrimite codul") { Task { await viewModel.resend() } }.foregroundStyle(.white.opacity(0.75))
+            Button { Task { if let response = await viewModel.verify() { await app.authenticate(response) } } } label: { if viewModel.state.isLoading { ProgressView().tint(.white) } else { Text(app.tr("Confirmă contul")) } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(!viewModel.canVerify)
+            Button(app.tr("Retrimite codul")) { Task { await viewModel.resend() } }.foregroundStyle(.white.opacity(0.75))
         }
     }
 
@@ -111,7 +114,7 @@ private struct PasswordResetSheet: View {
                             .font(.footnote)
                             .foregroundStyle(FilmotecaTheme.muted)
                     }
-                    Section("Email") {
+                    Section(app.tr("Email")) {
                         TextField("email@exemplu.md", text: Binding(get: { viewModel.resetEmail }, set: { viewModel.resetEmail = $0 }))
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)

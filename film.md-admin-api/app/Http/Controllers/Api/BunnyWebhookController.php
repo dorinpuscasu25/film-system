@@ -6,7 +6,6 @@ use App\Jobs\ProcessAdAnalyticsEvent;
 use App\Jobs\ProcessVideoAnalyticsEvent;
 use App\Models\Content;
 use App\Services\AnalyticsBufferService;
-use App\Services\BunnyAdWebhookService;
 use App\Services\IpGeoLocationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +16,6 @@ class BunnyWebhookController extends ApiController
 {
     public function __construct(
         protected AnalyticsBufferService $buffer,
-        protected BunnyAdWebhookService $adWebhook,
         protected IpGeoLocationService $geo,
     ) {}
 
@@ -26,27 +24,6 @@ class BunnyWebhookController extends ApiController
      * ad payload (pre/mid/post-roll) which Bunny then injects via VMAP.
      * Configure the URL in Bunny Stream Library → Webhook URL.
      */
-    public function adInjection(Request $request): JsonResponse
-    {
-        $contentId = (int) ($request->query('content_id') ?? data_get($request->all(), 'content_id', 0));
-        $content = Content::query()->find($contentId);
-        if ($content === null) {
-            return response()->json(['pre_roll' => null, 'mid_roll' => null, 'post_roll' => null]);
-        }
-
-        $countryCode = $this->geo->resolveCountryCode($request);
-
-        $payload = $this->adWebhook->buildAdPayload(
-            $content,
-            $countryCode,
-            (string) ($request->query('group') ?? 'movies'),
-            $request->query('session_id'),
-            $request->user()?->id,
-        );
-
-        return response()->json($payload);
-    }
-
     public function video(Request $request): JsonResponse
     {
         if (! $this->hasValidSignature($request)) {

@@ -59,6 +59,7 @@ class AdEventTrackingService
         ?string $countryCode = null,
         ?string $ipAddress = null,
         ?string $userAgent = null,
+        ?string $platform = null,
         array $meta = [],
     ): void {
         $eventType = in_array($eventType, self::ALL_EVENTS, true) ? $eventType : 'unknown';
@@ -71,7 +72,7 @@ class AdEventTrackingService
             $contentId ?? 0,
             $now->toDateString(),
         );
-        $field = $eventType.'|'.($countryCode ?? 'ZZ');
+        $field = $eventType.'|'.($countryCode ?? 'ZZ').'|'.($platform ?? 'unknown');
         Redis::hincrby($bucketKey, $field, 1);
         Redis::expire($bucketKey, 86400 * 14); // 14d TTL
 
@@ -85,6 +86,7 @@ class AdEventTrackingService
             'playback_session_id' => $playbackSessionId,
             'event_type' => $eventType,
             'country_code' => $countryCode,
+            'platform' => $platform,
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent !== null ? mb_substr($userAgent, 0, 500) : null,
             'meta' => $meta,
@@ -120,7 +122,13 @@ class AdEventTrackingService
 
             DB::transaction(function () use ($campaignId, $contentId, $date, $hash): void {
                 foreach ($hash as $field => $count) {
-                    [$eventType, $country] = explode('|', $field);
+                    // Field layout: event|country|platform. Older buffered keys
+                    // predate the platform segment, so it is optional here.
+                    $segments = explode('|', (string) $field);
+                    $eventType = $segments[0] ?? 'unknown';
+                    $country = $segments[1] ?? 'ZZ';
+                    $platform = $segments[2] ?? null;
+
                     $aggregate = AdEventAggregate::query()->firstOrCreate(
                         [
                             'ad_campaign_id' => (int) $campaignId,
@@ -128,6 +136,7 @@ class AdEventTrackingService
                             'date' => $date,
                             'event_type' => $eventType,
                             'country_code' => $country === 'ZZ' ? null : $country,
+                            'platform' => ($platform === null || $platform === 'unknown') ? null : $platform,
                         ],
                         ['count' => 0],
                     );

@@ -9,7 +9,6 @@ enum FilmotecaTheme {
     static let muted = Color.white.opacity(0.62)
     static let hairline = Color.white.opacity(0.10)
     static let webBaseURL = URL(string: "https://filmoteca.md")!
-    static let topUpURL = URL(string: "https://filmoteca.md/dashboard?tab=wallet")!
 
     static func titleFont(_ style: Font.TextStyle = .title3, weight: Font.Weight = .bold) -> Font {
         .system(style, design: .serif).weight(weight)

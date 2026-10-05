@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\ApiController;
 use App\Models\PlatformSetting;
 use App\Services\AuditLogService;
+use App\Services\IapCreditPackService;
 use App\Services\RegistrationCreditService;
 use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
@@ -30,11 +31,13 @@ class PlatformSettingsController extends ApiController
         'terms_page_id',
         'contact',
         RegistrationCreditService::SETTINGS_KEY,
+        IapCreditPackService::SETTINGS_KEY,
     ];
 
     public function __construct(
         protected AuditLogService $auditLog,
         protected RegistrationCreditService $registrationCredit,
+        protected IapCreditPackService $iapCreditPacks,
         protected StorefrontCacheService $storefrontCache,
     ) {}
 
@@ -43,9 +46,11 @@ class PlatformSettingsController extends ApiController
         $settings = PlatformSetting::query()->whereIn('key', self::KNOWN_KEYS)->get()->keyBy('key');
         $out = [];
         foreach (self::KNOWN_KEYS as $key) {
-            $out[$key] = $key === RegistrationCreditService::SETTINGS_KEY
-                ? $this->registrationCredit->normalizeSettings($settings->get($key)?->value ?? [])
-                : $settings->get($key)?->value;
+            $out[$key] = match ($key) {
+                RegistrationCreditService::SETTINGS_KEY => $this->registrationCredit->normalizeSettings($settings->get($key)?->value ?? []),
+                IapCreditPackService::SETTINGS_KEY => $this->iapCreditPacks->normalizeSettings($settings->get($key)?->value ?? []),
+                default => $settings->get($key)?->value,
+            };
         }
 
         return response()->json(['settings' => $out]);
@@ -73,6 +78,9 @@ class PlatformSettingsController extends ApiController
             }
             if ($key === RegistrationCreditService::SETTINGS_KEY) {
                 $value = $this->registrationCredit->normalizeSettings(is_array($value) ? $value : []);
+            }
+            if ($key === IapCreditPackService::SETTINGS_KEY) {
+                $value = $this->iapCreditPacks->normalizeSettings(is_array($value) ? $value : []);
             }
             if ($key === 'terms_page_id') {
                 $value = filled($value) ? (int) $value : null;

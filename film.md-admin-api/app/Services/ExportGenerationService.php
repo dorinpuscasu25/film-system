@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AdCampaign;
+use App\Models\AdEventAggregate;
 use App\Models\Content;
 use App\Models\ContentCreator;
 use App\Models\ContentEntitlement;
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Models\VideoMonthlyCost;
 use App\Models\WalletTransaction;
 use App\Models\WatchProgress;
+use App\Services\AdEventTrackingService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -83,8 +85,113 @@ class ExportGenerationService
             'reporting-holder' => $this->buildRightsHolderExport($job, $actor),
             'creator-statements' => $this->buildCreatorStatementsExport($job, $actor),
             'full-platform' => $this->buildFullPlatformExport($job, $actor),
+            'ads-campaign' => $this->buildAdsCampaignExport($job, $actor),
             default => throw new \RuntimeException('Unsupported export scope.'),
         };
+    }
+
+    /**
+     * Daily ad performance for one campaign, or every campaign when no id is given.
+     *
+     * Shaped for an advertiser rather than for operations: one row per day,
+     * country, platform and title, carrying the funnel counts plus the derived
+     * rates partners ask about, so the file can be sent on as-is.
+     *
+     * @return array{0:string,1:string,2:string,3:array<string,mixed>}
+     */
+    protected function buildAdsCampaignExport(ExportJob $job, ?User $actor): array
+    {
+        $filters = $job->filters ?? [];
+        ['isScoped' => $isScoped, 'assignedContentIds' => $assignedContentIds] = $this->resolveScope($actor);
+
+        $from = isset($filters['from'])
+            ? Carbon::parse((string) $filters['from'])->toDateString()
+            : Carbon::today()->subDays(29)->toDateString();
+        $to = isset($filters['to'])
+            ? Carbon::parse((string) $filters['to'])->toDateString()
+            : Carbon::today()->toDateString();
+
+        $aggregates = AdEventAggregate::query()
+            ->with('campaign:id,name,company_name,placement')
+            ->whereBetween('date', [$from, $to])
+            ->when(
+                filled($filters['campaign_id'] ?? null),
+                fn ($query) => $query->where('ad_campaign_id', (int) $filters['campaign_id']),
+            )
+            ->when(
+                $isScoped,
+                fn ($query) => $query->whereIn('content_id', $assignedContentIds),
+            )
+            ->get();
+
+        $titles = Content::query()
+            ->whereIn('id', $aggregates->pluck('content_id')->filter()->unique())
+            ->pluck('original_title', 'id');
+
+        $rate = static fn (int $part, int $total): float => $total > 0 ? round(($part / $total) * 100, 2) : 0.0;
+
+        $rows = $aggregates
+            ->groupBy(fn (AdEventAggregate $row): string => implode('|', [
+                $row->ad_campaign_id,
+                $row->date instanceof Carbon ? $row->date->toDateString() : (string) $row->date,
+                $row->country_code ?? 'ZZ',
+                $row->platform ?? 'unknown',
+                $row->content_id ?? 0,
+            ]))
+            ->map(function (Collection $group) use ($titles, $rate): array {
+                $first = $group->first();
+                $count = fn (string $event): int => (int) $group->where('event_type', $event)->sum('count');
+
+                $impressions = $count(AdEventTrackingService::EVENT_IMPRESSION);
+                $completes = $count(AdEventTrackingService::EVENT_COMPLETE);
+                $clicks = $count(AdEventTrackingService::EVENT_CLICK);
+
+                return [
+                    'campaign_id' => $first->ad_campaign_id,
+                    'campaign_name' => $first->campaign?->name,
+                    'advertiser' => $first->campaign?->company_name,
+                    'placement' => $first->campaign?->placement,
+                    'date' => $first->date instanceof Carbon ? $first->date->toDateString() : (string) $first->date,
+                    'country_code' => $first->country_code,
+                    'platform' => $first->platform,
+                    'content_id' => $first->content_id,
+                    'title' => $first->content_id !== null ? ($titles[$first->content_id] ?? null) : null,
+                    'impressions' => $impressions,
+                    'starts' => $count(AdEventTrackingService::EVENT_START),
+                    'first_quartile' => $count(AdEventTrackingService::EVENT_FIRST_QUARTILE),
+                    'midpoint' => $count(AdEventTrackingService::EVENT_MIDPOINT),
+                    'third_quartile' => $count(AdEventTrackingService::EVENT_THIRD_QUARTILE),
+                    'completed_views' => $completes,
+                    'clicks' => $clicks,
+                    'skips' => $count(AdEventTrackingService::EVENT_SKIP),
+                    'view_through_rate_percent' => $rate($completes, $impressions),
+                    'click_through_rate_percent' => $rate($clicks, $impressions),
+                ];
+            })
+            ->sortBy([['campaign_id', 'asc'], ['date', 'asc']])
+            ->values();
+
+        $isExcel = in_array($job->format, ['excel', 'xlsx'], true);
+        $totalImpressions = (int) $rows->sum('impressions');
+        $totalCompletes = (int) $rows->sum('completed_views');
+        $totalClicks = (int) $rows->sum('clicks');
+
+        return [
+            $isExcel ? $this->toXlsx($rows) : $this->toCsv($rows),
+            $isExcel ? 'xlsx' : 'csv',
+            $isExcel ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv',
+            [
+                'row_count' => $rows->count(),
+                'period_from' => $from,
+                'period_to' => $to,
+                'impressions' => $totalImpressions,
+                'completed_views' => $totalCompletes,
+                'clicks' => $totalClicks,
+                'view_through_rate_percent' => $rate($totalCompletes, $totalImpressions),
+                'click_through_rate_percent' => $rate($totalClicks, $totalImpressions),
+                'filters' => $filters,
+            ],
+        ];
     }
 
     /**

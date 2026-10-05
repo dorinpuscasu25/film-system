@@ -189,6 +189,12 @@ export interface StorefrontPlaybackPayload {
   playback: {
     url: string;
     embed_url?: string | null;
+    /**
+     * Resolved HLS playlist. When present we play it in our own player, which
+     * is what makes ad breaks and the subtitle/quality controls possible —
+     * Bunny's iframe cannot be reached from the page.
+     */
+    hls_url?: string | null;
     quality?: string | null;
     content_format_id?: number | null;
     drm?: {

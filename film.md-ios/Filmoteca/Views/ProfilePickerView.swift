@@ -19,13 +19,13 @@ struct ProfilePickerView: View {
                 HStack {
                     FilmotecaWordmark()
                     Spacer()
-                    Button(isManaging ? "Gata" : "Gestionează") { withAnimation { isManaging.toggle() } }
+                    Button(isManaging ? app.tr("Gata") : app.tr("Gestionează")) { withAnimation { isManaging.toggle() } }
                         .foregroundStyle(FilmotecaTheme.accent)
-                    Button("Închide") { app.profilePickerPresented = false }.foregroundStyle(.white.opacity(0.7))
+                    Button(app.tr("Închide")) { app.profilePickerPresented = false }.foregroundStyle(.white.opacity(0.7))
                 }
                 .padding(.horizontal, 22)
                 Spacer()
-                Text("Cine vizionează?").font(.largeTitle.bold())
+                Text(app.tr("Cine vizionează?")).font(.largeTitle.bold())
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 25)], spacing: 28) {
                     ForEach(Array((app.user?.profiles ?? []).enumerated()), id: \.element.id) { index, profile in
                         Button {
@@ -50,7 +50,7 @@ struct ProfilePickerView: View {
                         }.buttonStyle(.plain)
                     }
                     if (app.user?.profiles?.count ?? 0) < 3 {
-                        Button { viewModel.isCreatePresented = true } label: { VStack(spacing: 11) { RoundedRectangle(cornerRadius: 26).fill(FilmotecaTheme.surface).frame(width: 112, height: 112).overlay { Image(systemName: "plus").font(.largeTitle).foregroundStyle(.white.opacity(0.7)) }.overlay(RoundedRectangle(cornerRadius: 26).stroke(FilmotecaTheme.hairline)); Text("Profil nou").font(.headline).foregroundStyle(.white) } }.buttonStyle(.plain)
+                        Button { viewModel.isCreatePresented = true } label: { VStack(spacing: 11) { RoundedRectangle(cornerRadius: 26).fill(FilmotecaTheme.surface).frame(width: 112, height: 112).overlay { Image(systemName: "plus").font(.largeTitle).foregroundStyle(.white.opacity(0.7)) }.overlay(RoundedRectangle(cornerRadius: 26).stroke(FilmotecaTheme.hairline)); Text(app.tr("Profil nou")).font(.headline).foregroundStyle(.white) } }.buttonStyle(.plain)
                     }
                 }.padding(.horizontal, 28)
                 Spacer()
@@ -58,38 +58,38 @@ struct ProfilePickerView: View {
         }
         .sheet(isPresented: Binding(get: { viewModel.isCreatePresented }, set: { viewModel.isCreatePresented = $0 })) {
             NavigationStack {
-                Form { TextField("Numele profilului", text: Binding(get: { viewModel.name }, set: { viewModel.name = $0 })); Toggle("Profil pentru copii", isOn: Binding(get: { viewModel.isKids }, set: { viewModel.isKids = $0 })) }
-                    .navigationTitle("Profil nou")
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Anulează") { viewModel.isCreatePresented = false } }; ToolbarItem(placement: .confirmationAction) { Button("Creează") { Task { await viewModel.create(app: app) } }.disabled(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty) } }
+                Form { TextField(app.tr("Numele profilului"), text: Binding(get: { viewModel.name }, set: { viewModel.name = $0 })); Toggle(app.tr("Profil pentru copii"), isOn: Binding(get: { viewModel.isKids }, set: { viewModel.isKids = $0 })) }
+                    .navigationTitle(app.tr("Profil nou"))
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button(app.tr("Anulează")) { viewModel.isCreatePresented = false } }; ToolbarItem(placement: .confirmationAction) { Button(app.tr("Creează")) { Task { await viewModel.create(app: app) } }.disabled(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty) } }
             }.presentationDetents([.medium])
         }
         .sheet(isPresented: Binding(get: { viewModel.isEditPresented }, set: { viewModel.isEditPresented = $0 })) {
             NavigationStack {
                 Form {
-                    TextField("Numele profilului", text: Binding(get: { viewModel.name }, set: { viewModel.name = $0 }))
-                    Toggle("Profil pentru copii", isOn: Binding(get: { viewModel.isKids }, set: { viewModel.isKids = $0 }))
+                    TextField(app.tr("Numele profilului"), text: Binding(get: { viewModel.name }, set: { viewModel.name = $0 }))
+                    Toggle(app.tr("Profil pentru copii"), isOn: Binding(get: { viewModel.isKids }, set: { viewModel.isKids = $0 }))
                     Section {
-                        Button("Șterge profilul", role: .destructive) { confirmDelete = true }
+                        Button(app.tr("Șterge profilul"), role: .destructive) { confirmDelete = true }
                             .disabled((app.user?.profiles?.count ?? 0) <= 1)
                     } footer: {
                         if (app.user?.profiles?.count ?? 0) <= 1 {
-                            Text("Contul trebuie să păstreze cel puțin un profil.")
+                            Text(app.tr("Contul trebuie să păstreze cel puțin un profil."))
                         }
                     }
                 }
-                .navigationTitle("Editează profilul")
+                .navigationTitle(app.tr("Editează profilul"))
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Anulează") { viewModel.isEditPresented = false } }
+                    ToolbarItem(placement: .cancellationAction) { Button(app.tr("Anulează")) { viewModel.isEditPresented = false } }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Salvează") { Task { await viewModel.update(app: app) } }
+                        Button(app.tr("Salvează")) { Task { await viewModel.update(app: app) } }
                             .disabled(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
                 }
-                .alert("Ștergi profilul?", isPresented: $confirmDelete) {
-                    Button("Șterge", role: .destructive) { Task { await viewModel.delete(app: app) } }
-                    Button("Anulează", role: .cancel) {}
+                .alert(app.tr("Ștergi profilul?"), isPresented: $confirmDelete) {
+                    Button(app.tr("Șterge"), role: .destructive) { Task { await viewModel.delete(app: app) } }
+                    Button(app.tr("Anulează"), role: .cancel) {}
                 } message: {
-                    Text("Favoritele și progresul asociate profilului vor fi eliminate.")
+                    Text(app.tr("Favoritele și progresul asociate profilului vor fi eliminate."))
                 }
             }
             .presentationDetents([.medium])

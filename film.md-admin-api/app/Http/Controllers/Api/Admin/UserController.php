@@ -148,6 +148,9 @@ class UserController extends ApiController
             'assigned_content_ids' => ['nullable', 'array'],
             'assigned_content_ids.*' => ['integer', Rule::exists('contents', 'id')],
             'preferred_locale' => ['nullable', Rule::in(['en', 'ro', 'ru'])],
+            // Gates Apple Sandbox IAP redemptions — see AppleIapService. Only relevant for testing
+            // the iOS credit-pack purchase flow before real App Store Connect products exist.
+            'is_test_account' => ['nullable', 'boolean'],
         ]);
 
         DB::transaction(function () use ($validated, $user): void {
@@ -156,6 +159,7 @@ class UserController extends ApiController
                 'email' => strtolower($validated['email']),
                 'status' => $validated['status'],
                 'preferred_locale' => $validated['preferred_locale'] ?? $user->preferred_locale,
+                'is_test_account' => $validated['is_test_account'] ?? $user->is_test_account,
             ])->save();
 
             $user->syncRoleIds($validated['role_ids']);

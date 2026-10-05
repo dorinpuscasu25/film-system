@@ -451,5 +451,13 @@
     "play": "Redă trailer",
     "mute": "Sunet oprit",
     "unmute": "Sunet pornit"
+  },
+  "ads": {
+    "label": "Publicitate",
+    "skip": "Sari peste reclamă",
+    "skip_in": "Sari peste în {{seconds}}s",
+    "learn_more": "Află mai mult",
+    "mute": "Oprește sonorul",
+    "unmute": "Pornește sonorul"
   }
 }

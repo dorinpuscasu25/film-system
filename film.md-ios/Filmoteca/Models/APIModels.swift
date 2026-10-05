@@ -351,6 +351,8 @@ struct AuthResponse: Codable { let token: String; let user: User }
 struct UserResponse: Codable { let user: User }
 struct RegistrationResponse: Codable { let message: String; let email: String; let expiresAt: String?; enum CodingKeys: String, CodingKey { case message, email; case expiresAt = "expires_at" } }
 
+/// Still used by `AccountResponse.billingAddress` (general account data) even though the
+/// web-checkout top-up flow that used to collect it on iOS is gone.
 struct BillingAddress: Codable, Hashable {
     let id: StringOrInt?
     var fullName: String
@@ -371,6 +373,7 @@ struct BillingAddress: Codable, Hashable {
         case addressLine2 = "address_line2"
     }
 }
+
 
 struct LibraryItem: Codable, Identifiable {
     let idValue: StringOrInt; let contentSlug: String; let contentTitle: String; let contentType: String; let posterURL: String?; let backdropURL: String?; let ageRating: String?; let accessType: String; let quality: String?; let isActive: Bool; let currency: String; let priceAmount: Double; let grantedAt: String?; let expiresAt: String?
@@ -428,6 +431,34 @@ struct Review: Codable, Identifiable {
         case createdAt = "created_at"
     }
 }
+struct RecommendationItem: Codable, Identifiable, Hashable {
+    let numericID: StringOrInt?
+    let slug: String
+    let title: String
+    let posterURL: String
+    let backdropURL: String
+    let type: String
+    var id: String { slug }
+    enum CodingKeys: String, CodingKey { case slug, title, type; case numericID = "id"; case posterURL = "poster_url"; case backdropURL = "backdrop_url" }
+}
+struct RecommendationsResponse: Codable { @FlexibleArray var items: [RecommendationItem] }
+
+extension RecommendationItem {
+    /// The endpoint only returns a thumbnail-sized subset of `Content`. This fills the rest
+    /// with placeholders so the item can be pushed onto `.navigationDestination(for: Content.self)` —
+    /// `ContentDetailViewModel` re-fetches the full record by slug as soon as it loads.
+    var asContent: Content {
+        Content(
+            numericID: numericID, slug: slug, type: type, typeLabel: nil, title: title, originalTitle: nil,
+            shortDescription: nil, tagline: nil, description: nil, releaseYear: nil, countryName: nil, countryNames: nil,
+            imdbRating: nil, platformRating: nil, runtimeMinutes: nil, ageRating: nil, audioLocales: nil, subtitleLocales: nil,
+            genres: [], badges: nil, isFeatured: nil, isTrending: nil, isFree: nil, posterURL: posterURL, backdropURL: backdropURL,
+            heroDesktopURL: nil, heroMobileURL: nil, trailerURL: nil, previewImages: nil, premiereEvent: nil, lowestPrice: nil,
+            currency: nil, cast: nil, crew: nil, videos: nil, seasons: nil, offers: nil
+        )
+    }
+}
+
 struct ReviewsResponse: Codable { struct Summary: Codable { let count: Int; let averageRating: Double; enum CodingKeys: String, CodingKey { case count; case averageRating = "average_rating" } }; let items: [Review]; let summary: Summary }
 struct ReviewSubmissionResponse: Codable { let review: Review; let summary: ReviewsResponse.Summary }
 struct ReviewDeletionResponse: Codable { let message: String; let summary: ReviewsResponse.Summary }
@@ -438,12 +469,16 @@ struct PurchaseResponse: Codable { let message: String; let alreadyOwned: Bool; 
 struct DeviceLookup: Codable { let userCode: String; let deviceName: String?; let expiresAt: String?; enum CodingKeys: String, CodingKey { case userCode = "user_code"; case deviceName = "device_name"; case expiresAt = "expires_at" } }
 struct MessageResponse: Codable { let message: String }
 struct AccountDeletionResponse: Codable { let message: String; let deletedAt: String?; let forfeitedBalance: Double?; let currency: String?; enum CodingKeys: String, CodingKey { case message, currency; case deletedAt = "deleted_at"; case forfeitedBalance = "forfeited_balance" } }
-struct WalletTopUp: Codable, Identifiable {
-    let id: String
-    let amount: Double
-    let currency: String
-    let status: String
-    let paymentURL: String?
-    enum CodingKeys: String, CodingKey { case id, amount, currency, status; case paymentURL = "payment_url" }
+struct AppleIapPack: Codable, Hashable {
+    let productID: String
+    let creditsMdl: Double
+    let sortOrder: Int
+    enum CodingKeys: String, CodingKey { case productID = "product_id"; case creditsMdl = "credits_mdl"; case sortOrder = "sort_order" }
 }
-struct WalletTopUpResponse: Codable { let topUp: WalletTopUp; enum CodingKeys: String, CodingKey { case topUp = "top_up" } }
+struct AppleIapPacksResponse: Codable { let packs: [AppleIapPack] }
+struct AppleIapRedeemResponse: Codable {
+    let status: String
+    let creditsGranted: Double
+    let wallet: Wallet
+    enum CodingKeys: String, CodingKey { case status, wallet; case creditsGranted = "credits_granted" }
+}

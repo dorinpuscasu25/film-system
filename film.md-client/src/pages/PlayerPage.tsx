@@ -86,7 +86,9 @@ export function PlayerPage() {
         setMovie(detail);
         const numericContentId = Number(playback.content.id);
         setPlaybackContentId(Number.isFinite(numericContentId) ? numericContentId : null);
-        setPlaybackUrl(playback.playback.url);
+        // Prefer the resolved HLS playlist so playback stays in our own player
+        // (ads, subtitles, quality); the iframe embed is the fallback.
+        setPlaybackUrl(playback.playback.hls_url ?? playback.playback.url);
         setEmbedUrl(playback.playback.embed_url ?? null);
         setPlaybackQuality(playback.playback.quality ?? null);
         setPlaybackDrm(playback.playback.drm ?? null);
@@ -233,6 +235,9 @@ export function PlayerPage() {
         episodeTitle={episodeTitle}
         initialPositionSeconds={initialPositionSeconds}
         subtitles={subtitles}
+        playbackSessionToken={sessionToken}
+        accountProfileId={activeProfile?.id ?? null}
+        contentId={playbackContentId}
         seasonsData={movie.seasonsData ?? []}
         currentEpisodeId={currentEpisodeId}
         onEpisodeSelect={(nextEpisodeId) => {

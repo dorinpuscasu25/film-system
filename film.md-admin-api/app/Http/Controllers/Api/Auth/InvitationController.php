@@ -88,6 +88,13 @@ class InvitationController extends ApiController
             $user->roles()->syncWithoutDetaching($roleIds);
             $user->syncAssignedContentIds($invitation->assigned_content_ids ?? []);
 
+            // A titular invited from the reporting "onboard holder" flow has a ContentCreator
+            // row waiting for this exact email, created before the person had an account.
+            \App\Models\ContentCreator::query()
+                ->whereNull('user_id')
+                ->whereRaw('LOWER(email) = ?', [strtolower($invitation->email)])
+                ->update(['user_id' => $user->id]);
+
             $invitation->forceFill([
                 'status' => 'accepted',
                 'accepted_at' => now(),

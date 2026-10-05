@@ -1,19 +1,20 @@
 # Audit paritate funcțională — Web vs. iOS
 
-**Data:** 11 august 2026
+**Data:** 11 august 2026 · **Re-verificat direct în cod:** 23 septembrie 2026
 **Scop:** ce există pe web (`film.md-client`) și în API (`film.md-admin-api`) dar lipsește din aplicația iOS (`film.md-ios`), plus oportunități native pentru a face aplicația competitivă.
 
-**Metodă:** comparație între rutele API (`routes/api.php`), paginile și componentele web (`film.md-client/src`), și suprafața iOS (`APIClient.swift` — 30 de metode, `Views/`, `Features/`).
+**Metodă:** comparație între rutele API (`routes/api.php`), paginile și componentele web (`film.md-client/src`), și suprafața iOS (`APIClient.swift`, `Views/`, `Features/`).
+
+> **Notă la re-verificare:** între 11 august și 23 septembrie o parte din Categoria 0 și Categoria 1 a fost deja construită (nu doar documentul a stat pe loc). Secțiunile de mai jos sunt actualizate să reflecte codul de azi; ce a fost verificat ca *rezolvat* e marcat explicit ✅, restul rămâne valabil ca înainte.
 
 ---
 
 ## Rezumat
 
-Trei constatări principale:
-
-1. **Două blocante certe de App Store** — ștergerea contului lipsește complet din tot sistemul (API, web, iOS), iar aplicația nu are pagini legale accesibile. Ambele produc respingere, independent de problema IAP documentată separat în [ios-in-app-purchase-audit.md](ios-in-app-purchase-audit.md).
-2. **Playerul iOS e mult în urma celui web** — web are subtitrări, selecție calitate și viteză de redare; iOS are doar AirPlay. Pentru o platformă de filme, ăsta e decalajul cel mai vizibil pentru utilizator.
-3. **Funcționalități întregi construite în backend nu sunt folosite de niciun client** — control parental, cupoane și sistemul de reclame VAST sunt complete server-side, dar nicio interfață nu le apelează. Efort deja plătit, venit nefructificat.
+1. **Blocantul real rămas de App Store e doar IAP-ul** — ștergerea contului ✅ și paginile legale ✅ există acum peste tot (API + web + iOS). Rămâne doar formularul PayFilmoteca deschis într-un `InAppBrowser` pe iOS ([detaliat în ios-in-app-purchase-audit.md](ios-in-app-purchase-audit.md)) — confirmat încă prezent în cod, nemodificat.
+2. **Playerul iOS a ajuns la paritate cu web-ul** — subtitrări, calitate, viteză de redare sunt implementate (`PlayerView.swift`, comentariu explicit în cod: *"the web player has had these"*). Ce rămâne pe partea de conținut: recomandări, heartbeat analytics, watch party, premiere countdown — toate încă absente.
+3. **Funcționalități backend încă neconectate:** control parental cu PIN, cupoane, reclame VAST — verificate din nou, tot absente din iOS *și* din web (componentele `ParentalPinModal.tsx`, `CouponField.tsx` rămân orfane, neimportate nicăieri).
+4. **Localizarea e parțial rezolvată** — `AuthView`, `PlayerView`, `HomeView`, `CmsPageView`, `RootView` folosesc acum `app.t()` consecvent. `AccountView` (12 texte hardcodate), `ContentDetailView` (15), `ProfilePickerView` (5, zero `app.t()`) rămân netraduse.
 
 ---
 
@@ -21,25 +22,18 @@ Trei constatări principale:
 
 Trebuie rezolvate înainte de orice submisie.
 
-### 0.1 Ștergerea contului — **nu există nicăieri**
+### 0.1 Ștergerea contului — ✅ REZOLVAT (re-verificat 23 septembrie 2026)
 
-Verificat: nu există endpoint în API, nu există în web, nu există în iOS.
+`AccountDeletionService` există (`app/Services/AccountDeletionService.php`) — șterge sesiuni/token-uri, anonimizează userul, păstrează wallet/entitlements/audit_log conform obligațiilor contabile, forfeitează soldul rămas printr-o tranzacție de ajustare. Endpoint: `DELETE /api/v1/settings/account` (`SettingsController::destroyAccount`, cere parola curentă).
 
-**Ghidul App Store 5.1.1(v)** cere ca orice aplicație care permite crearea unui cont să permită și **ștergerea contului din interiorul aplicației** — nu un link de contact, nu un email către suport, ci un flux funcțional în app.
+- **Web:** `UserDashboardPage.tsx` — flux complet cu confirmare prin tastarea unui cuvânt, listă de consecințe (sold pierdut, X titluri, date șterse).
+- **iOS:** `AccountView.swift` → `DeleteAccountSheet` — parolă + motiv opțional, apelează exact același endpoint (`APIClient.deleteAccount`).
 
-Necesită:
-- endpoint backend de ștergere (cu perioadă de grație și anonimizare, nu `DELETE` brutal — există entitlements, tranzacții și obligații contabile de păstrat)
-- decizie: ce se întâmplă cu soldul rămas și cu filmele cumpărate (recomandare: confirmare explicită că se pierd, plus export prealabil)
-- UI în `AccountView` → Setări
-- adăugat și pe web, pentru consistență
+Nimic de făcut aici.
 
-> Aceasta e cea mai probabilă cauză de respingere după problema IAP.
+### 0.2 Pagini legale inaccesibile în aplicație — ✅ REZOLVAT (re-verificat 23 septembrie 2026)
 
-### 0.2 Pagini legale inaccesibile în aplicație
-
-iOS încarcă meniul de footer (`APIClient.footerMenu`) dar **nu are randare pentru pagini CMS** — nu există apel către `public/pages/{slug}`. Web are `CmsPage.tsx`, `ContactPage.tsx`, `PricingPolicyPage.tsx`.
-
-Apple cere link funcțional către politica de confidențialitate și termeni. În plus, linkurile din meniu duc momentan în gol sau în browser extern.
+`Filmoteca/Views/CmsPageView.swift` există și randează paginile CMS. De verificat doar dacă meniul de footer din iOS chiar leagă fiecare link către el (nu am urmărit fiecare punct de intrare), dar componenta de bază — care lipsea complet pe 11 august — există acum.
 
 ### 0.3 Formularul de alimentare PayFilmoteca
 
@@ -51,20 +45,20 @@ Documentat separat în [ios-in-app-purchase-audit.md](ios-in-app-purchase-audit.
 
 | # | Funcționalitate | Web | iOS | Impact |
 |---|---|---|---|---|
-| 1.1 | **Subtitrări în player** | `VideoPlayer.tsx` — `textTracks`, panou dedicat | ❌ absent | 🔴 mare |
-| 1.2 | **Selecție calitate** | `VideoPlayer.tsx` — panou `quality` | ❌ absent | 🔴 mare |
-| 1.3 | **Viteză de redare** | `VideoPlayer.tsx` — panou `speed` | ❌ absent | 🟠 medie |
-| 1.4 | **Recuperare parolă** | `AuthModal.tsx:328` + `auth/forgot-password` | ❌ absent | 🔴 mare |
-| 1.5 | **Pagini CMS** | `CmsPage`, `ContactPage`, `PricingPolicyPage` | ❌ absent | 🔴 blocant |
-| 1.6 | **Recomandări** | `session.ts:647` → `content/{id}/recommendations` | ❌ absent | 🟠 medie |
-| 1.7 | **Heartbeat analytics** | `VideoPlayer.tsx:438` → `tracking/heartbeat` | ❌ absent | 🟠 medie |
-| 1.8 | **Watch Party** | `WatchPartyPage.tsx` complet | ❌ absent | 🟡 mică |
-| 1.9 | **Premiere countdown** | `PremiereCountdown.tsx` | model există, UI ❌ | 🟡 mică |
+| 1.1 | **Subtitrări în player** | `VideoPlayer.tsx` — `textTracks`, panou dedicat | ✅ `PlayerView.swift` | — |
+| 1.2 | **Selecție calitate** | `VideoPlayer.tsx` — panou `quality` | ✅ `PlayerView.swift` | — |
+| 1.3 | **Viteză de redare** | `VideoPlayer.tsx` — panou `speed` | ✅ `PlayerView.swift` | — |
+| 1.4 | **Recuperare parolă** | `AuthModal.tsx:328` + `auth/forgot-password` | ✅ `AuthView.swift` | — |
+| 1.5 | **Pagini CMS** | `CmsPage`, `ContactPage`, `PricingPolicyPage` | ✅ `CmsPageView.swift` | — |
+| 1.6 | **Recomandări** | `session.ts:647` → `content/{id}/recommendations` | ✅ implementat 23 sept. (`MediaRow` sub recenzii, `ContentDetailViewModel.loadRecommendations()`) | — |
+| 1.7 | **Heartbeat analytics** | web trimite `event_type` prin `tracking/watch-progress`, nu `tracking/heartbeat` (audit inițial avea referința greșită) | Constatare corectată: **exista deja** — `PlayerViewModel.report(event:)` trimite `"progress"` la fiecare 10s către `storefront/tracking/watch-progress`. Lipsea doar `"play"`/`"complete"`/`"stop"` (trimitea `"pause"` la închiderea playerului) → `counted_as_view` nu se seta niciodată. **Fixat 23 sept.** | — |
+| 1.8 | **Watch Party** | `WatchPartyPage.tsx` complet | ❌ absent (re-verificat) | 🟡 mică |
+| 1.9 | **Premiere countdown** | `PremiereCountdown.tsx` | model există, UI ❌ (re-verificat) | 🟡 mică |
 | 1.10 | **Status plată** | `PaymentStatusPage.tsx` | n/a (va fi IAP) | — |
 
-**1.1–1.3 sunt cele mai importante.** `AVPlayer` suportă nativ subtitrări și tracks audio din HLS — efortul e mic, iar absența e foarte vizibilă pentru un serviciu de filme. Modelul iOS are deja `subtitleLocales` și `audioLocales` (`APIModels.swift:176`), deci datele ajung deja în app, doar nu sunt folosite.
+**1.1–1.5 sunt rezolvate** — verificat direct în `PlayerView.swift` (comentariu explicit în cod: *"Subtitle, audio, quality and speed controls — the web player has had these"*), `AuthView.swift` (flux complet de recuperare parolă) și `CmsPageView.swift`.
 
-**1.7** înseamnă că statisticile de vizionare de pe mobil sunt incomplete față de web — afectează raportările și decontările către deținătorii de drepturi.
+**Rămân deschise 1.6–1.9.** **1.7** înseamnă că statisticile de vizionare de pe mobil sunt încă incomplete față de web — afectează raportările și decontările către deținătorii de drepturi (exact sistemul de raportare pe care tocmai l-am construit în `RightsReportingService`).
 
 ---
 
@@ -75,8 +69,8 @@ Funcționalități complet implementate server-side pe care **nici web-ul, nici 
 ### 2.1 Control parental cu PIN 🔴
 
 - API complet: `profiles/{profile}/parental/pin` (set / clear / unlock), `ParentalControlService`
-- Web: `components/ParentalPinModal.tsx` există dar **nu e importat nicăieri**
-- iOS: profilul are `is_kids`, dar niciun PIN
+- Web: `components/ParentalPinModal.tsx` există dar **nu e importat nicăieri** (re-verificat, tot orfan)
+- iOS: profilul are `is_kids`, dar niciun PIN (re-verificat, absent)
 
 Practic, profilurile „kids" filtrează conținutul, dar copilul poate ieși din profil fără nicio barieră. Pentru o platformă de filme cu rating de vârstă, e o lipsă serioasă — și un argument de vânzare pentru familii.
 
@@ -103,29 +97,28 @@ Ai o infrastructură de monetizare prin publicitate complet funcțională, nefol
 
 ## Categoria 3 — Calitate și robustețe
 
-### 3.1 Localizare inconsistentă 🔴
+### 3.1 Localizare parțial rezolvată — actualizat 23 septembrie 2026
 
-Aplicația iOS are texte **hardcodate în română** în majoritatea ecranelor, amestecate cu sistemul `app.t()`:
+`AuthView` și `PlayerView` au trecut de la 0 la localizare completă între timp (dovadă că lucrul la player a inclus și traducerea). Rămân de rezolvat `AccountView`, `ContentDetailView`, `ProfilePickerView`, `LibraryView` — numărătoare re-verificată direct în cod (`Text("...")` hardcodat vs. apeluri `app.t()`):
 
-| Ecran | apeluri `app.t()` |
-|---|---|
-| `SearchView` | 29 |
-| `HomeView` | 7 |
-| `AccountView` | 4 |
-| `RootView` | 4 |
-| `LibraryView` | 3 |
-| `ContentDetailView` | 3 |
-| **`AuthView`** | **0** |
-| **`PlayerView`** | **0** |
-| **`ProfilePickerView`** | **0** |
+| Ecran | `Text("…")` hardcodat | `app.t()` | Status |
+|---|---|---|---|
+| `SearchView` | 1 | 29 | ✅ aproape complet |
+| `HomeView` | 0 | 7 | ✅ complet |
+| `RootView` | 0 | 4 | ✅ complet |
+| `CmsPageView` | 0 | 3 | ✅ complet |
+| `AuthView` | 3 | 12 | ✅ rezolvat (era 0 → 12) |
+| `PlayerView` | 2 | 10 | ✅ rezolvat (era 0 → 10) |
+| `LibraryView` | 2 | 3 | 🟡 aproape |
+| **`AccountView`** | **12** | 4 | 🔴 tot netradus în mare parte |
+| **`ContentDetailView`** | **15** | 3 | 🔴 tot netradus în mare parte |
+| **`ProfilePickerView`** | **5** | **0** | 🔴 zero localizare |
 
-Exemple: `"Autentificare"`, `"SOLD DISPONIBIL"`, `"Conectează televizorul"`, `"Episoade"`, `"Recenzii"`, `"Distribuie"`.
-
-Web-ul e complet tradus prin `i18n/index.ts` (ro/ru/en). **Un utilizator rus sau englez are pe iOS o interfață în română**, deși își setează limba. Pentru Moldova, unde publicul rusofon e semnificativ, e o problemă reală de adopție — nu doar cosmetică.
+Web-ul e complet tradus prin `i18n/index.ts` (ro/ru/en). Rămâne o problemă reală de adopție pentru publicul rusofon din Moldova — concentrată acum în 3 ecrane specifice, nu răspândită peste tot aplicația cum părea inițial.
 
 ### 3.2 Ce e deja la paritate ✅
 
-Ca să fie clar ce nu trebuie refăcut: home curatoriat, catalog cu filtre, căutare, detalii conținut, seriale + episoade, recenzii (citire, trimitere, ștergere), favorite, bibliotecă, profiluri (creare/editare/ștergere), continue watching, autentificare + verificare email, schimbare date cont și parolă, comutare limbă, împărtășire film (`ShareLink`), asociere TV, AirPlay, DRM/Bunny Stream.
+Ca să fie clar ce nu trebuie refăcut: home curatoriat, catalog cu filtre, căutare, detalii conținut, seriale + episoade, recenzii (citire, trimitere, ștergere), favorite, bibliotecă, profiluri (creare/editare/ștergere), continue watching, autentificare + verificare email, recuperare parolă, schimbare date cont și parolă, comutare limbă, împărtășire film (`ShareLink`), asociere TV, AirPlay, DRM/Bunny Stream, **ștergere cont**, **pagini legale (CMS)**, **subtitrări/calitate/viteză în player**.
 
 Structura de secțiuni din cont e identică cu web-ul (Filmele mele / Favorite / Portofel / Setări).
 
@@ -159,35 +152,34 @@ SharePlay (complementar Watch Party), Siri Shortcuts / App Intents, Handoff iPho
 
 ---
 
-## Propunere de prioritizare
+## Propunere de prioritizare — actualizată 23 septembrie 2026
 
 ### Faza 0 — Deblocare submisie
-1. Ștergere cont (backend + web + iOS)
-2. Pagini CMS în app (termeni, confidențialitate, contact)
-3. IAP conform [ios-in-app-purchase-audit.md](ios-in-app-purchase-audit.md)
+1. ~~Ștergere cont (backend + web + iOS)~~ ✅ făcut
+2. ~~Pagini CMS în app~~ ✅ făcut
+3. **IAP conform [ios-in-app-purchase-audit.md](ios-in-app-purchase-audit.md)** — singurul blocant rămas, confirmat încă prezent în cod (`WalletTopUpSheet` + `InAppBrowser` către `pay.filmoteca.md`). Depinde de pași de business (banking Moldova, Paid Applications Agreement) neconfirmați încă. Partea de cod (Nivelul 1, testabilă fără setup financiar) poate începe oricând.
 
 ### Faza 1 — Paritate esențială
-4. Player: subtitrări, calitate, viteză
-5. Recuperare parolă
-6. Localizare completă (toate ecranele prin `app.t()`)
-7. Heartbeat + recomandări
+4. ~~Player: subtitrări, calitate, viteză~~ ✅ făcut
+5. ~~Recuperare parolă~~ ✅ făcut
+6. ~~Heartbeat (evenimente play/complete/stop) + recomandări~~ ✅ făcut 23 sept.
+7. Localizare — restrânsă acum la 3 ecrane: `AccountView`, `ContentDetailView`, `ProfilePickerView`
+8. Watch Party + premiere countdown — încă deschis
 
 ### Faza 2 — Funcționalități care există deja în backend
-8. Control parental cu PIN (web + iOS)
-9. Cupoane (web + iOS)
-10. Reclame VAST pe conținut gratuit (decizie de business întâi)
+9. Control parental cu PIN (web + iOS) — încă deschis
+10. Cupoane (web + iOS) — încă deschis
+11. Reclame VAST pe conținut gratuit (decizie de business întâi) — încă deschis
 
 ### Faza 3 — Native „super app"
-11. Picture in Picture + Now Playing
-12. Notificări push
-13. Universal Links
-14. Descărcare offline
-15. Widget + Spotlight + Face ID
+12. Picture in Picture + Now Playing
+13. Notificări push
+14. Universal Links
+15. Descărcare offline
+16. Widget + Spotlight + Face ID
 
 ### Faza 4 — Opțional
-16. Watch Party pe iOS
-17. Premiere countdown
-18. SharePlay
+17. SharePlay
 
 ---
 

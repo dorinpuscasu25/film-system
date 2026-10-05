@@ -21,6 +21,17 @@ final class MediaUploadService
         'image/svg+xml',
     ];
 
+    /**
+     * Ad creatives are short progressive files, not streamed titles: VAST needs a
+     * plain `MediaFile delivery="progressive"` URL, so they live here on R2
+     * rather than going through Bunny Stream's transcoding pipeline.
+     */
+    private const ALLOWED_VIDEO_MIMES = [
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+    ];
+
     private const MAX_FILE_SIZE_BYTES = 256 * 1024 * 1024; // 256 MB
 
     /**
@@ -30,8 +41,23 @@ final class MediaUploadService
      */
     public function upload(UploadedFile $file, string $directory = 'uploads'): string
     {
-        $this->validateFile($file);
+        $this->validateFile($file, self::ALLOWED_IMAGE_MIMES);
 
+        return $this->store($file, $directory);
+    }
+
+    /**
+     * Uploads a short video (ad creative) and returns its public CDN URL.
+     */
+    public function uploadVideo(UploadedFile $file, string $directory = 'ads/creatives'): string
+    {
+        $this->validateFile($file, self::ALLOWED_VIDEO_MIMES);
+
+        return $this->store($file, $directory);
+    }
+
+    private function store(UploadedFile $file, string $directory): string
+    {
         $filename = $this->generateFilename($file);
         $path = rtrim($directory, '/').'/'.$filename;
 
@@ -127,7 +153,10 @@ final class MediaUploadService
         return $this->pathFromUrl($url) !== null;
     }
 
-    private function validateFile(UploadedFile $file): void
+    /**
+     * @param array<int, string> $allowedMimes
+     */
+    private function validateFile(UploadedFile $file, array $allowedMimes): void
     {
         if (! $file->isValid()) {
             throw new \InvalidArgumentException('The uploaded file is invalid or corrupted.');
@@ -135,9 +164,9 @@ final class MediaUploadService
 
         $mime = $file->getMimeType() ?? '';
 
-        if (! in_array($mime, self::ALLOWED_IMAGE_MIMES, true)) {
+        if (! in_array($mime, $allowedMimes, true)) {
             throw new \InvalidArgumentException(
-                sprintf('File type "%s" is not allowed. Accepted: %s', $mime, implode(', ', self::ALLOWED_IMAGE_MIMES)),
+                sprintf('File type "%s" is not allowed. Accepted: %s', $mime, implode(', ', $allowedMimes)),
             );
         }
 

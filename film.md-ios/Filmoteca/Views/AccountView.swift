@@ -49,7 +49,7 @@ struct AccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $tvPairingPresented) { TVPairingView(container: app.container) }
         .sheet(isPresented: $topUpPresented, onDismiss: { Task { await app.refreshAccount() } }) {
-            WalletTopUpSheet()
+            CreditPackSheet()
         }
         .sheet(isPresented: Binding(get: { inAppURL != nil }, set: { if !$0 { inAppURL = nil } })) {
             if let inAppURL { InAppBrowser(url: inAppURL).ignoresSafeArea() }
@@ -70,8 +70,8 @@ struct AccountView: View {
     private var guestContent: some View {
         VStack(spacing: 20) {
             ZStack { Circle().fill(FilmotecaTheme.surface); Image(systemName: "person.crop.circle").font(.system(size: 64)).foregroundStyle(.white.opacity(0.5)) }.frame(width: 110, height: 110)
-            Text("Intră în universul FILMOTECA").filmotecaTitle(.title2)
-            Text("Sincronizează progresul, creează profiluri și păstrează filmele preferate.").foregroundStyle(FilmotecaTheme.muted).multilineTextAlignment(.center)
+            Text(app.tr("Intră în universul FILMOTECA")).filmotecaTitle(.title2)
+            Text(app.tr("Sincronizează progresul, creează profiluri și păstrează filmele preferate.")).foregroundStyle(FilmotecaTheme.muted).multilineTextAlignment(.center)
             Button(app.t("login")) { app.authPresented = true }.buttonStyle(GlassButtonStyle(prominent: true))
         }.padding(.vertical, 50)
     }
@@ -86,8 +86,8 @@ struct AccountView: View {
                 }.padding(14).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 20))
             }.buttonStyle(.plain)
 
-            Picker("Secțiune cont", selection: $selectedSection) {
-                ForEach(AccountSection.allCases) { section in Text(section.rawValue).tag(section) }
+            Picker(app.tr("Secțiune cont"), selection: $selectedSection) {
+                ForEach(AccountSection.allCases) { section in Text(app.tr(section.rawValue)).tag(section) }
             }
             .pickerStyle(.segmented)
 
@@ -110,11 +110,11 @@ struct AccountView: View {
             }
 
             if !continueItems.isEmpty {
-                accountSectionTitle("Continuă vizionarea", icon: "play.circle")
+                accountSectionTitle(app.tr("Continuă vizionarea"), icon: "play.circle")
                 ForEach(continueItems) { item in
                     contentAccountRow(
                         title: item.title ?? item.contentSlug,
-                        subtitle: "\(Int(item.progressPercent.rounded()))% vizionat",
+                        subtitle: app.tr("{0}% vizionat", "\(Int(item.progressPercent.rounded()))"),
                         imageURL: item.posterURL,
                         badge: nil,
                         progress: item.progressPercent / 100
@@ -122,16 +122,16 @@ struct AccountView: View {
                 }
             }
 
-            accountSectionTitle("Biblioteca mea", icon: "film.stack")
+            accountSectionTitle(app.tr("Biblioteca mea"), icon: "film.stack")
             if app.account?.library.isEmpty != false {
-                emptyAccountState("Nu ai încă filme cumpărate.", icon: "film")
+                emptyAccountState(app.tr("Nu ai încă filme cumpărate."), icon: "film")
             } else {
                 ForEach(app.account?.library ?? []) { item in
                     contentAccountRow(
                         title: item.contentTitle,
                         subtitle: librarySubtitle(item),
                         imageURL: item.posterURL,
-                        badge: item.isActive ? "ACTIV" : "EXPIRAT",
+                        badge: item.isActive ? app.tr("ACTIV") : app.tr("EXPIRAT"),
                         progress: nil
                     ) { Task { await openContent(item.contentSlug) } }
                 }
@@ -141,11 +141,11 @@ struct AccountView: View {
 
     private var favoritesContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            accountSectionTitle("Favoritele profilului", icon: "heart.fill")
+            accountSectionTitle(app.tr("Favoritele profilului"), icon: "heart.fill")
             if isDashboardLoading && favoriteContents.isEmpty {
                 ProgressView().tint(FilmotecaTheme.accent).frame(maxWidth: .infinity).padding(35)
             } else if favoriteContents.isEmpty {
-                emptyAccountState("Adaugă titluri în lista ta pentru a le găsi aici.", icon: "heart")
+                emptyAccountState(app.tr("Adaugă titluri în lista ta pentru a le găsi aici."), icon: "heart")
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 135), spacing: 14)], spacing: 18) {
                     ForEach(favoriteContents) { content in
@@ -167,7 +167,7 @@ struct AccountView: View {
     private var walletContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("SOLD DISPONIBIL").font(.caption2.weight(.black)).tracking(1.4).foregroundStyle(FilmotecaTheme.muted)
+                Text(app.tr("SOLD DISPONIBIL")).font(.caption2.weight(.black)).tracking(1.4).foregroundStyle(FilmotecaTheme.muted)
                 HStack(alignment: .firstTextBaseline, spacing: 7) {
                     Text(app.balance, format: .number.precision(.fractionLength(2))).font(.system(size: 38, weight: .black, design: .rounded))
                     Text(app.currency).font(.headline).foregroundStyle(FilmotecaTheme.muted)
@@ -180,9 +180,9 @@ struct AccountView: View {
             .background(LinearGradient(colors: [FilmotecaTheme.elevated, FilmotecaTheme.surface], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
             .overlay(RoundedRectangle(cornerRadius: 22).stroke(FilmotecaTheme.hairline))
 
-            accountSectionTitle("Istoricul tranzacțiilor", icon: "clock.arrow.circlepath")
+            accountSectionTitle(app.tr("Istoricul tranzacțiilor"), icon: "clock.arrow.circlepath")
             if app.account?.transactions.isEmpty != false {
-                emptyAccountState("Nu există tranzacții.", icon: "list.bullet.rectangle")
+                emptyAccountState(app.tr("Nu există tranzacții."), icon: "list.bullet.rectangle")
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array((app.account?.transactions ?? []).enumerated()), id: \.element.id) { index, transaction in
@@ -213,15 +213,15 @@ struct AccountView: View {
 
     private var settingsContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            accountSectionTitle("Cont și securitate", icon: "person.crop.circle")
+            accountSectionTitle(app.tr("Cont și securitate"), icon: "person.crop.circle")
             VStack(spacing: 0) {
-                accountRow("Datele contului", icon: "person.text.rectangle", action: { accountSettingsPresented = true })
+                accountRow(app.tr("Datele contului"), icon: "person.text.rectangle", action: { accountSettingsPresented = true })
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
-                accountRow("Schimbă parola", icon: "lock.rotation", action: { passwordSettingsPresented = true })
+                accountRow(app.tr("Schimbă parola"), icon: "lock.rotation", action: { passwordSettingsPresented = true })
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
-                accountRow("Gestionează profilurile", icon: "person.2", action: { app.profilePickerPresented = true })
+                accountRow(app.tr("Gestionează profilurile"), icon: "person.2", action: { app.profilePickerPresented = true })
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
-                accountRow("Conectează televizorul", icon: "tv", action: { tvPairingPresented = true })
+                accountRow(app.tr("Conectează televizorul"), icon: "tv", action: { tvPairingPresented = true })
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
                 Menu {
                     ForEach(LocaleCode.allCases) { locale in
@@ -234,30 +234,30 @@ struct AccountView: View {
                         }
                     }
                 } label: {
-                    accountRowLabel("Limba", icon: "globe", value: app.locale.title)
+                    accountRowLabel(app.tr("Limba"), icon: "globe", value: app.locale.title)
                 }
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
                 Button(role: .destructive) { app.logout() } label: {
-                    accountRowLabel("Ieși din cont", icon: "rectangle.portrait.and.arrow.right", value: nil).foregroundStyle(.red)
+                    accountRowLabel(app.tr("Ieși din cont"), icon: "rectangle.portrait.and.arrow.right", value: nil).foregroundStyle(.red)
                 }
             }
             .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
             .clipShape(RoundedRectangle(cornerRadius: 18))
 
-            accountSectionTitle("Zonă periculoasă", icon: "exclamationmark.triangle")
+            accountSectionTitle(app.tr("Zonă periculoasă"), icon: "exclamationmark.triangle")
             VStack(spacing: 0) {
                 Button(role: .destructive) { deleteAccountPresented = true } label: {
-                    accountRowLabel("Șterge contul", icon: "trash", value: nil).foregroundStyle(.red)
+                    accountRowLabel(app.tr("Șterge contul"), icon: "trash", value: nil).foregroundStyle(.red)
                 }
             }
             .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
             .clipShape(RoundedRectangle(cornerRadius: 18))
 
-            accountSectionTitle("Rezumat", icon: "chart.bar")
+            accountSectionTitle(app.tr("Rezumat"), icon: "chart.bar")
             HStack(spacing: 10) {
-                summaryCard("\(app.user?.profiles?.count ?? 0)", label: "Profiluri")
-                summaryCard("\(app.account?.library.count ?? 0)", label: "Titluri")
-                summaryCard("\(app.favorites.count)", label: "Favorite")
+                summaryCard("\(app.user?.profiles?.count ?? 0)", label: app.tr("Profiluri"))
+                summaryCard("\(app.account?.library.count ?? 0)", label: app.tr("Titluri"))
+                summaryCard("\(app.favorites.count)", label: app.tr("Favorite"))
             }
         }
     }
@@ -435,11 +435,11 @@ struct AccountView: View {
         let quality = item.quality?.trimmingCharacters(in: .whitespacesAndNewlines)
         let access: String
         if item.accessType.lowercased() == "lifetime" {
-            access = "Acces permanent"
+            access = app.tr("Acces permanent")
         } else if let expiresAt = item.expiresAt, !expiresAt.isEmpty {
-            access = item.isActive ? "Disponibil până la \(expiresAt)" : "Acces expirat"
+            access = item.isActive ? app.tr("Disponibil până la {0}", expiresAt) : app.tr("Acces expirat")
         } else {
-            access = item.isActive ? "Acces activ" : "Acces expirat"
+            access = item.isActive ? app.tr("Acces activ") : app.tr("Acces expirat")
         }
         return [quality, access].compactMap { value in
             guard let value, !value.isEmpty else { return nil }
@@ -483,7 +483,7 @@ struct AccountView: View {
                         if let badge {
                             Text(badge)
                                 .font(.system(size: 9, weight: .black))
-                                .foregroundStyle(badge == "ACTIV" ? .green : FilmotecaTheme.muted)
+                                .foregroundStyle(badge == app.tr("ACTIV") ? .green : FilmotecaTheme.muted)
                         }
                     }
                     Text(subtitle).font(.caption).foregroundStyle(FilmotecaTheme.muted).lineLimit(2)
@@ -526,13 +526,13 @@ private struct AccountSettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Date personale") {
-                    TextField("Nume", text: $name).textContentType(.name)
-                    TextField("Email", text: $email)
+                Section(app.tr("Date personale")) {
+                    TextField(app.tr("Nume"), text: $name).textContentType(.name)
+                    TextField(app.tr("Email"), text: $email)
                         .textContentType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .disabled(true)
-                    Picker("Limba preferată", selection: $locale) {
+                    Picker(app.tr("Limba preferată"), selection: $locale) {
                         ForEach(LocaleCode.allCases) { option in Text(option.title).tag(option) }
                     }
                 }
@@ -540,12 +540,12 @@ private struct AccountSettingsSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background(FilmotecaTheme.background)
-            .navigationTitle("Datele contului")
+            .navigationTitle(app.tr("Datele contului"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Anulează") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(app.tr("Anulează")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "Se salvează…" : "Salvează") { Task { await save() } }
+                    Button(isSaving ? app.tr("Se salvează…") : app.tr("Salvează")) { Task { await save() } }
                         .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -586,7 +586,13 @@ private struct DeleteAccountSheet: View {
     @Environment(FilmotecaModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
-    private static let confirmationWord = "ȘTERGE"
+    private var confirmationWord: String {
+        switch app.locale {
+        case .ro: "ȘTERGE"
+        case .ru: "УДАЛИТЬ"
+        case .en: "DELETE"
+        }
+    }
 
     @State private var password = ""
     @State private var reason = ""
@@ -600,7 +606,7 @@ private struct DeleteAccountSheet: View {
     private var canSubmit: Bool {
         !isDeleting
             && !password.isEmpty
-            && typedConfirmation.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == Self.confirmationWord
+            && typedConfirmation.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == confirmationWord
     }
 
     var body: some View {
@@ -608,44 +614,44 @@ private struct DeleteAccountSheet: View {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("Această acțiune este definitivă", systemImage: "exclamationmark.triangle.fill")
+                        Label(app.tr("Această acțiune este definitivă"), systemImage: "exclamationmark.triangle.fill")
                             .font(.headline)
                             .foregroundStyle(.red)
-                        Text("Contul nu poate fi recuperat după ștergere.")
+                        Text(app.tr("Contul nu poate fi recuperat după ștergere."))
                             .font(.footnote)
                             .foregroundStyle(FilmotecaTheme.muted)
                     }
                     .padding(.vertical, 4)
                 }
 
-                Section("Ce pierzi") {
+                Section(app.tr("Ce pierzi")) {
                     consequenceRow(
                         icon: "wallet.pass",
-                        title: "Soldul din portofel",
-                        detail: "\(app.balance.formatted(.number.precision(.fractionLength(2)))) \(app.currency) se pierd și nu se restituie."
+                        title: app.tr("Soldul din portofel"),
+                        detail: app.tr("{0} se pierd și nu se restituie.", "\(app.balance.formatted(.number.precision(.fractionLength(2)))) \(app.currency)")
                     )
                     consequenceRow(
                         icon: "film.stack",
-                        title: ownedTitles == 1 ? "1 titlu cumpărat" : "\(ownedTitles) titluri cumpărate",
-                        detail: "Accesul la filmele cumpărate se pierde definitiv."
+                        title: ownedTitles == 1 ? app.tr("1 titlu cumpărat") : app.tr("{0} titluri cumpărate", "\(ownedTitles)"),
+                        detail: app.tr("Accesul la filmele cumpărate se pierde definitiv.")
                     )
                     consequenceRow(
                         icon: "person.2",
-                        title: "Profiluri, favorite și istoric",
-                        detail: "Toate profilurile, lista de favorite, progresul de vizionare și recenziile se șterg."
+                        title: app.tr("Profiluri, favorite și istoric"),
+                        detail: app.tr("Toate profilurile, lista de favorite, progresul de vizionare și recenziile se șterg.")
                     )
                 }
 
-                Section("Confirmare") {
-                    SecureField("Parola actuală", text: $password)
+                Section(app.tr("Confirmare")) {
+                    SecureField(app.tr("Parola actuală"), text: $password)
                         .textContentType(.password)
-                    TextField("Scrie \(Self.confirmationWord)", text: $typedConfirmation)
+                    TextField(app.tr("Scrie {0}", confirmationWord), text: $typedConfirmation)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                 }
 
-                Section("Motiv (opțional)") {
-                    TextField("Ne ajută să ne îmbunătățim", text: $reason, axis: .vertical)
+                Section(app.tr("Motiv (opțional)")) {
+                    TextField(app.tr("Ne ajută să ne îmbunătățim"), text: $reason, axis: .vertical)
                         .lineLimit(2...4)
                 }
 
@@ -660,7 +666,7 @@ private struct DeleteAccountSheet: View {
                         HStack {
                             Spacer()
                             if isDeleting { ProgressView().padding(.trailing, 6) }
-                            Text(isDeleting ? "Se șterge…" : "Șterge contul definitiv").fontWeight(.bold)
+                            Text(isDeleting ? app.tr("Se șterge…") : app.tr("Șterge contul definitiv")).fontWeight(.bold)
                             Spacer()
                         }
                     }
@@ -669,18 +675,18 @@ private struct DeleteAccountSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background(FilmotecaTheme.background)
-            .navigationTitle("Șterge contul")
+            .navigationTitle(app.tr("Șterge contul"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Anulează") { dismiss() }.disabled(isDeleting)
+                    Button(app.tr("Anulează")) { dismiss() }.disabled(isDeleting)
                 }
             }
-            .alert("Ștergi contul definitiv?", isPresented: $confirmAlertPresented) {
-                Button("Anulează", role: .cancel) {}
-                Button("Șterge", role: .destructive) { Task { await performDeletion() } }
+            .alert(app.tr("Ștergi contul definitiv?"), isPresented: $confirmAlertPresented) {
+                Button(app.tr("Anulează"), role: .cancel) {}
+                Button(app.tr("Șterge"), role: .destructive) { Task { await performDeletion() } }
             } message: {
-                Text("Contul, soldul și accesul la titlurile cumpărate se pierd definitiv. Acțiunea nu poate fi anulată.")
+                Text(app.tr("Contul, soldul și accesul la titlurile cumpărate se pierd definitiv. Acțiunea nu poate fi anulată."))
             }
         }
         .interactiveDismissDisabled(isDeleting)
@@ -729,11 +735,11 @@ private struct PasswordSettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Schimbă parola") {
-                    SecureField("Parola actuală", text: $currentPassword)
-                    SecureField("Parola nouă", text: $newPassword)
-                    SecureField("Confirmă parola nouă", text: $confirmation)
-                    Text("Folosește cel puțin 8 caractere.")
+                Section(app.tr("Schimbă parola")) {
+                    SecureField(app.tr("Parola actuală"), text: $currentPassword)
+                    SecureField(app.tr("Parola nouă"), text: $newPassword)
+                    SecureField(app.tr("Confirmă parola nouă"), text: $confirmation)
+                    Text(app.t("password_min_length"))
                         .font(.caption)
                         .foregroundStyle(FilmotecaTheme.muted)
                 }
@@ -741,13 +747,13 @@ private struct PasswordSettingsSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background(FilmotecaTheme.background)
-            .navigationTitle("Securitate")
+            .navigationTitle(app.tr("Securitate"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Anulează") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(app.tr("Anulează")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "Se salvează…" : "Actualizează") { Task { await save() } }
-                        .disabled(isSaving || currentPassword.isEmpty || newPassword.count < 8 || newPassword != confirmation)
+                    Button(isSaving ? app.tr("Se salvează…") : app.tr("Actualizează")) { Task { await save() } }
+                        .disabled(isSaving || currentPassword.isEmpty || !PasswordPolicy.isValid(newPassword) || newPassword != confirmation)
                 }
             }
         }
@@ -755,7 +761,7 @@ private struct PasswordSettingsSheet: View {
 
     private func save() async {
         guard newPassword == confirmation else {
-            error = "Parolele noi nu coincid."
+            error = app.tr("Parolele noi nu coincid.")
             return
         }
         isSaving = true
@@ -769,140 +775,6 @@ private struct PasswordSettingsSheet: View {
     }
 }
 
-struct WalletTopUpSheet: View {
-    @Environment(FilmotecaModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var amount = "100"
-    @State private var phone = ""
-    @State private var fullName = ""
-    @State private var countryCode = "MD"
-    @State private var administrativeArea = ""
-    @State private var city = ""
-    @State private var postalCode = ""
-    @State private var addressLine1 = ""
-    @State private var addressLine2 = ""
-    @State private var isSubmitting = false
-    @State private var error: String?
-    @State private var paymentURL: URL?
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Sumă") {
-                    HStack {
-                        TextField("100", text: $amount)
-                            .keyboardType(.decimalPad)
-                        Text(app.currency).foregroundStyle(FilmotecaTheme.muted)
-                    }
-                    Text("Suma minimă este 20 \(app.currency).")
-                        .font(.caption)
-                        .foregroundStyle(FilmotecaTheme.muted)
-                }
-
-                Section("Date de plată") {
-                    TextField("Telefon", text: $phone).keyboardType(.phonePad)
-                    TextField("Nume complet", text: $fullName).textContentType(.name)
-                    TextField("Țară (MD)", text: $countryCode)
-                        .textInputAutocapitalization(.characters)
-                    TextField("Raion / regiune (opțional)", text: $administrativeArea)
-                    TextField("Oraș", text: $city).textContentType(.addressCity)
-                    TextField("Cod poștal", text: $postalCode).textContentType(.postalCode)
-                    TextField("Stradă și număr", text: $addressLine1).textContentType(.fullStreetAddress)
-                    TextField("Apartament (opțional)", text: $addressLine2)
-                }
-
-                if let error {
-                    Section { Text(error).font(.footnote).foregroundStyle(.red) }
-                }
-
-                Section {
-                    Button {
-                        Task { await beginPayment() }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if isSubmitting { ProgressView() }
-                            Text(isSubmitting ? "Se pregătește plata…" : "Continuă la plată")
-                                .fontWeight(.bold)
-                            Spacer()
-                        }
-                    }
-                    .disabled(isSubmitting || !isValid)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(FilmotecaTheme.background)
-            .navigationTitle("Alimentează contul")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Închide") { dismiss() } } }
-            .onAppear(perform: populateDefaults)
-            .sheet(isPresented: Binding(get: { paymentURL != nil }, set: { if !$0 { paymentURL = nil; Task { await app.refreshAccount() } } })) {
-                if let paymentURL { InAppBrowser(url: paymentURL).ignoresSafeArea() }
-            }
-        }
-    }
-
-    private var parsedAmount: Double? {
-        Double(amount.replacingOccurrences(of: ",", with: "."))
-    }
-
-    private var isValid: Bool {
-        guard let parsedAmount, parsedAmount >= 20 else { return false }
-        return phone.trimmingCharacters(in: .whitespacesAndNewlines).count >= 7
-            && fullName.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
-            && countryCode.trimmingCharacters(in: .whitespacesAndNewlines).count == 2
-            && city.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
-            && postalCode.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
-            && addressLine1.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
-    }
-
-    private func populateDefaults() {
-        guard let account = app.account else { return }
-        phone = account.paymentPhone ?? phone
-        fullName = account.billingAddress?.fullName ?? app.user?.name ?? fullName
-        countryCode = account.billingAddress?.countryCode ?? countryCode
-        administrativeArea = account.billingAddress?.administrativeArea ?? administrativeArea
-        city = account.billingAddress?.city ?? city
-        postalCode = account.billingAddress?.postalCode ?? postalCode
-        addressLine1 = account.billingAddress?.addressLine1 ?? addressLine1
-        addressLine2 = account.billingAddress?.addressLine2 ?? addressLine2
-    }
-
-    private func beginPayment() async {
-        guard let parsedAmount, isValid else { return }
-        isSubmitting = true
-        error = nil
-        defer { isSubmitting = false }
-
-        let address = BillingAddress(
-            id: app.account?.billingAddress?.id,
-            fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
-            countryCode: countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
-            administrativeArea: administrativeArea.nilIfBlank,
-            city: city.trimmingCharacters(in: .whitespacesAndNewlines),
-            postalCode: postalCode.trimmingCharacters(in: .whitespacesAndNewlines),
-            addressLine1: addressLine1.trimmingCharacters(in: .whitespacesAndNewlines),
-            addressLine2: addressLine2.nilIfBlank
-        )
-
-        do {
-            let topUp = try await app.container.sessionRepository.topUp(
-                amount: parsedAmount,
-                currency: app.currency,
-                phone: phone.trimmingCharacters(in: .whitespacesAndNewlines),
-                billingAddress: address,
-                locale: app.locale
-            )
-            guard let rawURL = topUp.paymentURL, let url = URL(string: rawURL) else {
-                throw APIError(status: 0, message: "Furnizorul de plată nu a returnat o adresă validă.")
-            }
-            paymentURL = url
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-}
 
 private extension String {
     var nilIfBlank: String? {
@@ -912,6 +784,7 @@ private extension String {
 }
 
 struct TVPairingView: View {
+    @Environment(FilmotecaModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: TVPairingViewModel
 
@@ -923,17 +796,17 @@ struct TVPairingView: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "tv.and.mediabox").font(.system(size: 54)).foregroundStyle(FilmotecaTheme.accent)
-                Text("Conectează televizorul").filmotecaTitle(.title)
-                Text("Introdu codul afișat în aplicația FILMOTECA de pe TV.").foregroundStyle(FilmotecaTheme.muted).multilineTextAlignment(.center)
+                Text(app.tr("Conectează televizorul")).filmotecaTitle(.title)
+                Text(app.tr("Introdu codul afișat în aplicația FILMOTECA de pe TV.")).foregroundStyle(FilmotecaTheme.muted).multilineTextAlignment(.center)
                 TextField("ABCD-EFGH", text: Binding(get: { viewModel.code }, set: { viewModel.code = $0 })).textInputAutocapitalization(.characters).autocorrectionDisabled().multilineTextAlignment(.center).font(.system(size: 25, weight: .bold, design: .monospaced)).tracking(3).padding().background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 14)).onChange(of: viewModel.code) { _, _ in viewModel.sanitizeCode() }
-                if let device = viewModel.device { VStack(spacing: 5) { Text(device.deviceName ?? "Televizor FILMOTECA").font(.headline); Text("Solicită acces la contul tău").font(.caption).foregroundStyle(FilmotecaTheme.muted) }.padding() }
+                if let device = viewModel.device { VStack(spacing: 5) { Text(device.deviceName ?? app.tr("Televizor FILMOTECA")).font(.headline); Text(app.tr("Solicită acces la contul tău")).font(.caption).foregroundStyle(FilmotecaTheme.muted) }.padding() }
                 if let error = viewModel.state.errorMessage { Text(error).foregroundStyle(.red).font(.footnote) }
                 if let message = viewModel.successMessage { Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
-                if viewModel.device == nil { Button("Verifică codul") { Task { await viewModel.lookup() } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(viewModel.code.count < 4) }
-                else { HStack { Button("Refuză") { Task { _ = await viewModel.authorize(approve: false) } }.buttonStyle(GlassButtonStyle()); Button("Conectează") { Task { if await viewModel.authorize(approve: true) { try? await Task.sleep(for: .seconds(1)); dismiss() } } }.buttonStyle(GlassButtonStyle(prominent: true)) } }
+                if viewModel.device == nil { Button(app.tr("Verifică codul")) { Task { await viewModel.lookup() } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(viewModel.code.count < 4) }
+                else { HStack { Button(app.tr("Refuză")) { Task { _ = await viewModel.authorize(approve: false) } }.buttonStyle(GlassButtonStyle()); Button(app.tr("Conectează")) { Task { if await viewModel.authorize(approve: true) { try? await Task.sleep(for: .seconds(1)); dismiss() } } }.buttonStyle(GlassButtonStyle(prominent: true)) } }
                 Spacer()
             }.padding(24).background(FilmotecaTheme.background)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Închide") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(app.tr("Închide")) { dismiss() } } }
         }.presentationDetents([.large])
     }
 

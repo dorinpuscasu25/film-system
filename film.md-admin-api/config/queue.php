@@ -73,6 +73,17 @@ return [
             'after_commit' => false,
         ],
 
+        // Long-running backups: retry_after must outlive BACKUP_TIMEOUT so a
+        // running backup is never handed to a second worker.
+        'redis-backups' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('BACKUP_QUEUE', 'backups'),
+            'retry_after' => (int) env('BACKUP_TIMEOUT', 10800) + 600,
+            'block_for' => null,
+            'after_commit' => true,
+        ],
+
         'analytics' => [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),

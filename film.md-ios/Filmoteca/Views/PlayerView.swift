@@ -12,13 +12,23 @@ struct PlayerRequest: Identifiable {
 }
 
 struct PlayerView: View {
+    @Environment(FilmotecaModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: PlayerViewModel
     @State private var bunnyWebFallbackURL: URL?
     @State private var settingsPresented = false
 
-    init(request: PlayerRequest, container: AppContainer) {
-        _viewModel = State(initialValue: PlayerViewModel(request: request, container: container))
+    private let adService: AdService
+
+    init(request: PlayerRequest, container: AppContainer, accountProfileID: String? = nil) {
+        adService = container.adService
+        _viewModel = State(
+            initialValue: PlayerViewModel(
+                request: request,
+                container: container,
+                accountProfileID: accountProfileID
+            )
+        )
     }
 
     var body: some View {
@@ -26,7 +36,7 @@ struct PlayerView: View {
             Color.black.ignoresSafeArea()
             switch viewModel.request.source {
             case .native:
-                VideoPlayer(player: viewModel.player).ignoresSafeArea()
+                if let player = viewModel.player { SystemVideoPlayer(player: player).ignoresSafeArea() }
             case .embedded(let embedURL, _):
                 EmbeddedVideoPlayer(url: embedURL).ignoresSafeArea()
             case .bunny(let reference):
@@ -53,7 +63,7 @@ struct PlayerView: View {
                             .background(.black.opacity(0.7), in: Circle())
                             .overlay(Circle().stroke(.white.opacity(0.18)))
                     }
-                    .accessibilityLabel("Închide playerul")
+                    .accessibilityLabel(app.tr("Închide playerul"))
 
                     Text(viewModel.request.title)
                         .font(.headline)
@@ -68,7 +78,7 @@ struct PlayerView: View {
                                 .frame(width: 44, height: 44)
                                 .background(.black.opacity(0.7), in: Circle())
                         }
-                        .accessibilityLabel("Deschide sursa video")
+                        .accessibilityLabel(app.tr("Deschide sursa video"))
                     } else {
                         if viewModel.hasPlaybackSettings {
                             Button { settingsPresented = true } label: {
@@ -78,7 +88,7 @@ struct PlayerView: View {
                                     .background(.black.opacity(0.7), in: Circle())
                                     .overlay(Circle().stroke(.white.opacity(0.18)))
                             }
-                            .accessibilityLabel("Setări de redare")
+                            .accessibilityLabel(app.tr("Setări de redare"))
                         }
                         if case .native = viewModel.request.source {
                             AirPlayButton().frame(width: 38, height: 38)
@@ -90,6 +100,13 @@ struct PlayerView: View {
                 Spacer()
             }
             .zIndex(10)
+
+            if let adBreak = viewModel.activeAdBreak {
+                AdBreakOverlayView(adBreak: adBreak, ads: adService) {
+                    viewModel.adBreakFinished()
+                }
+                .zIndex(20)
+            }
         }
         .statusBarHidden()
         .onAppear { viewModel.start() }
@@ -108,7 +125,7 @@ struct PlayerView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 34))
                     .foregroundStyle(FilmotecaTheme.accent)
-                Text("Video-ul nu a putut porni")
+                Text(app.tr("Video-ul nu a putut porni"))
                     .font(.headline)
                 Text(message)
                     .font(.footnote)
@@ -120,13 +137,13 @@ struct PlayerView: View {
         default:
             ZStack {
                 if let player = viewModel.player {
-                    VideoPlayer(player: player).ignoresSafeArea()
+                    SystemVideoPlayer(player: player).ignoresSafeArea()
                 }
                 if viewModel.loadingState != .ready {
                     VStack(spacing: 18) {
                         ProgressView()
                             .tint(.white)
-                        Text("Se pregătește redarea securizată…")
+                        Text(app.tr("Se pregătește redarea securizată…"))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -268,6 +285,28 @@ private struct EmbeddedVideoPlayer: UIViewRepresentable {
         </body></html>
         """
         webView.loadHTMLString(html, baseURL: FilmotecaTheme.webBaseURL)
+    }
+}
+
+/// `AVPlayerViewController` instead of SwiftUI's `VideoPlayer`, which can't do Picture in
+/// Picture. It also publishes the lock screen / Control Center "Now Playing" controls, using the
+/// title the view model puts in the item's `externalMetadata`. Needs the `audio` background mode
+/// (Info.plist) and the `.playback` audio session the view model configures.
+private struct SystemVideoPlayer: UIViewControllerRepresentable {
+    let player: AVPlayer
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.allowsPictureInPicturePlayback = true
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        controller.updatesNowPlayingInfoCenter = true
+        controller.entersFullScreenWhenPlaybackBegins = false
+        return controller
+    }
+
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        if controller.player !== player { controller.player = player }
     }
 }
 

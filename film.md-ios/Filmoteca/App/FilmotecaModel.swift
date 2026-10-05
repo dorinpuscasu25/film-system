@@ -21,6 +21,9 @@ final class FilmotecaModel {
     init(container: AppContainer) {
         self.container = container
         locale = LocaleCode(rawValue: UserDefaults.standard.string(forKey: "filmoteca.locale") ?? "ro") ?? .ro
+        container.storeKitService.onBackgroundRedeem = { [weak self] in
+            Task { await self?.refreshAccount() }
+        }
         Task { await restoreSession() }
     }
 
@@ -49,9 +52,13 @@ final class FilmotecaModel {
             applyUser(response)
             session = .authenticated
             await refreshAccount()
-        } catch {
+        } catch let error as APIError where error.status == 401 {
             await container.sessionRepository.logout()
             session = .guest
+        } catch {
+            // Offline or the server hiccuped — the token is still valid, so don't sign the
+            // user out; the account is fetched again on the next refresh.
+            session = .authenticated
         }
     }
 
@@ -62,6 +69,8 @@ final class FilmotecaModel {
         authPresented = false
         profilePickerPresented = (response.user.profiles?.count ?? 0) > 1
         await refreshAccount()
+        // A purchase Apple charged while logged out (or offline) is credited now.
+        container.storeKitService.retryUnfinishedTransactions()
     }
 
     func applyUser(_ newUser: User) {
@@ -80,8 +89,16 @@ final class FilmotecaModel {
 
     func refreshAccount() async {
         guard isAuthenticated else { account = nil; return }
-        do { account = try await container.sessionRepository.account(locale: locale) }
-        catch { globalError = error.localizedDescription }
+        do {
+            if user == nil { applyUser(try await container.sessionRepository.currentUser()) }
+            account = try await container.sessionRepository.account(locale: locale)
+        } catch let error as APIError where error.status == 401 {
+            // Token revoked elsewhere (password change, account deleted, signed out on web).
+            logout()
+            authPresented = true
+        } catch {
+            globalError = error.localizedDescription
+        }
     }
 
     func toggleFavorite(_ slug: String) async {
@@ -127,6 +144,12 @@ final class FilmotecaModel {
             "adjust_filters": [.ro: "Încearcă alt titlu sau modifică filtrele.", .ru: "Попробуйте другой запрос или измените фильтры.", .en: "Try another title or adjust the filters."],
             "loading_legal": [.ro: "Se încarcă meniul legal…", .ru: "Загрузка правового меню…", .en: "Loading legal menu…"],
             "close": [.ro: "Închide", .ru: "Закрыть", .en: "Close"],
+            "ad_label": [.ro: "Publicitate", .ru: "Реклама", .en: "Advertisement"],
+            "ad_skip": [.ro: "Sari peste", .ru: "Пропустить", .en: "Skip ad"],
+            "ad_skip_in": [.ro: "Sari peste în", .ru: "Пропустить через", .en: "Skip in"],
+            "ad_learn_more": [.ro: "Află mai mult", .ru: "Подробнее", .en: "Learn more"],
+            "ad_mute": [.ro: "Oprește sonorul", .ru: "Выключить звук", .en: "Mute"],
+            "ad_unmute": [.ro: "Pornește sonorul", .ru: "Включить звук", .en: "Unmute"],
             "cancel": [.ro: "Anulează", .ru: "Отмена", .en: "Cancel"],
             "forgot_password": [.ro: "Ai uitat parola?", .ru: "Забыли пароль?", .en: "Forgot your password?"],
             "password_reset_intro": [.ro: "Îți trimitem un cod din 6 cifre pe email pentru a-ți alege o parolă nouă.", .ru: "Мы отправим на почту код из 6 цифр, чтобы вы задали новый пароль.", .en: "We'll email you a 6-digit code so you can choose a new password."],
@@ -134,7 +157,7 @@ final class FilmotecaModel {
             "password_reset_code_sent": [.ro: "Dacă există un cont cu acest email, codul a fost trimis. Verifică inbox-ul și folderul spam.", .ru: "Если аккаунт с такой почтой существует, код отправлен. Проверьте входящие и спам.", .en: "If an account exists for this email, the code has been sent. Check your inbox and spam folder."],
             "password_reset_code": [.ro: "Cod de resetare", .ru: "Код сброса", .en: "Reset code"],
             "password_new": [.ro: "Parolă nouă", .ru: "Новый пароль", .en: "New password"],
-            "password_min_length": [.ro: "Folosește cel puțin 8 caractere.", .ru: "Используйте не менее 8 символов.", .en: "Use at least 8 characters."],
+            "password_min_length": [.ro: "Minimum 12 caractere, cu literă mare, literă mică, cifră și simbol.", .ru: "Минимум 12 символов: заглавная и строчная буквы, цифра и символ.", .en: "At least 12 characters, with upper- and lowercase letters, a number and a symbol."],
             "password_reset_confirm": [.ro: "Schimbă parola", .ru: "Изменить пароль", .en: "Change password"],
             "password_reset_done": [.ro: "Parola a fost schimbată. Autentifică-te cu parola nouă.", .ru: "Пароль изменён. Войдите с новым паролем.", .en: "Password changed. Sign in with your new password."],
             "playback_settings": [.ro: "Setări redare", .ru: "Настройки воспроизведения", .en: "Playback settings"],
@@ -149,6 +172,13 @@ final class FilmotecaModel {
             "playback_speed": [.ro: "Viteză de redare", .ru: "Скорость воспроизведения", .en: "Playback speed"],
             "speed_normal": [.ro: "Normală", .ru: "Обычная", .en: "Normal"],
             "no_tracks_available": [.ro: "Acest titlu nu are subtitrări sau piste audio suplimentare.", .ru: "У этого фильма нет субтитров или дополнительных аудиодорожек.", .en: "This title has no subtitles or additional audio tracks."],
+            "recommended": [.ro: "S-ar putea să-ți placă și", .ru: "Вам может понравиться", .en: "You might also like"],
+            "credit_packs_header": [.ro: "Pachete de credit", .ru: "Пакеты кредитов", .en: "Credit packs"],
+            "credit_packs_footer": [.ro: "1 credit = 1 MDL, valabil pe orice platformă. Creditele nu expiră niciodată.", .ru: "1 кредит = 1 MDL на любой платформе. Кредиты никогда не сгорают.", .en: "1 credit = 1 MDL on every platform. Credits never expire."],
+            "credits_amount": [.ro: "%d credite", .ru: "%d кредитов", .en: "%d credits"],
+            "current_balance": [.ro: "Sold curent", .ru: "Текущий баланс", .en: "Current balance"],
+            "credit_pack_redeem_pending": [.ro: "Plata a fost înregistrată de Apple, dar creditele nu au putut fi adăugate încă. Reîncercăm automat la următoarea deschidere a aplicației. Dacă nu apar, scrie-ne.", .ru: "Apple принял оплату, но кредиты пока не зачислены. Мы повторим автоматически при следующем запуске приложения. Если они не появятся, напишите нам.", .en: "Apple recorded the payment, but the credits couldn't be added yet. We'll retry automatically next time you open the app. If they don't show up, contact us."],
+            "credit_packs_unavailable": [.ro: "Pachetele de credit nu sunt disponibile momentan.", .ru: "Пакеты кредитов сейчас недоступны.", .en: "Credit packs aren't available right now."],
         ]
         return values[key]?[locale] ?? key
     }

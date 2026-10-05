@@ -3,18 +3,13 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Api\ApiController;
-use App\Models\ContentEntitlement;
-use App\Models\CreatorContractVersion;
-use App\Models\CreatorFiscalProfile;
 use App\Models\ReportingSettingsVersion;
 use App\Services\AuditLogService;
 use App\Services\RightsReportingService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class RightsReportingController extends ApiController
@@ -39,10 +34,12 @@ class RightsReportingController extends ApiController
     {
         return response()->json([
             'creators' => \App\Models\ContentCreator::query()
-                ->with(['contents:id,original_title', 'contractVersions.content:id,original_title', 'fiscalProfiles'])
+                ->with(['user:id,name,email', 'contents:id,original_title', 'contractVersions.content:id,original_title', 'fiscalProfiles'])
                 ->orderBy('name')->get()->map(fn ($creator) => [
                     'id' => $creator->id, 'name' => $creator->name, 'company_name' => $creator->company_name,
                     'email' => $creator->email, 'is_active' => $creator->is_active,
+                    'user' => $creator->user ? ['id' => $creator->user->id, 'name' => $creator->user->name, 'email' => $creator->user->email] : null,
+                    'diagnostics' => $this->reporting->diagnostics($creator),
                     'contents' => $creator->contents->map(fn ($content) => ['id' => $content->id, 'title' => $content->original_title])->values(),
                     'contracts' => $creator->contractVersions->sortByDesc('effective_from')->map(fn ($contract) => [
                         ...$contract->only(['id', 'content_id', 'share_percent', 'territories', 'effective_from', 'effective_until', 'contract_reference', 'status', 'notes']),
@@ -54,8 +51,51 @@ class RightsReportingController extends ApiController
                     ]))->values(),
                 ])->values(),
             'contents' => \App\Models\Content::query()->orderBy('original_title')->get(['id', 'original_title'])->map(fn ($content) => ['id' => $content->id, 'title' => $content->original_title]),
+            'users' => \App\Models\User::query()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'email'])->values(),
             'settings' => ReportingSettingsVersion::query()->latest('effective_from')->get()->map(fn ($settings) => $settings->only(['id', 'domestic_country_code', 'domestic_vat_rate', 'effective_from', 'effective_until', 'is_active']))->values(),
         ]);
+    }
+
+    public function onboardHolder(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'content_creator_id' => ['nullable', 'integer', 'exists:content_creators,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id', 'required_without:invite_email'],
+            'invite_email' => ['nullable', 'email', 'max:255', 'required_without:user_id'],
+            'invite_name' => ['nullable', 'string', 'max:255'],
+            'content_ids' => ['required', 'array', 'min:1'],
+            'content_ids.*' => ['integer', 'exists:contents,id'],
+            'contract.share_percent' => ['required', 'numeric', 'gt:0', 'max:100'],
+            'contract.territories' => ['nullable', 'array'],
+            'contract.territories.*' => ['string', 'size:2'],
+            'contract.effective_from' => ['required', 'date'],
+            'contract.effective_until' => ['nullable', 'date', 'after_or_equal:contract.effective_from'],
+            'contract.contract_reference' => ['nullable', 'string', 'max:255'],
+            'fiscal.person_type' => ['required', 'in:PF,PJ'],
+            'fiscal.tax_residency' => ['required', 'string', 'size:2'],
+            'fiscal.is_vat_registered' => ['required', 'boolean'],
+            'fiscal.vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'fiscal.withholding_enabled' => ['required', 'boolean'],
+            'fiscal.withholding_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'fiscal.tax_identifier' => ['nullable', 'string', 'max:32'],
+            'fiscal.iban' => ['nullable', 'string', 'max:64'],
+            'fiscal.payment_currency' => ['required', 'string', 'size:3'],
+            'fiscal.effective_from' => ['required', 'date'],
+        ]);
+
+        $creator = $this->reporting->onboardHolder($payload, $request->user());
+        $this->auditLog->record('reporting.holder.onboarded', 'content_creator', $creator->id, [
+            'user_id' => $creator->user_id, 'invite_email' => $payload['invite_email'] ?? null, 'content_ids' => $payload['content_ids'],
+        ], $request->user(), $request);
+        $this->reporting->recalculatePending();
+
+        return response()->json([
+            'creator' => $creator,
+            'diagnostics' => $this->reporting->diagnostics($creator),
+        ], Response::HTTP_CREATED);
     }
 
     public function storeContract(Request $request): JsonResponse
@@ -68,38 +108,11 @@ class RightsReportingController extends ApiController
             'effective_from' => ['required', 'date'], 'effective_until' => ['nullable', 'date', 'after_or_equal:effective_from'],
             'contract_reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string', 'max:2000'],
         ]);
-        $from = Carbon::parse($payload['effective_from'])->startOfDay();
-        $until = isset($payload['effective_until']) ? Carbon::parse($payload['effective_until'])->endOfDay() : null;
-        $contract = DB::transaction(function () use ($payload, $request, $from, $until) {
-            $sameHolder = CreatorContractVersion::query()
-                ->where('content_id', $payload['content_id'])
-                ->where('content_creator_id', $payload['content_creator_id'])
-                ->where('status', 'active')
-                ->whereDate('effective_from', '<=', $until ?? Carbon::create(9999, 12, 31))
-                ->where(fn (Builder $q) => $q->whereNull('effective_until')->orWhereDate('effective_until', '>=', $from))
-                ->lockForUpdate()->get();
-
-            foreach ($sameHolder as $current) {
-                if (Carbon::parse($current->effective_from)->startOfDay()->gte($from)) {
-                    throw ValidationException::withMessages(['effective_from' => ['Data trebuie să fie după începutul versiunii contractuale existente.']]);
-                }
-                $current->update(['effective_until' => $from->copy()->subDay()->endOfDay()]);
-            }
-
-            $overlappingShare = CreatorContractVersion::query()->where('content_id', $payload['content_id'])->where('status', 'active')
-                ->whereDate('effective_from', '<=', $until ?? Carbon::create(9999, 12, 31))
-                ->where(fn (Builder $q) => $q->whereNull('effective_until')->orWhereDate('effective_until', '>=', $from))
-                ->lockForUpdate()->sum('share_percent');
-            if ((float) $overlappingShare + (float) $payload['share_percent'] > 100.0001) {
-                throw ValidationException::withMessages(['share_percent' => ['Cotele contractelor active suprapuse pentru acest film depășesc 100%.']]);
-            }
-
-            return CreatorContractVersion::query()->create([
-                ...$payload, 'territories' => collect($payload['territories'] ?? [])->map(fn ($code) => strtoupper($code))->unique()->values()->all(),
-                'status' => 'active', 'created_by' => $request->user()?->id,
-            ]);
-        });
+        $contract = $this->reporting->createContractVersion($payload, $request->user()?->id);
         $this->auditLog->record('reporting.contract.created', 'creator_contract_version', $contract->id, $contract->toArray(), $request->user(), $request);
+        // Any sale already stuck "missing_contract" for this titular/film gets repaired right away,
+        // instead of waiting for the reporting:sync schedule.
+        $this->reporting->recalculatePending();
 
         return response()->json(['contract' => $contract], Response::HTTP_CREATED);
     }
@@ -114,28 +127,9 @@ class RightsReportingController extends ApiController
             'iban' => ['nullable', 'string', 'max:64'], 'payment_currency' => ['required', 'string', 'size:3'],
             'effective_from' => ['required', 'date'], 'effective_until' => ['nullable', 'date', 'after_or_equal:effective_from'],
         ]);
-        $from = Carbon::parse($payload['effective_from'])->startOfDay();
-        $until = isset($payload['effective_until']) ? Carbon::parse($payload['effective_until'])->endOfDay() : null;
-        $profile = DB::transaction(function () use ($payload, $request, $from, $until) {
-            $overlapping = CreatorFiscalProfile::query()->where('content_creator_id', $payload['content_creator_id'])->where('status', 'active')
-                ->whereDate('effective_from', '<=', $until ?? Carbon::create(9999, 12, 31))
-                ->where(fn (Builder $q) => $q->whereNull('effective_until')->orWhereDate('effective_until', '>=', $from))
-                ->lockForUpdate()->get();
-            foreach ($overlapping as $current) {
-                if (Carbon::parse($current->effective_from)->startOfDay()->gte($from)) {
-                    throw ValidationException::withMessages(['effective_from' => ['Data trebuie să fie după începutul profilului fiscal existent.']]);
-                }
-                $current->update(['effective_until' => $from->copy()->subDay()->endOfDay()]);
-            }
-
-            return CreatorFiscalProfile::query()->create([
-                ...$payload, 'tax_residency' => strtoupper($payload['tax_residency']), 'payment_currency' => strtoupper($payload['payment_currency']),
-                'vat_rate' => $payload['is_vat_registered'] ? $payload['vat_rate'] : 0,
-                'withholding_rate' => $payload['withholding_enabled'] ? $payload['withholding_rate'] : 0,
-                'status' => 'active', 'created_by' => $request->user()?->id,
-            ]);
-        });
+        $profile = $this->reporting->createFiscalProfile($payload, $request->user()?->id);
         $this->auditLog->record('reporting.fiscal_profile.created', 'creator_fiscal_profile', $profile->id, ['content_creator_id' => $profile->content_creator_id], $request->user(), $request);
+        $this->reporting->recalculatePending();
 
         return response()->json(['profile' => $profile], Response::HTTP_CREATED);
     }
@@ -162,18 +156,16 @@ class RightsReportingController extends ApiController
         return response()->json(['settings' => $settings], Response::HTTP_CREATED);
     }
 
+    /**
+     * Manual/ops trigger for the same sync the reporting:sync schedule runs automatically
+     * every few minutes (see routes/console.php). Not wired to any admin UI button — the
+     * ledger is expected to keep itself current on its own.
+     */
     public function captureMissing(Request $request): JsonResponse
     {
-        $captured = 0;
-        ContentEntitlement::query()->whereDoesntHave('reportingSale')->with(['content', 'offer', 'user.defaultBillingAddress'])
-            ->orderBy('id')->chunkById(100, function ($entitlements) use (&$captured): void {
-                foreach ($entitlements as $entitlement) {
-                    $this->reporting->capturePurchase($entitlement);
-                    $captured++;
-                }
-            });
-        $this->auditLog->record('reporting.capture_missing', 'reporting_sale', null, ['captured' => $captured], $request->user(), $request);
+        $result = $this->reporting->syncAll();
+        $this->auditLog->record('reporting.capture_missing', 'reporting_sale', null, $result, $request->user(), $request);
 
-        return response()->json(['captured' => $captured]);
+        return response()->json($result);
     }
 }

@@ -19,11 +19,14 @@ final class AuthViewModel {
     var resetCodeSent = false
 
     var canRequestReset: Bool { resetEmail.contains("@") && resetEmail.count >= 5 }
-    var canConfirmReset: Bool { resetCode.count == 6 && resetPassword.count >= 8 }
+    var canConfirmReset: Bool { resetCode.count == 6 && PasswordPolicy.isValid(resetPassword) }
 
     init(container: AppContainer) { session = container.sessionRepository }
 
-    var canSubmitCredentials: Bool { !email.isEmpty && password.count >= 6 && (mode == 0 || !name.trimmingCharacters(in: .whitespaces).isEmpty) }
+    var canSubmitCredentials: Bool {
+        guard !email.isEmpty, !password.isEmpty else { return false }
+        return mode == 0 || (PasswordPolicy.isValid(password) && !name.trimmingCharacters(in: .whitespaces).isEmpty)
+    }
     var canVerify: Bool { code.count == 6 }
 
     func sanitizeCode() { code = String(code.filter(\.isNumber).prefix(6)) }
@@ -39,6 +42,14 @@ final class AuthViewModel {
             let response = try await session.register(name: name, email: email, password: password, locale: locale)
             pendingEmail = response.email
             state = .loaded
+            return nil
+        } catch let error as APIError where mode == 0 && error.status == 403 && error.serverMessage.contains("Confirm your email") {
+            // Registered but never confirmed the code (e.g. closed the app) — same as the web:
+            // jump straight to the verification step with a fresh code instead of a dead end.
+            pendingEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            code = ""
+            try? await session.resend(email: pendingEmail ?? email)
+            state = .idle
             return nil
         } catch {
             state = .failed(message: error.localizedDescription)

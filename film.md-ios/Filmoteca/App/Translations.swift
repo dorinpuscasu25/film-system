@@ -1,0 +1,191 @@
+import Foundation
+
+/// Russian/English strings for screens whose Romanian copy lives inline in the views.
+/// The Romanian text itself is the key, so `app.tr("…")` stays readable at the call site and
+/// Romanian never needs an entry. `{0}`, `{1}` … are positional placeholders.
+/// Short, reusable UI labels with a stable identifier still go through `FilmotecaModel.t(_:)`.
+enum Translations {
+    static let table: [String: (ru: String, en: String)] = [
+        // Account
+        "Filmele mele": ("Мои фильмы", "My films"),
+        "Favorite": ("Избранное", "Favorites"),
+        "Portofel": ("Кошелёк", "Wallet"),
+        "Setări": ("Настройки", "Settings"),
+        "Intră în universul FILMOTECA": ("Войдите во вселенную FILMOTECA", "Step into the FILMOTECA universe"),
+        "Sincronizează progresul, creează profiluri și păstrează filmele preferate.": ("Синхронизируйте прогресс, создавайте профили и сохраняйте любимые фильмы.", "Sync your progress, create profiles and keep your favorite films."),
+        "Secțiune cont": ("Раздел аккаунта", "Account section"),
+        "Continuă vizionarea": ("Продолжить просмотр", "Continue watching"),
+        "{0}% vizionat": ("Просмотрено {0}%", "{0}% watched"),
+        "Biblioteca mea": ("Моя библиотека", "My library"),
+        "Nu ai încă filme cumpărate.": ("У вас пока нет купленных фильмов.", "You haven't bought any films yet."),
+        "ACTIV": ("АКТИВЕН", "ACTIVE"),
+        "EXPIRAT": ("ИСТЁК", "EXPIRED"),
+        "Favoritele profilului": ("Избранное профиля", "Profile favorites"),
+        "Adaugă titluri în lista ta pentru a le găsi aici.": ("Добавляйте фильмы в свой список, чтобы найти их здесь.", "Add titles to your list to find them here."),
+        "SOLD DISPONIBIL": ("ДОСТУПНЫЙ БАЛАНС", "AVAILABLE BALANCE"),
+        "Istoricul tranzacțiilor": ("История транзакций", "Transaction history"),
+        "Nu există tranzacții.": ("Транзакций нет.", "No transactions yet."),
+        "Cont și securitate": ("Аккаунт и безопасность", "Account & security"),
+        "Datele contului": ("Данные аккаунта", "Account details"),
+        "Schimbă parola": ("Сменить пароль", "Change password"),
+        "Gestionează profilurile": ("Управление профилями", "Manage profiles"),
+        "Conectează televizorul": ("Подключить телевизор", "Connect your TV"),
+        "Limba": ("Язык", "Language"),
+        "Ieși din cont": ("Выйти из аккаунта", "Sign out"),
+        "Zonă periculoasă": ("Опасная зона", "Danger zone"),
+        "Șterge contul": ("Удалить аккаунт", "Delete account"),
+        "Rezumat": ("Сводка", "Summary"),
+        "Profiluri": ("Профили", "Profiles"),
+        "Titluri": ("Фильмы", "Titles"),
+        "Acces permanent": ("Бессрочный доступ", "Lifetime access"),
+        "Disponibil până la {0}": ("Доступно до {0}", "Available until {0}"),
+        "Acces expirat": ("Доступ истёк", "Access expired"),
+        "Acces activ": ("Доступ активен", "Access active"),
+        "Date personale": ("Личные данные", "Personal details"),
+        "Nume": ("Имя", "Name"),
+        "Email": ("Эл. почта", "Email"),
+        "Limba preferată": ("Предпочитаемый язык", "Preferred language"),
+        "Anulează": ("Отмена", "Cancel"),
+        "Se salvează…": ("Сохранение…", "Saving…"),
+        "Salvează": ("Сохранить", "Save"),
+        "Această acțiune este definitivă": ("Это действие необратимо", "This action is permanent"),
+        "Contul nu poate fi recuperat după ștergere.": ("После удаления аккаунт нельзя восстановить.", "The account can't be recovered after deletion."),
+        "Ce pierzi": ("Что вы потеряете", "What you'll lose"),
+        "Soldul din portofel": ("Баланс кошелька", "Wallet balance"),
+        "{0} se pierd și nu se restituie.": ("{0} будут потеряны и не возвращаются.", "{0} will be lost and not refunded."),
+        "1 titlu cumpărat": ("1 купленный фильм", "1 purchased title"),
+        "{0} titluri cumpărate": ("Куплено фильмов: {0}", "{0} purchased titles"),
+        "Accesul la filmele cumpărate se pierde definitiv.": ("Доступ к купленным фильмам будет потерян навсегда.", "Access to purchased films is lost permanently."),
+        "Profiluri, favorite și istoric": ("Профили, избранное и история", "Profiles, favorites and history"),
+        "Toate profilurile, lista de favorite, progresul de vizionare și recenziile se șterg.": ("Все профили, избранное, прогресс просмотра и отзывы будут удалены.", "All profiles, favorites, watch progress and reviews are deleted."),
+        "Confirmare": ("Подтверждение", "Confirmation"),
+        "Parola actuală": ("Текущий пароль", "Current password"),
+        "Scrie {0}": ("Введите {0}", "Type {0}"),
+        "Motiv (opțional)": ("Причина (необязательно)", "Reason (optional)"),
+        "Ne ajută să ne îmbunătățim": ("Помогает нам стать лучше", "Helps us improve"),
+        "Se șterge…": ("Удаление…", "Deleting…"),
+        "Șterge contul definitiv": ("Удалить аккаунт навсегда", "Delete account permanently"),
+        "Ștergi contul definitiv?": ("Удалить аккаунт навсегда?", "Delete your account permanently?"),
+        "Șterge": ("Удалить", "Delete"),
+        "Contul, soldul și accesul la titlurile cumpărate se pierd definitiv. Acțiunea nu poate fi anulată.": ("Аккаунт, баланс и доступ к купленным фильмам будут потеряны навсегда. Это действие нельзя отменить.", "Your account, balance and access to purchased titles are lost permanently. This can't be undone."),
+        "Parola nouă": ("Новый пароль", "New password"),
+        "Confirmă parola nouă": ("Подтвердите новый пароль", "Confirm new password"),
+        "Securitate": ("Безопасность", "Security"),
+        "Actualizează": ("Обновить", "Update"),
+        "Parolele noi nu coincid.": ("Новые пароли не совпадают.", "The new passwords don't match."),
+        "Introdu codul afișat în aplicația FILMOTECA de pe TV.": ("Введите код, показанный в приложении FILMOTECA на телевизоре.", "Enter the code shown in the FILMOTECA app on your TV."),
+        "Televizor FILMOTECA": ("Телевизор FILMOTECA", "FILMOTECA TV"),
+        "Solicită acces la contul tău": ("Запрашивает доступ к вашему аккаунту", "Is requesting access to your account"),
+        "Verifică codul": ("Проверить код", "Check code"),
+        "Refuză": ("Отклонить", "Decline"),
+        "Conectează": ("Подключить", "Connect"),
+        "Închide": ("Закрыть", "Close"),
+
+        // Auth
+        "Bine ai revenit": ("С возвращением", "Welcome back"),
+        "Creează un cont": ("Создайте аккаунт", "Create an account"),
+        "Confirmă emailul": ("Подтвердите почту", "Confirm your email"),
+        "Nu ai cont? Înregistrează-te": ("Нет аккаунта? Зарегистрируйтесь", "No account? Sign up"),
+        "Ai deja cont? Autentifică-te": ("Уже есть аккаунт? Войдите", "Already have an account? Sign in"),
+        "Prin continuare accepți Termenii și Politica de confidențialitate FILMOTECA.md.": ("Продолжая, вы принимаете Условия и Политику конфиденциальности FILMOTECA.md.", "By continuing you accept the FILMOTECA.md Terms and Privacy Policy."),
+        "Am trimis un cod din 6 cifre la {0}.": ("Мы отправили 6-значный код на {0}.", "We sent a 6-digit code to {0}."),
+        "Filmele tale, pe orice ecran, cu progres sincronizat.": ("Ваши фильмы на любом экране, с синхронизированным прогрессом.", "Your films on any screen, with synced progress."),
+        "Mod": ("Режим", "Mode"),
+        "Autentificare": ("Вход", "Sign in"),
+        "Cont nou": ("Новый аккаунт", "New account"),
+        "Parolă": ("Пароль", "Password"),
+        "Intră în cont": ("Войти", "Sign in"),
+        "Continuă": ("Продолжить", "Continue"),
+        "Confirmă contul": ("Подтвердить аккаунт", "Confirm account"),
+        "Retrimite codul": ("Отправить код ещё раз", "Resend code"),
+
+        // Content detail
+        "Distribuție": ("В ролях", "Cast"),
+        "Echipa": ("Съёмочная группа", "Crew"),
+        "Ștergi recenzia?": ("Удалить отзыв?", "Delete this review?"),
+        "Recenzia va fi eliminată definitiv.": ("Отзыв будет удалён навсегда.", "The review will be removed permanently."),
+        "ÎN TREND": ("В ТРЕНДЕ", "TRENDING"),
+        "În lista mea": ("В моём списке", "In my list"),
+        "Lista mea": ("Мой список", "My list"),
+        "Trailer": ("Трейлер", "Trailer"),
+        "Distribuie": ("Поделиться", "Share"),
+        "Recenzie": ("Отзыв", "Review"),
+        "Cumpără acces de la {0}": ("Купить доступ от {0}", "Buy access from {0}"),
+        "Detalii": ("Подробнее", "Details"),
+        "Țara": ("Страна", "Country"),
+        "Audio": ("Аудио", "Audio"),
+        "Subtitrări": ("Субтитры", "Subtitles"),
+        "Tip": ("Тип", "Type"),
+        "Episoade": ("Эпизоды", "Episodes"),
+        "Sezon": ("Сезон", "Season"),
+        "Sezonul {0}": ("Сезон {0}", "Season {0}"),
+        "Galerie": ("Галерея", "Gallery"),
+        "Recenzii": ("Отзывы", "Reviews"),
+        "Fii primul care scrie o recenzie.": ("Станьте первым, кто оставит отзыв.", "Be the first to write a review."),
+        "Șterge recenzia": ("Удалить отзыв", "Delete review"),
+        "Scrie prima recenzie": ("Написать первый отзыв", "Write the first review"),
+        "Scrie o recenzie": ("Написать отзыв", "Write a review"),
+        "Alege opțiunea de vizionare și calitatea": ("Выберите вариант просмотра и качество", "Choose a viewing option and quality"),
+        "Sold portofel": ("Баланс кошелька", "Wallet balance"),
+        "Sold insuficient pentru opțiunea aleasă.": ("Недостаточно средств для выбранного варианта.", "Insufficient balance for the selected option."),
+        "Confirmă cumpărarea – {0}": ("Подтвердить покупку – {0}", "Confirm purchase – {0}"),
+        "Selectează o opțiune": ("Выберите вариант", "Select an option"),
+        "Plata accesului este efectuată din soldul existent. Alimentarea poate fi inițiată direct din aplicație.": ("Доступ оплачивается с текущего баланса. Пополнить его можно прямо в приложении.", "Access is paid from your current balance. You can add funds right in the app."),
+        "Acces la film": ("Доступ к фильму", "Film access"),
+        "Publică recenzia": ("Опубликовать отзыв", "Publish review"),
+
+        "Premieră în": ("Премьера через", "Premiere in"),
+        "zile": ("дн", "days"),
+        "ore": ("ч", "hours"),
+        "sec": ("сек", "sec"),
+        "În direct acum": ("В эфире", "Live now"),
+
+        // Library
+        "Biblioteca ta te așteaptă": ("Ваша библиотека ждёт вас", "Your library is waiting"),
+        "Autentifică-te pentru favorite, achiziții și progres sincronizat.": ("Войдите, чтобы получить избранное, покупки и синхронизированный прогресс.", "Sign in for favorites, purchases and synced progress."),
+        "Titluri salvate": ("Сохранённые фильмы", "Saved titles"),
+        "Lista mea este goală": ("Мой список пуст", "My list is empty"),
+        "Apasă „Lista mea” pe pagina unui film ca să-l găsești aici.": ("Нажмите «Мой список» на странице фильма, чтобы найти его здесь.", "Tap “My list” on a film's page to find it here."),
+        "Închiriat": ("Аренда", "Rented"),
+        "Disponibil": ("Доступно", "Available"),
+
+        // Player
+        "Închide playerul": ("Закрыть плеер", "Close player"),
+        "Deschide sursa video": ("Открыть источник видео", "Open video source"),
+        "Setări de redare": ("Настройки воспроизведения", "Playback settings"),
+        "Video-ul nu a putut porni": ("Не удалось запустить видео", "The video couldn't start"),
+        "Se pregătește redarea securizată…": ("Подготовка защищённого воспроизведения…", "Preparing secure playback…"),
+
+        // Profiles
+        "Gata": ("Готово", "Done"),
+        "Gestionează": ("Управлять", "Manage"),
+        "Cine vizionează?": ("Кто смотрит?", "Who's watching?"),
+        "Profil nou": ("Новый профиль", "New profile"),
+        "Numele profilului": ("Имя профиля", "Profile name"),
+        "Profil pentru copii": ("Детский профиль", "Kids profile"),
+        "Creează": ("Создать", "Create"),
+        "Șterge profilul": ("Удалить профиль", "Delete profile"),
+        "Contul trebuie să păstreze cel puțin un profil.": ("В аккаунте должен остаться хотя бы один профиль.", "The account must keep at least one profile."),
+        "Editează profilul": ("Редактировать профиль", "Edit profile"),
+        "Ștergi profilul?": ("Удалить профиль?", "Delete this profile?"),
+        "Favoritele și progresul asociate profilului vor fi eliminate.": ("Избранное и прогресс этого профиля будут удалены.", "This profile's favorites and progress will be removed."),
+
+        // Shared components
+        "NOU": ("НОВОЕ", "NEW"),
+        "GRATUIT": ("БЕСПЛАТНО", "FREE"),
+        "Conținut indisponibil": ("Контент недоступен", "Content unavailable"),
+    ]
+}
+
+extension FilmotecaModel {
+    func tr(_ romanian: String, _ arguments: String...) -> String {
+        var text = romanian
+        if locale != .ro, let entry = Translations.table[romanian] {
+            text = locale == .ru ? entry.ru : entry.en
+        }
+        for (index, argument) in arguments.enumerated() {
+            text = text.replacingOccurrences(of: "{\(index)}", with: argument)
+        }
+        return text
+    }
+}

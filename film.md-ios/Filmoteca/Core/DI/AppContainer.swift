@@ -7,6 +7,8 @@ final class AppContainer {
     let sessionRepository: any SessionRepositoryProtocol
     let playbackRepository: any PlaybackRepositoryProtocol
     let deviceRepository: any DeviceRepositoryProtocol
+    let storeKitService: StoreKitService
+    let adService: AdService
 
     init(
         configuration: AppConfiguration,
@@ -20,9 +22,11 @@ final class AppContainer {
         self.sessionRepository = sessionRepository
         self.playbackRepository = playbackRepository
         self.deviceRepository = deviceRepository
+        self.storeKitService = StoreKitService(session: sessionRepository)
+        self.adService = AdService(baseURL: configuration.apiBaseURL)
     }
 
-    static func live(configuration: AppConfiguration = .production) -> AppContainer {
+    static func live(configuration: AppConfiguration = .current) -> AppContainer {
         let api = APIClient(baseURL: configuration.apiBaseURL)
         return AppContainer(
             configuration: configuration,

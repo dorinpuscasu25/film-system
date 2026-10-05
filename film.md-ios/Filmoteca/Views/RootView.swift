@@ -27,11 +27,11 @@ struct RootView: View {
             LoadingScreen()
         case .guest, .authenticated:
             TabView(selection: $selection) {
-                NavigationStack { HomeView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) } }
+                NavigationStack { HomeView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) }.navigationDestination(for: WatchRoute.self) { ContentDetailView(seed: $0.content, container: app.container, autoplay: true) } }
                     .tabItem { Label(app.t("home"), systemImage: selection == 0 ? "house.fill" : "house") }.tag(0)
-                NavigationStack { SearchView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) } }
+                NavigationStack { SearchView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) }.navigationDestination(for: WatchRoute.self) { ContentDetailView(seed: $0.content, container: app.container, autoplay: true) } }
                     .tabItem { Label(app.t("search"), systemImage: "magnifyingglass") }.tag(1)
-                NavigationStack { LibraryView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) } }
+                NavigationStack { LibraryView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) }.navigationDestination(for: WatchRoute.self) { ContentDetailView(seed: $0.content, container: app.container, autoplay: true) } }
                     .tabItem { Label(app.t("library"), systemImage: selection == 2 ? "play.square.stack.fill" : "play.square.stack") }.tag(2)
                 NavigationStack { AccountView() }
                     .tabItem { Label(app.t("account"), systemImage: selection == 3 ? "person.crop.circle.fill" : "person.crop.circle") }.tag(3)

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'date',
     'event_type',
     'country_code',
+    'platform',
     'count',
 ])]
 class AdEventAggregate extends Model

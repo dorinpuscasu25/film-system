@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'playback_session_id',
     'event_type',
     'country_code',
+    'platform',
     'ip_address',
     'user_agent',
     'meta',

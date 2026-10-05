@@ -9,6 +9,7 @@ import {
   PlusIcon,
   RefreshCwIcon,
   SaveIcon,
+  SmartphoneIcon,
   TagIcon,
   TrashIcon,
 } from "lucide-react";
@@ -62,6 +63,23 @@ const EMPTY_REGISTRATION_CREDIT_FORM: RegistrationCreditForm = {
   campaigns: [],
 };
 
+interface IapPackForm {
+  product_id: string;
+  credits_mdl: string;
+  apple_price_usd: string;
+  sort_order: string;
+}
+
+interface IapPacksForm {
+  commission_rate: string;
+  packs: IapPackForm[];
+}
+
+const EMPTY_IAP_PACKS_FORM: IapPacksForm = {
+  commission_rate: "15",
+  packs: [],
+};
+
 export function PriceSettings() {
   const { t } = useTranslation();
   const { can } = useAdmin();
@@ -76,6 +94,9 @@ export function PriceSettings() {
   const [registrationCredit, setRegistrationCredit] = useState<RegistrationCreditForm>(EMPTY_REGISTRATION_CREDIT_FORM);
   const [savingRegistrationCredit, setSavingRegistrationCredit] = useState(false);
   const [registrationCreditMessage, setRegistrationCreditMessage] = useState<string | null>(null);
+  const [iapPacks, setIapPacks] = useState<IapPacksForm>(EMPTY_IAP_PACKS_FORM);
+  const [savingIapPacks, setSavingIapPacks] = useState(false);
+  const [iapPacksMessage, setIapPacksMessage] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -94,6 +115,7 @@ export function PriceSettings() {
         setSavedAt(res.current.effective_from ?? null);
       }
       setRegistrationCredit(mapRegistrationCreditSettings(platformSettings.settings.registration_credit));
+      setIapPacks(mapIapPacksSettings(platformSettings.settings.iap_credit_packs));
     } catch {
       setError("Nu s-au putut încărca prețurile.");
     } finally {
@@ -151,6 +173,40 @@ export function PriceSettings() {
     } finally {
       setSavingRegistrationCredit(false);
     }
+  }
+
+  async function saveIapPacks() {
+    setSavingIapPacks(true);
+    setIapPacksMessage(null);
+    setError(null);
+
+    try {
+      await adminApi.savePlatformSettings({
+        iap_credit_packs: {
+          commission_rate: Number(iapPacks.commission_rate || 0) / 100,
+          packs: iapPacks.packs.map((pack, index) => ({
+            product_id: pack.product_id.trim(),
+            credits_mdl: Number(pack.credits_mdl || 0),
+            apple_price_usd: pack.apple_price_usd ? Number(pack.apple_price_usd) : null,
+            sort_order: Number(pack.sort_order || index + 1),
+            is_placeholder: false,
+          })),
+        },
+      });
+      setIapPacksMessage("Pachetele App Store au fost salvate.");
+      await load();
+    } catch {
+      setError("Nu am putut salva pachetele App Store.");
+    } finally {
+      setSavingIapPacks(false);
+    }
+  }
+
+  function updateIapPack(index: number, patch: Partial<IapPackForm>) {
+    setIapPacks((current) => ({
+      ...current,
+      packs: current.packs.map((pack, packIndex) => (packIndex === index ? { ...pack, ...patch } : pack)),
+    }));
   }
 
   function updateCampaign(index: number, patch: Partial<RegistrationCreditCampaignForm>) {
@@ -440,8 +496,205 @@ export function PriceSettings() {
           ) : null}
         </CardContent>
       </Card>
+
+      <Card className="w-full">
+        <CardHeader className="gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Pachete de credite App Store (iOS)</CardTitle>
+              <CardDescription>
+                În aplicația iOS utilizatorii cumpără credite prin Apple, care reține comisionul. Pe site (maib)
+                1 MDL = 1 credit, fără comision. Prețul filmelor rămâne același peste tot — comisionul se acoperă
+                aici, prin câte credite primește utilizatorul pentru prețul plătit la Apple.
+              </CardDescription>
+            </div>
+            <div className="rounded-md border bg-muted p-2">
+              <SmartphoneIcon className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <FormField
+              label="Comision Apple (%)"
+              type="number"
+              min="0"
+              max="99"
+              step="1"
+              value={iapPacks.commission_rate}
+              disabled={!canEdit}
+              onChange={(event) => setIapPacks((current) => ({ ...current, commission_rate: event.target.value }))}
+              helperText="15% cu Small Business Program, 30% fără."
+            />
+            <FormField
+              label="Curs USD/MDL"
+              value={form.usd_to_mdl_rate || "—"}
+              disabled
+              helperText="Preluat din „Curs valutar USD/MDL” de mai sus."
+            />
+          </div>
+
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-medium">Pachete</div>
+                <p className="text-sm text-muted-foreground">
+                  Product ID-ul trebuie să fie identic cu produsul (Consumable) din App Store Connect. Prețul USD e
+                  doar pentru calcul — prețul real îl stabilește Apple.
+                </p>
+              </div>
+              {canEdit ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setIapPacks((current) => ({
+                      ...current,
+                      packs: [
+                        ...current.packs,
+                        { product_id: "md.filmoteca.ios.credits.", credits_mdl: "", apple_price_usd: "", sort_order: String(current.packs.length + 1) },
+                      ],
+                    }))
+                  }
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  Adaugă pachet
+                </Button>
+              ) : null}
+            </div>
+
+            {iapPacks.packs.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+                Nu există pachete. Aplicația iOS nu va putea vinde credite.
+              </div>
+            ) : (
+              iapPacks.packs.map((pack, index) => {
+                const net = iapNetMdl(pack.apple_price_usd, iapPacks.commission_rate, form.usd_to_mdl_rate);
+                const credits = Number(pack.credits_mdl || 0);
+                const losing = net !== null && credits > net;
+
+                return (
+                  <div key={index} className="space-y-2 rounded-lg border p-4">
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_130px_130px_90px_40px]">
+                      <FormField
+                        label="Product ID"
+                        value={pack.product_id}
+                        disabled={!canEdit}
+                        onChange={(event) => updateIapPack(index, { product_id: event.target.value })}
+                      />
+                      <FormField
+                        label="Preț Apple (USD)"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={pack.apple_price_usd}
+                        disabled={!canEdit}
+                        onChange={(event) => updateIapPack(index, { apple_price_usd: event.target.value })}
+                      />
+                      <FormField
+                        label="Credite acordate"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={pack.credits_mdl}
+                        disabled={!canEdit}
+                        onChange={(event) => updateIapPack(index, { credits_mdl: event.target.value })}
+                      />
+                      <FormField
+                        label="Ordine"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={pack.sort_order}
+                        disabled={!canEdit}
+                        onChange={(event) => updateIapPack(index, { sort_order: event.target.value })}
+                      />
+                      {canEdit ? (
+                        <div className="flex items-end justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              setIapPacks((current) => ({
+                                ...current,
+                                packs: current.packs.filter((_, packIndex) => packIndex !== index),
+                              }))
+                            }
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                    {net !== null ? (
+                      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${losing ? "text-destructive" : "text-muted-foreground"}`}>
+                        <span>Încasezi net după comision: ≈ {net.toFixed(2)} MDL</span>
+                        <span>Credite recomandate: {Math.floor(net)}</span>
+                        {losing ? <span className="font-medium">Acorzi mai multe credite decât încasezi — pierdere pe fiecare vânzare.</span> : null}
+                        {canEdit && credits !== Math.floor(net) ? (
+                          <button
+                            type="button"
+                            className="underline underline-offset-2"
+                            onClick={() => updateIapPack(index, { credits_mdl: String(Math.floor(net)) })}
+                          >
+                            Aplică recomandarea
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {iapPacksMessage ? (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {iapPacksMessage}
+            </div>
+          ) : null}
+
+          {canEdit ? (
+            <div className="flex justify-end border-t pt-4">
+              <Button onClick={() => void saveIapPacks()} disabled={savingIapPacks}>
+                <SaveIcon className="h-4 w-4" />
+                {savingIapPacks ? "Se salvează..." : "Salvează pachetele"}
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function iapNetMdl(priceUsd: string, commissionPercent: string, usdToMdl: string): number | null {
+  const price = Number(priceUsd);
+  const rate = Number(usdToMdl);
+  if (!price || !rate) return null;
+
+  return price * (1 - Number(commissionPercent || 0) / 100) * rate;
+}
+
+function mapIapPacksSettings(value: unknown): IapPacksForm {
+  const settings = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  const packs = Array.isArray(settings.packs) ? settings.packs : [];
+  const commission = Number(settings.commission_rate ?? 0.15);
+
+  return {
+    commission_rate: String(Math.round(commission * 10000) / 100),
+    packs: packs.map((item, index) => {
+      const pack = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+
+      return {
+        product_id: String(pack.product_id ?? ""),
+        credits_mdl: String(pack.credits_mdl ?? ""),
+        apple_price_usd: pack.apple_price_usd == null ? "" : String(pack.apple_price_usd),
+        sort_order: String(pack.sort_order ?? index + 1),
+      };
+    }),
+  };
 }
 
 function mapRegistrationCreditSettings(value: unknown): RegistrationCreditForm {

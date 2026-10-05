@@ -32,6 +32,7 @@ class ApiController extends Controller
             'email_verified_at' => $user->email_verified_at?->toIso8601String(),
             'preferred_locale' => $user->preferred_locale,
             'status' => $user->status,
+            'is_test_account' => $user->is_test_account,
             'avatar_url' => $user->avatar_url,
             'last_seen_at' => $user->last_seen_at?->toIso8601String(),
             'created_at' => $user->created_at?->toIso8601String(),

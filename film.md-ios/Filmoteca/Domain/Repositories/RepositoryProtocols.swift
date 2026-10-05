@@ -17,6 +17,7 @@ protocol CatalogRepositoryProtocol {
     func footerMenu(locale: LocaleCode) async throws -> PublicMenuResponse
     func page(slug: String, locale: LocaleCode) async throws -> CmsPage
     func content(slug: String, locale: LocaleCode) async throws -> Content
+    func recommendations(slug: String) async throws -> [RecommendationItem]
     func reviews(slug: String) async throws -> ReviewsResponse
     func submitReview(slug: String, rating: Int, comment: String) async throws
     func deleteReview(slug: String, reviewID: String) async throws
@@ -36,7 +37,9 @@ protocol SessionRepositoryProtocol {
     func updateAccount(name: String, email: String, locale: LocaleCode) async throws -> User
     func updatePassword(currentPassword: String, password: String) async throws
     func deleteAccount(currentPassword: String, reason: String?) async throws -> AccountDeletionResponse
-    func topUp(amount: Double, currency: String, phone: String, billingAddress: BillingAddress, locale: LocaleCode) async throws -> WalletTopUp
+    /// Redeems a StoreKit 2 signed transaction's `jwsRepresentation` for wallet credit.
+    func appleIapPacks() async throws -> [AppleIapPack]
+    func redeemAppleIap(signedTransaction: String) async throws -> AppleIapRedeemResponse
     func store(token: String)
     func favorite(profileID: String, slug: String, add: Bool) async throws
     func createProfile(name: String, color: String, isKids: Bool) async throws -> ProfileMutationResponse
@@ -50,7 +53,7 @@ protocol PlaybackRepositoryProtocol {
     func continueWatching(locale: LocaleCode, profileID: String?) async throws -> [ContinueItem]
     func purchase(offerID: String, profileID: String?) async throws
     func playback(slug: String, episodeID: String?, profileID: String?, locale: LocaleCode) async throws -> PlaybackContext
-    func track(_ context: PlayerTrackingContext, position: Double, duration: Double, event: String) async
+    func track(_ context: PlayerTrackingContext, position: Double, duration: Double, watchTimeSeconds: Double, event: String) async
 }
 
 @MainActor

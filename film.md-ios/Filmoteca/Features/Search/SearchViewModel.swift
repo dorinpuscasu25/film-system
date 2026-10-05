@@ -19,6 +19,8 @@ final class SearchViewModel {
     private var pageSize = 30
     var page = 1
     var isLoadingMore = false
+    /// Shown inline; unlike `state`, doesn't replace the results already loaded.
+    var loadMoreError: String?
 
     init(container: AppContainer) { catalog = container.catalogRepository }
 
@@ -29,7 +31,8 @@ final class SearchViewModel {
         activeFilterCount > 0 || !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    var canLoadMore: Bool { page * pageSize < serverTotal && !isLoadingMore }
+    var hasMorePages: Bool { page * pageSize < serverTotal }
+    var canLoadMore: Bool { hasMorePages && !isLoadingMore }
 
     var searchID: String {
         [query, selectedType, selectedGenre, selectedYear, selectedCountry, selectedAccess, minRating > 0 ? String(minRating) : nil]
@@ -68,6 +71,7 @@ final class SearchViewModel {
 
     func loadMore(locale: LocaleCode, profile: Profile?) async {
         guard canLoadMore else { return }
+        loadMoreError = nil
         isLoadingMore = true
         defer { isLoadingMore = false }
 
@@ -91,7 +95,7 @@ final class SearchViewModel {
             total = profile?.isKids == true ? items.count : result.total
             page = nextPage
         } catch {
-            state = .failed(message: error.localizedDescription)
+            loadMoreError = error.localizedDescription
         }
     }
 

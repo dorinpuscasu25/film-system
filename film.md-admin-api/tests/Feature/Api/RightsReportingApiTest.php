@@ -125,6 +125,85 @@ class RightsReportingApiTest extends TestCase
         $this->assertSame(25.0, (float) $rows->sum('cota_609_film'));
     }
 
+    public function test_capture_missing_repairs_sales_that_were_captured_before_the_contract_existed(): void
+    {
+        [$admin, $creator, $content, $offer] = $this->context();
+        // No contract/fiscal profile yet: the sale is captured but stuck "missing_contract".
+        $sale = app(RightsReportingService::class)->capturePurchase($this->entitlement($content, $offer, 120, 'moldova'));
+        $this->assertSame('missing_contract', $sale->calculation_status);
+        $this->assertCount(0, $sale->allocations);
+
+        // Admin sets up the titular afterwards, as commonly happens in practice.
+        $this->contract($creator, $content, 50);
+        $this->fiscal($creator, personType: 'PF', vatRegistered: false, withholdingRate: 12);
+
+        [, $token] = PersonalAccessToken::issue($admin, 'reporting-repair-test');
+        $this->postJson('/api/v1/admin/reporting/capture-missing', [], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('repaired', 1)
+            ->assertJsonPath('still_pending', 0);
+
+        $sale->refresh();
+        $this->assertSame('calculated', $sale->calculation_status);
+        $this->assertSame(44.0, $sale->allocations->firstOrFail()->net_payable_amount);
+    }
+
+    public function test_capture_missing_never_touches_a_sale_that_was_already_fully_calculated(): void
+    {
+        [$admin, $creator, $content, $offer] = $this->context();
+        $contract = $this->contract($creator, $content, 50);
+        $this->fiscal($creator, personType: 'PF', vatRegistered: false, withholdingRate: 12);
+        $sale = app(RightsReportingService::class)->capturePurchase($this->entitlement($content, $offer, 120, 'moldova'));
+        $this->assertSame('calculated', $sale->calculation_status);
+
+        $contract->forceFill(['share_percent' => 40])->save();
+        [, $token] = PersonalAccessToken::issue($admin, 'reporting-repair-noop-test');
+        $this->postJson('/api/v1/admin/reporting/capture-missing', [], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()->assertJsonPath('repaired', 0)->assertJsonPath('still_pending', 0);
+
+        $this->assertSame(50.0, $sale->fresh()->allocations()->firstOrFail()->base_share_amount);
+    }
+
+    public function test_onboard_holder_links_an_existing_user_and_reports_no_diagnostics(): void
+    {
+        $this->seed([AccessControlSeeder::class, TaxonomySeeder::class, ContentSeeder::class]);
+        $admin = User::query()->where('email', 'admin@filmoteca.md')->firstOrFail();
+        $content = Content::query()->where('status', Content::STATUS_PUBLISHED)->firstOrFail();
+        $holder = User::factory()->create(['email' => 'director@example.com', 'status' => 'active']);
+        [, $token] = PersonalAccessToken::issue($admin, 'reporting-onboard-test');
+
+        $response = $this->postJson('/api/v1/admin/reporting/holders', [
+            'name' => 'Regizor Nou', 'user_id' => $holder->id, 'content_ids' => [$content->id],
+            'contract' => ['share_percent' => 50, 'effective_from' => '2026-01-01'],
+            'fiscal' => [
+                'person_type' => 'PF', 'tax_residency' => 'MD', 'is_vat_registered' => false, 'vat_rate' => 0,
+                'withholding_enabled' => true, 'withholding_rate' => 12, 'payment_currency' => 'MDL', 'effective_from' => '2026-01-01',
+            ],
+        ], ['Authorization' => 'Bearer '.$token])->assertCreated();
+
+        $response->assertJsonPath('diagnostics', []);
+        $creator = ContentCreator::query()->where('user_id', $holder->id)->firstOrFail();
+        $this->assertSame(1, $creator->contractVersions()->count());
+        $this->assertSame(1, $creator->fiscalProfiles()->count());
+        $this->assertContains($content->id, $holder->fresh()->assignedContentIds());
+        $this->assertTrue($holder->fresh()->hasPermission('content.view_financials'));
+    }
+
+    public function test_profiles_endpoint_flags_a_holder_with_no_user_contract_or_fiscal_profile(): void
+    {
+        $this->seed([AccessControlSeeder::class, TaxonomySeeder::class, ContentSeeder::class]);
+        $admin = User::query()->where('email', 'admin@filmoteca.md')->firstOrFail();
+        ContentCreator::query()->create(['name' => 'Titular Incomplet', 'is_active' => true]);
+        [, $token] = PersonalAccessToken::issue($admin, 'reporting-diagnostics-test');
+
+        $response = $this->getJson('/api/v1/admin/reporting/profiles', ['Authorization' => 'Bearer '.$token])->assertOk();
+        $diagnostics = collect($response->json('creators'))->firstWhere('name', 'Titular Incomplet')['diagnostics'];
+
+        $this->assertContains('no_user', $diagnostics);
+        $this->assertContains('no_active_contract', $diagnostics);
+        $this->assertContains('no_fiscal_profile', $diagnostics);
+    }
+
     private function context(): array
     {
         $this->seed([AccessControlSeeder::class, TaxonomySeeder::class, ContentSeeder::class]);

@@ -6,9 +6,11 @@ struct ContentDetailView: View {
     @Environment(\.openURL) private var openURL
     @State private var viewModel: ContentDetailViewModel
     @State private var reviewPendingDeletion: Review?
+    @State private var autoplay: Bool
 
-    init(seed: Content, container: AppContainer) {
+    init(seed: Content, container: AppContainer, autoplay: Bool = false) {
         _viewModel = State(initialValue: ContentDetailViewModel(seed: seed, container: container))
+        _autoplay = State(initialValue: autoplay)
     }
 
     var body: some View {
@@ -18,19 +20,25 @@ struct ContentDetailView: View {
                     VStack(spacing: 0) {
                         hero(movie)
                         VStack(alignment: .leading, spacing: 25) {
+                            if let premiere = movie.premiereEvent { PremiereCountdown(premiere: premiere) }
                             primaryActions(movie)
                             if let tagline = movie.tagline, !tagline.isEmpty { Text(tagline).filmotecaTitle(.title3, weight: .semibold).foregroundStyle(.white.opacity(0.9)) }
                             Text(movie.description ?? movie.shortDescription ?? "").font(.body).foregroundStyle(.white.opacity(0.78)).lineSpacing(4)
                             facts(movie)
                             if let seasons = movie.seasons, !seasons.isEmpty { episodesSection(movie, seasons: seasons) }
-                            peopleSection("Distribuție", people: movie.cast ?? [])
-                            peopleSection("Echipa", people: movie.crew ?? [])
+                            peopleSection(app.tr("Distribuție"), people: movie.cast ?? [])
+                            peopleSection(app.tr("Echipa"), people: movie.crew ?? [])
                             if let images = movie.previewImages, !images.isEmpty { gallery(images) }
                             reviewsSection(movie)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 18)
-                        .padding(.bottom, 45)
+                        .padding(.bottom, !viewModel.recommendations.isEmpty && !app.isKidsProfile ? 0 : 45)
+                        if !viewModel.recommendations.isEmpty && !app.isKidsProfile {
+                            MediaRow(title: app.t("recommended"), items: viewModel.recommendations.map(\.asContent))
+                                .padding(.top, 25)
+                                .padding(.bottom, 45)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }.ignoresSafeArea(edges: .top).background(FilmotecaTheme.background)
@@ -39,28 +47,36 @@ struct ContentDetailView: View {
         }
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .task(id: "\(viewModel.seed.slug)-\(app.locale.rawValue)") { await viewModel.load(app: app) }
+        .task(id: "\(viewModel.seed.slug)-\(app.locale.rawValue)") {
+            await viewModel.load(app: app)
+            // Opened from a "Watch" button: go straight to the player (or the sign-in /
+            // purchase sheet), once — not again when coming back from the player.
+            if autoplay, viewModel.content != nil {
+                autoplay = false
+                await viewModel.watch(app: app)
+            }
+        }
         .sheet(isPresented: Binding(get: { viewModel.isPurchasePresented }, set: { viewModel.isPurchasePresented = $0 })) { if let content = viewModel.content { PurchaseSheet(content: content) { offer in try await viewModel.purchase(offer: offer, app: app) } } }
         .sheet(isPresented: Binding(get: { viewModel.isReviewPresented }, set: { viewModel.isReviewPresented = $0 })) { if let content = viewModel.content { ReviewComposer(content: content) { rating, comment in try await viewModel.submitReview(rating: rating, comment: comment) } } }
-        .fullScreenCover(item: Binding(get: { viewModel.playerRequest }, set: { viewModel.playerRequest = $0 })) { PlayerView(request: $0, container: app.container) }
+        .fullScreenCover(item: Binding(get: { viewModel.playerRequest }, set: { viewModel.playerRequest = $0 })) { PlayerView(request: $0, container: app.container, accountProfileID: app.activeProfile?.id) }
         .alert(
-            "Ștergi recenzia?",
+            app.tr("Ștergi recenzia?"),
             isPresented: Binding(
                 get: { reviewPendingDeletion != nil },
                 set: { if !$0 { reviewPendingDeletion = nil } }
             ),
             presenting: reviewPendingDeletion
         ) { review in
-            Button("Șterge", role: .destructive) {
+            Button(app.tr("Șterge"), role: .destructive) {
                 Task {
                     do { try await viewModel.deleteReview(review) }
                     catch { app.globalError = error.localizedDescription }
                     reviewPendingDeletion = nil
                 }
             }
-            Button("Anulează", role: .cancel) { reviewPendingDeletion = nil }
+            Button(app.tr("Anulează"), role: .cancel) { reviewPendingDeletion = nil }
         } message: { _ in
-            Text("Recenzia va fi eliminată definitiv.")
+            Text(app.tr("Recenzia va fi eliminată definitiv."))
         }
     }
 
@@ -72,7 +88,7 @@ struct ContentDetailView: View {
                     .clipped()
                 LinearGradient(colors: [.clear, FilmotecaTheme.background.opacity(0.2), FilmotecaTheme.background], startPoint: .top, endPoint: .bottom)
                 VStack(alignment: .leading, spacing: 11) {
-                    if movie.isTrending == true { Text("ÎN TREND").font(.caption2.weight(.black)).tracking(2).foregroundStyle(FilmotecaTheme.accent) }
+                    if movie.isTrending == true { Text(app.tr("ÎN TREND")).font(.caption2.weight(.black)).tracking(2).foregroundStyle(FilmotecaTheme.accent) }
                     Text(movie.title).font(.system(size: 39, weight: .black, design: .serif)).lineLimit(3).shadow(radius: 8)
                     if let original = movie.originalTitle, original != movie.title { Text(original).font(.subheadline).italic().foregroundStyle(FilmotecaTheme.muted) }
                     HStack(spacing: 9) {
@@ -95,10 +111,10 @@ struct ContentDetailView: View {
         VStack(spacing: 13) {
             Button { Task { await viewModel.watch(app: app) } } label: { Label(watchLabel(movie), systemImage: "play.fill").frame(maxWidth: .infinity) }.buttonStyle(GlassButtonStyle(prominent: true))
             HStack(spacing: 0) {
-                actionButton(app.favorites.contains(movie.slug) ? "În lista mea" : "Lista mea", icon: app.favorites.contains(movie.slug) ? "checkmark" : "plus") { Task { await app.toggleFavorite(movie.slug) } }
-                actionButton("Trailer", icon: "play.circle") { viewModel.playTrailer() }
-                ShareLink(item: FilmotecaTheme.webBaseURL.appending(path: "movie/\(movie.slug)"), subject: Text(movie.title)) { VStack(spacing: 7) { Image(systemName: "square.and.arrow.up").font(.title3); Text("Distribuie").font(.caption) }.frame(maxWidth: .infinity).foregroundStyle(.white) }
-                actionButton("Recenzie", icon: "star.bubble") { guard app.isAuthenticated else { app.authPresented = true; return }; viewModel.isReviewPresented = true }
+                actionButton(app.favorites.contains(movie.slug) ? app.tr("În lista mea") : app.tr("Lista mea"), icon: app.favorites.contains(movie.slug) ? "checkmark" : "plus") { Task { await app.toggleFavorite(movie.slug) } }
+                actionButton(app.tr("Trailer"), icon: "play.circle") { viewModel.playTrailer() }
+                ShareLink(item: FilmotecaTheme.webBaseURL.appending(path: "movie/\(movie.slug)"), subject: Text(movie.title)) { VStack(spacing: 7) { Image(systemName: "square.and.arrow.up").font(.title3); Text(app.tr("Distribuie")).font(.caption) }.frame(maxWidth: .infinity).foregroundStyle(.white) }
+                actionButton(app.tr("Recenzie"), icon: "star.bubble") { guard app.isAuthenticated else { app.authPresented = true; return }; viewModel.isReviewPresented = true }
             }
         }
     }
@@ -107,16 +123,16 @@ struct ContentDetailView: View {
 
     private func watchLabel(_ movie: Content) -> String {
         if hasAccess(movie) || movie.isFree == true { return app.t("watch") }
-        return movie.price > 0 ? "Cumpără acces de la \(movie.price.formatted(.number.precision(.fractionLength(0...2)))) \(movie.currency ?? "MDL")" : app.t("watch")
+        return movie.price > 0 ? app.tr("Cumpără acces de la {0}", "\(movie.price.formatted(.number.precision(.fractionLength(0...2)))) \(movie.currency ?? "MDL")") : app.t("watch")
     }
 
     private func facts(_ movie: Content) -> some View {
         VStack(alignment: .leading, spacing: 13) {
-            Text("Detalii").filmotecaTitle(.title3)
-            fact("Țara", movie.countryNames?.joined(separator: ", ") ?? movie.countryName)
-            fact("Audio", movie.audioLocales?.map { $0.uppercased() }.joined(separator: ", "))
-            fact("Subtitrări", movie.subtitleLocales?.map { $0.uppercased() }.joined(separator: ", "))
-            fact("Tip", movie.typeLabel ?? movie.type.capitalized)
+            Text(app.tr("Detalii")).filmotecaTitle(.title3)
+            fact(app.tr("Țara"), movie.countryNames?.joined(separator: ", ") ?? movie.countryName)
+            fact(app.tr("Audio"), movie.audioLocales?.map { $0.uppercased() }.joined(separator: ", "))
+            fact(app.tr("Subtitrări"), movie.subtitleLocales?.map { $0.uppercased() }.joined(separator: ", "))
+            fact(app.tr("Tip"), movie.typeLabel ?? movie.type.capitalized)
         }.padding(17).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 17))
     }
 
@@ -124,7 +140,7 @@ struct ContentDetailView: View {
 
     private func episodesSection(_ movie: Content, seasons: [Season]) -> some View {
         VStack(alignment: .leading, spacing: 15) {
-            HStack { Text("Episoade").filmotecaTitle(.title3); Spacer(); Picker("Sezon", selection: Binding(get: { viewModel.selectedSeason }, set: { viewModel.selectedSeason = $0 })) { ForEach(seasons.indices, id: \.self) { Text(seasons[$0].title ?? "Sezonul \(seasons[$0].seasonNumber)").tag($0) } }.pickerStyle(.menu).tint(.white) }
+            HStack { Text(app.tr("Episoade")).filmotecaTitle(.title3); Spacer(); Picker(app.tr("Sezon"), selection: Binding(get: { viewModel.selectedSeason }, set: { viewModel.selectedSeason = $0 })) { ForEach(seasons.indices, id: \.self) { Text(seasons[$0].title ?? app.tr("Sezonul {0}", "\(seasons[$0].seasonNumber)")).tag($0) } }.pickerStyle(.menu).tint(.white) }
             if seasons.indices.contains(viewModel.selectedSeason) { ForEach(seasons[viewModel.selectedSeason].episodes) { episode in
                 Button { Task { await viewModel.watch(app: app, episodeID: episode.id) } } label: {
                     HStack(spacing: 13) {
@@ -140,13 +156,13 @@ struct ContentDetailView: View {
         if !people.isEmpty { VStack(alignment: .leading, spacing: 14) { Text(title).filmotecaTitle(.title3); ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 15) { ForEach(people) { person in VStack(spacing: 8) { RemoteImage(url: URL(string: person.avatarURL ?? "")).frame(width: 76, height: 76).clipShape(Circle()); Text(person.name).font(.caption.bold()).lineLimit(1); Text(person.role ?? person.job ?? "").font(.caption2).foregroundStyle(FilmotecaTheme.muted).lineLimit(1) }.frame(width: 92) } } } } }
     }
 
-    private func gallery(_ images: [String]) -> some View { VStack(alignment: .leading, spacing: 14) { Text("Galerie").filmotecaTitle(.title3); ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 10) { ForEach(images, id: \.self) { RemoteImage(url: URL(string: $0)).frame(width: 230, height: 135).clipShape(RoundedRectangle(cornerRadius: 12)) } } } } }
+    private func gallery(_ images: [String]) -> some View { VStack(alignment: .leading, spacing: 14) { Text(app.tr("Galerie")).filmotecaTitle(.title3); ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 10) { ForEach(images, id: \.self) { RemoteImage(url: URL(string: $0)).frame(width: 230, height: 135).clipShape(RoundedRectangle(cornerRadius: 12)) } } } } }
 
     private func reviewsSection(_ movie: Content) -> some View {
         VStack(alignment: .leading, spacing: 15) {
-            HStack { Text("Recenzii").filmotecaTitle(.title3); Spacer(); if let summary = viewModel.reviews?.summary { Label("\(summary.averageRating, specifier: "%.1f")", systemImage: "star.fill").foregroundStyle(FilmotecaTheme.gold); Text("(\(summary.count))").foregroundStyle(FilmotecaTheme.muted) } }
+            HStack { Text(app.tr("Recenzii")).filmotecaTitle(.title3); Spacer(); if let summary = viewModel.reviews?.summary { Label("\(summary.averageRating, specifier: "%.1f")", systemImage: "star.fill").foregroundStyle(FilmotecaTheme.gold); Text("(\(summary.count))").foregroundStyle(FilmotecaTheme.muted) } }
             if viewModel.reviews?.items.isEmpty != false {
-                Text("Fii primul care scrie o recenzie.").font(.subheadline).foregroundStyle(FilmotecaTheme.muted)
+                Text(app.tr("Fii primul care scrie o recenzie.")).font(.subheadline).foregroundStyle(FilmotecaTheme.muted)
             }
             ForEach(viewModel.reviews?.items ?? []) { review in
                 VStack(alignment: .leading, spacing: 8) {
@@ -164,7 +180,7 @@ struct ContentDetailView: View {
                                     .background(.red.opacity(0.12), in: Circle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Șterge recenzia")
+                            .accessibilityLabel(app.tr("Șterge recenzia"))
                         }
                     }
                     Text(review.comment).font(.subheadline).foregroundStyle(.white.opacity(0.78))
@@ -176,7 +192,7 @@ struct ContentDetailView: View {
                 guard app.isAuthenticated else { app.authPresented = true; return }
                 viewModel.isReviewPresented = true
             } label: {
-                Label(viewModel.reviews?.items.isEmpty != false ? "Scrie prima recenzie" : "Scrie o recenzie", systemImage: "square.and.pencil")
+                Label(viewModel.reviews?.items.isEmpty != false ? app.tr("Scrie prima recenzie") : app.tr("Scrie o recenzie"), systemImage: "square.and.pencil")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(GlassButtonStyle())
@@ -203,7 +219,7 @@ private struct PurchaseSheet: View {
                         RemoteImage(url: content.poster).frame(width: 75, height: 108).clipShape(RoundedRectangle(cornerRadius: 10))
                         VStack(alignment: .leading, spacing: 5) {
                             Text(content.title).filmotecaTitle(.title3)
-                            Text("Alege opțiunea de vizionare și calitatea").foregroundStyle(FilmotecaTheme.muted)
+                            Text(app.tr("Alege opțiunea de vizionare și calitatea")).foregroundStyle(FilmotecaTheme.muted)
                         }
                     }
 
@@ -220,7 +236,7 @@ private struct PurchaseSheet: View {
                     }
 
                     HStack {
-                        Label("Sold portofel", systemImage: "wallet.pass")
+                        Label(app.tr("Sold portofel"), systemImage: "wallet.pass")
                             .font(.subheadline)
                             .foregroundStyle(FilmotecaTheme.muted)
                         Spacer()
@@ -230,7 +246,7 @@ private struct PurchaseSheet: View {
                     }
 
                     if let selected, app.balance < selected.priceAmount {
-                        Text("Sold insuficient pentru opțiunea aleasă.")
+                        Text(app.tr("Sold insuficient pentru opțiunea aleasă."))
                             .font(.footnote)
                             .foregroundStyle(.orange)
                         Button { topUpPresented = true } label: {
@@ -242,9 +258,9 @@ private struct PurchaseSheet: View {
                             if purchasing {
                                 ProgressView().tint(.white)
                             } else if let selected {
-                                Text("Confirmă cumpărarea – \(price(selected))")
+                                Text(app.tr("Confirmă cumpărarea – {0}", price(selected)))
                             } else {
-                                Text("Selectează o opțiune")
+                                Text(app.tr("Selectează o opțiune"))
                             }
                         }
                         .buttonStyle(GlassButtonStyle(prominent: true))
@@ -252,19 +268,19 @@ private struct PurchaseSheet: View {
                     }
 
                     if let error { Text(error).font(.footnote).foregroundStyle(.red) }
-                    Text("Plata accesului este efectuată din soldul existent. Alimentarea poate fi inițiată direct din aplicație.")
+                    Text(app.tr("Plata accesului este efectuată din soldul existent. Alimentarea poate fi inițiată direct din aplicație."))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
                 .padding(20)
             }
             .background(FilmotecaTheme.background)
-            .navigationTitle("Acces la film")
+            .navigationTitle(app.tr("Acces la film"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.large])
         .onAppear { selected = content.purchaseOffers.first }
-        .sheet(isPresented: $topUpPresented, onDismiss: { Task { await app.refreshAccount() } }) { WalletTopUpSheet() }
+        .sheet(isPresented: $topUpPresented, onDismiss: { Task { await app.refreshAccount() } }) { CreditPackSheet() }
     }
 
     private var offerGroups: [PurchaseOfferGroup] {
@@ -327,6 +343,7 @@ private struct PurchaseOfferGroup: Identifiable {
 }
 
 private struct ReviewComposer: View {
+    @Environment(FilmotecaModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     let content: Content
     let submitReview: (Int, String) async throws -> Void
@@ -335,7 +352,67 @@ private struct ReviewComposer: View {
     @State private var sending = false
     @State private var error: String?
     var body: some View {
-        NavigationStack { VStack(spacing: 22) { Text(content.title).filmotecaTitle(.title2); HStack { ForEach(1...5, id: \.self) { value in Button { rating = value } label: { Image(systemName: value <= rating ? "star.fill" : "star").font(.title).foregroundStyle(FilmotecaTheme.gold) } } }; TextEditor(text: $comment).frame(minHeight: 150).padding(8).scrollContentBackground(.hidden).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 14)); if let error { Text(error).foregroundStyle(.red).font(.footnote) }; Button("Publică recenzia") { Task { await submit() } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(comment.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 || sending); Spacer() }.padding(20).background(FilmotecaTheme.background).navigationTitle("Recenzie").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .cancellationAction) { Button("Anulează") { dismiss() } } } }.presentationDetents([.large])
+        NavigationStack { VStack(spacing: 22) { Text(content.title).filmotecaTitle(.title2); HStack { ForEach(1...5, id: \.self) { value in Button { rating = value } label: { Image(systemName: value <= rating ? "star.fill" : "star").font(.title).foregroundStyle(FilmotecaTheme.gold) } } }; TextEditor(text: $comment).frame(minHeight: 150).padding(8).scrollContentBackground(.hidden).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 14)); if let error { Text(error).foregroundStyle(.red).font(.footnote) }; Button(app.tr("Publică recenzia")) { Task { await submit() } }.buttonStyle(GlassButtonStyle(prominent: true)).disabled(comment.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 || sending); Spacer() }.padding(20).background(FilmotecaTheme.background).navigationTitle(app.tr("Recenzie")).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .cancellationAction) { Button(app.tr("Anulează")) { dismiss() } } } }.presentationDetents([.large])
     }
     private func submit() async { sending = true; defer { sending = false }; do { try await submitReview(rating, comment); dismiss() } catch { self.error = error.localizedDescription } }
+}
+
+
+/// Mirrors the web `PremiereCountdown`: ticks every second until `starts_at`, then shows
+/// "live now" until `ends_at` (if any), and disappears once the premiere is over.
+private struct PremiereCountdown: View {
+    @Environment(FilmotecaModel.self) private var app
+    let premiere: Premiere
+
+    var body: some View {
+        if let start = Self.date(premiere.startsAt) {
+            let end = premiere.endsAt.flatMap(Self.date)
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let now = context.date
+                if now < start {
+                    countdown(remaining: start.timeIntervalSince(now))
+                } else if end.map({ now < $0 }) ?? false {
+                    Label(app.tr("În direct acum"), systemImage: "dot.radiowaves.left.and.right")
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .foregroundStyle(.green)
+                        .background(.green.opacity(0.18), in: Capsule())
+                }
+            }
+        }
+    }
+
+    private func countdown(remaining: TimeInterval) -> some View {
+        let total = Int(remaining)
+        let parts = [
+            (total / 86_400, app.tr("zile")),
+            (total % 86_400 / 3_600, app.tr("ore")),
+            (total % 3_600 / 60, "min"),
+            (total % 60, app.tr("sec")),
+        ]
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(premiere.title).font(.caption).foregroundStyle(FilmotecaTheme.muted)
+            Text(app.tr("Premieră în").uppercased()).font(.caption2.weight(.black)).tracking(1.4).foregroundStyle(FilmotecaTheme.accent)
+            HStack(spacing: 0) {
+                ForEach(parts.indices, id: \.self) { index in
+                    VStack(spacing: 2) {
+                        Text(String(format: "%02d", parts[index].0)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text(parts[index].1.uppercased()).font(.system(size: 10, weight: .semibold)).foregroundStyle(FilmotecaTheme.muted)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(16)
+        .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 17))
+        .overlay(RoundedRectangle(cornerRadius: 17).stroke(FilmotecaTheme.hairline))
+    }
+
+    private static func date(_ value: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: value)
+    }
 }

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\ApiController;
 use App\Models\AdCampaign;
 use App\Models\Content;
+use App\Services\AdRequestContext;
 use App\Services\AdTargetingService;
 use App\Services\ContentScopeService;
 use App\Services\VastService;
@@ -36,6 +37,9 @@ class AdTestController extends ApiController
             'group' => ['nullable', 'string', 'max:32'],
             'session_id' => ['nullable', 'string', 'max:80'],
             'user_id' => ['nullable', 'integer'],
+            'platform' => ['nullable', 'string', 'in:web,ios,tvos,android'],
+            'profile_max_rating' => ['nullable', 'string', 'max:16'],
+            'is_kids_profile' => ['nullable', 'boolean'],
         ]);
 
         $content = Content::query()->findOrFail($data['content_id']);
@@ -43,18 +47,22 @@ class AdTestController extends ApiController
         $country = isset($data['country_code']) ? strtoupper((string) $data['country_code']) : null;
         $group = (string) ($data['group'] ?? 'movies');
 
+        $context = new AdRequestContext(
+            content: $content,
+            countryCode: $country,
+            allowedGroup: $group,
+            playbackSessionId: $data['session_id'] ?? null,
+            userId: $data['user_id'] ?? null,
+            platform: $data['platform'] ?? null,
+            profileMaxRating: $data['profile_max_rating'] ?? null,
+            isKidsProfile: (bool) ($data['is_kids_profile'] ?? false),
+        );
+
         $eligible = $this->targeting
-            ->eligibleCampaigns($data['placement'], $content, $country, $group)
+            ->eligibleCampaigns($data['placement'], $context)
             ->filter(fn (AdCampaign $campaign): bool => $this->contentScope->canAccessAdCampaign($request->user(), $campaign))
             ->values();
-        $chosen = $this->targeting->pickForSession(
-            $data['placement'],
-            $content,
-            $country,
-            $group,
-            $data['session_id'] ?? null,
-            $data['user_id'] ?? null,
-        );
+        $chosen = $this->targeting->pickForSession($data['placement'], $context);
         if ($chosen !== null && ! $this->contentScope->canAccessAdCampaign($request->user(), $chosen)) {
             $chosen = null;
         }

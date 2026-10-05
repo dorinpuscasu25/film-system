@@ -450,5 +450,13 @@
     "play": "Play trailer",
     "mute": "Muted",
     "unmute": "Unmuted"
+  },
+  "ads": {
+    "label": "Advertisement",
+    "skip": "Skip ad",
+    "skip_in": "Skip in {{seconds}}s",
+    "learn_more": "Learn more",
+    "mute": "Mute",
+    "unmute": "Unmute"
   }
 }

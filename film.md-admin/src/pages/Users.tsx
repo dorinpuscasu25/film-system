@@ -16,6 +16,7 @@ interface EditFormState {
   email: string;
   status: "active" | "suspended";
   preferred_locale: "en" | "ro" | "ru";
+  is_test_account: boolean;
   role_ids: number[];
   assigned_content_ids: number[];
 }
@@ -83,6 +84,7 @@ export function Users() {
     email: "",
     status: "active",
     preferred_locale: "ro",
+    is_test_account: false,
     role_ids: [],
     assigned_content_ids: [],
   });
@@ -263,6 +265,7 @@ export function Users() {
                     email: user.email,
                     status: user.status,
                     preferred_locale: user.preferred_locale,
+                    is_test_account: Boolean(user.is_test_account),
                     role_ids: user.roles.map((role) => role.id),
                     assigned_content_ids: user.assigned_content_ids,
                   });
@@ -319,6 +322,7 @@ export function Users() {
         role_ids: editState.role_ids,
         assigned_content_ids: editState.assigned_content_ids,
         preferred_locale: editState.preferred_locale,
+        is_test_account: editState.is_test_account,
       });
       setSuccessMessage("Utilizatorul a fost actualizat.");
       setIsEditModalOpen(false);
@@ -731,6 +735,16 @@ export function Users() {
               ]}
             />
           </div>
+
+          <FormField
+            label="Cont de test Apple (Sandbox)"
+            type="toggle"
+            checked={editState.is_test_account}
+            helperText="Permite creditarea portofelului din cumpărături Apple Sandbox/TestFlight (bani de test). Lasă oprit pentru clienți reali."
+            onChange={(event) =>
+              setEditState((current) => ({ ...current, is_test_account: (event.target as HTMLInputElement).checked }))
+            }
+          />
 
           <div className="space-y-2">
             <p className="text-sm font-medium">Roluri</p>

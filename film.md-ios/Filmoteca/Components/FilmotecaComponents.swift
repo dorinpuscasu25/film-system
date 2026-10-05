@@ -31,6 +31,7 @@ struct RemoteImage: View {
 }
 
 struct PosterCard: View {
+    @Environment(FilmotecaModel.self) private var app
     let content: Content
     var width: CGFloat = 142
     var rank: Int?
@@ -43,8 +44,8 @@ struct PosterCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         HStack(spacing: 5) {
-                            if content.isNew { badge("NOU", color: FilmotecaTheme.accent) }
-                            if content.isFree == true { badge("GRATUIT", color: .white.opacity(0.2)) }
+                            if content.isNew { badge(app.tr("NOU"), color: FilmotecaTheme.accent) }
+                            if content.isFree == true { badge(app.tr("GRATUIT"), color: .white.opacity(0.2)) }
                         }.padding(8)
                     }
                     .overlay(RoundedRectangle(cornerRadius: 13).stroke(.white.opacity(0.1)))
@@ -195,7 +196,7 @@ struct ErrorState: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("Conținut indisponibil", systemImage: "wifi.exclamationmark")
+            Label(app.tr("Conținut indisponibil"), systemImage: "wifi.exclamationmark")
         } description: { Text(message) } actions: { Button(app.t("retry"), action: retry).buttonStyle(GlassButtonStyle(prominent: true)) }
             .foregroundStyle(.white).filmotecaBackground()
     }

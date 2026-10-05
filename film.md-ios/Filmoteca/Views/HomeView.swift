@@ -61,7 +61,7 @@ struct HomeView: View {
                     Text(content.metadata).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
                     Text(slide?.description ?? content.shortDescription ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.8)).lineLimit(3)
                     HStack(spacing: 10) {
-                        NavigationLink(value: content) { Label(app.t("watch"), systemImage: "play.fill") }.buttonStyle(GlassButtonStyle(prominent: true))
+                        NavigationLink(value: WatchRoute(content: content)) { Label(app.t("watch"), systemImage: "play.fill") }.buttonStyle(GlassButtonStyle(prominent: true))
                         NavigationLink(value: content) { Label(app.t("details"), systemImage: "info.circle") }.buttonStyle(GlassButtonStyle())
                     }
                     if slides.count > 1 { HStack(spacing: 5) { ForEach(slides.indices, id: \.self) { i in Capsule().fill(i == viewModel.heroIndex ? FilmotecaTheme.accent : .white.opacity(0.35)).frame(width: i == viewModel.heroIndex ? 22 : 6, height: 5) } }.animation(.spring, value: viewModel.heroIndex) }

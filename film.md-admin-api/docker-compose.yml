@@ -8,6 +8,9 @@ services:
       - .env
     environment:
       RUN_MIGRATIONS: 'true'
+      DATABASE_BACKUP_DIR: /var/backups/postgres
+      BACKUP_DIR: /var/backups/film-md
+      BACKUP_QUEUE_CONNECTION: redis-backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -20,6 +23,9 @@ services:
     ports:
       - '8000:8000'
     restart: unless-stopped
+    volumes:
+      - database_backups:/var/backups/postgres
+      - backups:/var/backups/film-md
 
   queue:
     build:
@@ -51,6 +57,8 @@ services:
       - .env
     environment:
       RUN_MIGRATIONS: 'false'
+      BACKUP_DIR: /var/backups/film-md
+      BACKUP_QUEUE_CONNECTION: redis-backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,6 +70,34 @@ services:
         condition: service_started
     command: ['sh', '-lc', 'while true; do php artisan schedule:run --no-interaction; sleep 60; done']
     restart: unless-stopped
+    volumes:
+      - backups:/var/backups/film-md
+
+  # Runs backups and restore tests queued from the admin (Setări → Backup-uri).
+  # Separate from `queue` so a long dump never delays analytics jobs.
+  backup-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: film-md-admin-api-backup-worker
+    env_file:
+      - .env
+    environment:
+      RUN_MIGRATIONS: 'false'
+      BACKUP_DIR: /var/backups/film-md
+      BACKUP_QUEUE_CONNECTION: redis-backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: ['php', 'artisan', 'queue:work', 'redis-backups', '--queue=backups', '--tries=1', '--timeout=10800', '--sleep=5', '--max-jobs=50']
+    stop_grace_period: 2m
+    restart: unless-stopped
+    volumes:
+      - backups:/var/backups/film-md
 
   postgres:
     image: postgres:16-alpine
@@ -133,3 +169,5 @@ volumes:
   postgres_data:
   meilisearch_data:
   redis_data:
+  database_backups:
+  backups:

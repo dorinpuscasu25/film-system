@@ -22,6 +22,7 @@ final class LiveCatalogRepository: CatalogRepositoryProtocol {
     func footerMenu(locale: LocaleCode) async throws -> PublicMenuResponse { try await api.footerMenu(locale: locale) }
     func page(slug: String, locale: LocaleCode) async throws -> CmsPage { try await api.page(slug: slug, locale: locale) }
     func content(slug: String, locale: LocaleCode) async throws -> Content { try await api.content(slug: slug, locale: locale) }
+    func recommendations(slug: String) async throws -> [RecommendationItem] { try await api.recommendations(slug: slug).items }
     func reviews(slug: String) async throws -> ReviewsResponse { try await api.reviews(slug: slug) }
     func submitReview(slug: String, rating: Int, comment: String) async throws { _ = try await api.submitReview(slug: slug, rating: rating, comment: comment) }
     func deleteReview(slug: String, reviewID: String) async throws { _ = try await api.deleteReview(slug: slug, reviewID: reviewID) }
@@ -50,8 +51,12 @@ final class LiveSessionRepository: SessionRepositoryProtocol {
         KeychainStore.deleteToken()
         return response
     }
-    func topUp(amount: Double, currency: String, phone: String, billingAddress: BillingAddress, locale: LocaleCode) async throws -> WalletTopUp {
-        try await api.topUp(amount: amount, currency: currency, phone: phone, billingAddress: billingAddress, locale: locale).topUp
+    func appleIapPacks() async throws -> [AppleIapPack] {
+        try await api.appleIapPacks().packs.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    func redeemAppleIap(signedTransaction: String) async throws -> AppleIapRedeemResponse {
+        try await api.redeemAppleIap(signedTransaction: signedTransaction)
     }
     func store(token: String) { KeychainStore.saveToken(token) }
     func favorite(profileID: String, slug: String, add: Bool) async throws { _ = try await api.favorite(profileID: profileID, slug: slug, add: add) }
@@ -89,8 +94,8 @@ final class LivePlaybackRepository: PlaybackRepositoryProtocol {
         )
     }
 
-    func track(_ context: PlayerTrackingContext, position: Double, duration: Double, event: String) async {
-        _ = try? await api.track(sessionToken: context.sessionToken, contentID: context.contentID, contentFormatID: context.contentFormatID, episodeID: context.episodeID, position: position, duration: duration, event: event)
+    func track(_ context: PlayerTrackingContext, position: Double, duration: Double, watchTimeSeconds: Double, event: String) async {
+        _ = try? await api.track(sessionToken: context.sessionToken, contentID: context.contentID, contentFormatID: context.contentFormatID, episodeID: context.episodeID, position: position, duration: duration, watchTimeSeconds: watchTimeSeconds, event: event)
     }
 }
 

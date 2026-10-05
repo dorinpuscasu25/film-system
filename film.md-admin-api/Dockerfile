@@ -2,8 +2,17 @@ FROM dunglas/frankenphp:1-php8.3-bookworm
 
 WORKDIR /var/www/html
 
+# Debian bookworm ships the PostgreSQL 15 client, and pg_dump refuses to dump a
+# newer server. Install the client matching the postgres:16 service from PGDG.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git unzip libpq-dev libzip-dev libjpeg62-turbo-dev libpng-dev libwebp-dev libfreetype6-dev postgresql-client $PHPIZE_DEPS \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git unzip libpq-dev libzip-dev libjpeg62-turbo-dev libpng-dev libwebp-dev libfreetype6-dev postgresql-client-16 redis-tools rclone openssl $PHPIZE_DEPS \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install bcmath gd pcntl pdo_pgsql pgsql zip \
     && pecl install redis \

@@ -149,7 +149,7 @@ private struct CmsHTMLView: UIViewRepresentable {
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
             // The initial loadHTMLString has no URL; anything else is a tapped link.
             guard navigationAction.navigationType == .linkActivated,

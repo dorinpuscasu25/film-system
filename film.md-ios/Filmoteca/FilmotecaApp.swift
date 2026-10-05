@@ -23,6 +23,7 @@ struct FilmotecaApp: App {
                 .environment(app)
                 .preferredColorScheme(.dark)
                 .tint(FilmotecaTheme.accent)
+                .task { app.container.storeKitService.start() }
         }
     }
 }

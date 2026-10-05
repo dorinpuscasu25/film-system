@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\WatchProgress;
 use App\Services\AccountProfileService;
+use App\Services\BunnyPlaylistResolver;
 use App\Services\BunnyTokenService;
 use App\Services\IpGeoLocationService;
 use App\Services\ParentalControlService;
@@ -34,6 +35,7 @@ class StorefrontController extends ApiController
         protected StorefrontPurchaseService $purchases,
         protected PlaybackAccessService $playbackAccess,
         protected BunnyTokenService $bunnyToken,
+        protected BunnyPlaylistResolver $playlistResolver,
         protected IpGeoLocationService $geoLocation,
         protected PayFilmotecaPaymentService $payments,
         protected ParentalControlService $parentalControls,
@@ -277,6 +279,7 @@ class StorefrontController extends ApiController
                     $playback['embed_url'],
                     $playback['bunny_auth'] ?? null,
                 ),
+                'hls_url' => $playback['hls_url'] ?? null,
                 'bunny_token' => data_get($playback, 'bunny_auth.token'),
                 'bunny_expires' => data_get($playback, 'bunny_auth.expires'),
                 'quality' => $playback['quality'],
@@ -337,7 +340,7 @@ class StorefrontController extends ApiController
     }
 
     /**
-     * @return array{url: ?string, embed_url: ?string, bunny_auth?: array{token: string, expires: int}|null, quality: ?string, content_format_id: ?int, drm: array<string, mixed>, subtitles: array<int, array<string, mixed>>, episode: ?array<string, mixed>, message?: string, status?: int}
+     * @return array{url: ?string, embed_url: ?string, hls_url?: ?string, bunny_auth?: array{token: string, expires: int}|null, quality: ?string, content_format_id: ?int, drm: array<string, mixed>, subtitles: array<int, array<string, mixed>>, episode: ?array<string, mixed>, message?: string, status?: int}
      */
     protected function resolvePlaybackPayload(
         Content $content,
@@ -535,6 +538,7 @@ class StorefrontController extends ApiController
             return [
                 'url' => $episodeUrl,
                 'embed_url' => $episodeEmbedUrl ?: $this->bunnyEmbedUrl($resolvedFormat),
+                'hls_url' => $this->resolveWebHlsUrl($resolvedFormat),
                 'bunny_auth' => $this->bunnyToken->embedViewToken($resolvedFormat, $episodeVideoId),
                 'quality' => $resolvedFormat->quality,
                 'content_format_id' => $resolvedFormat->id,
@@ -558,6 +562,10 @@ class StorefrontController extends ApiController
         return [
             'url' => $this->bunnyToken->signedStreamUrl($resolvedFormat) ?: $primaryVideoUrl,
             'embed_url' => $this->bunnyEmbedUrl($resolvedFormat),
+            // Lets the web client own the player instead of falling back to
+            // Bunny's iframe, which cannot host our ad breaks or controls.
+            // Gated: see services.bunny.web_native_playback.
+            'hls_url' => $this->resolveWebHlsUrl($resolvedFormat),
             'bunny_auth' => $this->bunnyToken->embedViewToken($resolvedFormat),
             'quality' => $resolvedFormat->quality,
             'content_format_id' => $resolvedFormat->id,
@@ -608,6 +616,22 @@ class StorefrontController extends ApiController
             'token' => $authentication['token'],
             'expires' => $authentication['expires'],
         ], '', '&', PHP_QUERY_RFC3986);
+    }
+
+    /**
+     * Resolved HLS playlist for the web player, or null to keep the iframe.
+     *
+     * Disabled by default because Bunny's iframe player is what decrypts
+     * MediaCage DRM today; handing the browser a raw playlist without license
+     * servers configured would stop protected titles from playing.
+     */
+    protected function resolveWebHlsUrl(ContentFormat $format): ?string
+    {
+        if (! (bool) config('services.bunny.web_native_playback', false)) {
+            return null;
+        }
+
+        return $this->playlistResolver->resolve($format);
     }
 
     protected function formatDrmData(ContentFormat $format): array

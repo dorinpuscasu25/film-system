@@ -1,8 +1,35 @@
 # Audit plăți iOS — In-App Purchase
 
-**Data:** 11 august 2026
-**Status:** analiză finalizată, implementare **pusă pe pauză**
+**Data:** 11 august 2026 · **Nivelul 1 implementat:** 23 septembrie 2026
+**Status:** cod complet (backend + iOS), testat cu tranzacții `LocalTesting` (fără cont Apple). Producție/Sandbox rămân blocate de pașii de business din §8 (necofirmați încă — banking Moldova, Paid Applications Agreement, formulare fiscale).
 **Context:** aplicația iOS (`film.md-ios`, bundle `md.filmoteca.ios`, team `4TR9CSYCJW`) vinde acces la filme prin portofel în MDL. Trebuie stabilit cum se conformează regulilor Apple privind comisionul de 15–30%.
+
+## Ce s-a construit (Nivelul 1 — testabil fără cont Apple)
+
+**Backend (`film.md-admin-api`):**
+- Migrare `apple_iap_transactions` (idempotent pe `transaction_id`, păstrează payload-ul semnat + decodat pentru audit)
+- `is_test_account` pe `users` — gate-ul pentru redemptions Sandbox (setabil din admin, `PATCH admin/users/{user}`)
+- `WalletService` are acum **trei** bucket-uri (`platform_credit_balance`/`apple_credit_balance`/`own_credit_balance`), consumate în ordinea platform → apple → own; `debitAppleCredit()` pentru clawback la refund
+- `IapCreditPackService` — catalogul `product_id → credite`, configurabil din admin (`platform-settings`, cheia `iap_credit_packs`), cu pachete placeholder pentru dezvoltare locală
+- `AppleIapService` — verificare JWS prin `hoels/app-store-server-library-php` (port comunitar al bibliotecii oficiale Apple), rutare pe environment-ul *nesemnat* al payload-ului doar ca să aleagă *care* verificator rulează (niciodată ca dovadă în sine), idempotent, gating strict: Production → oricând configurat; Sandbox → doar `is_test_account`; Xcode/LocalTesting → doar dacă `APP_ENV != production`
+- Endpoint `POST storefront/wallet/apple-iap/redeem` + webhook `POST webhooks/apple/notifications` (REFUND/REVOKE → clawback, CONSUMPTION_REQUEST → răspuns best-effort)
+- 9 teste noi (`AppleIapApiTest`), inclusiv un test care confirmă că o pretenție falsă de mediu Sandbox e respinsă la verificarea criptografică, nu doar retrogradată tăcut
+
+**iOS (`film.md-ios`):**
+- `StoreKitService` (StoreKit 2) — încarcă produsele, cumpără, ascultă `Transaction.updates`/`Transaction.unfinished`, confirmă cu backend-ul înainte de `finish()`
+- `CreditPackSheet` înlocuiește `WalletTopUpSheet` peste tot (cont → Portofel, și la sold insuficient din ecranul de film)
+- Șters: formularul PayFilmoteca + `InAppBrowser` din fluxul de plată, `AppConfiguration.walletTopUpURL`, `FilmotecaTheme.topUpURL`
+- `Filmoteca.storekit` — fișier de configurare local, cu 3 pachete placeholder; de atașat manual în Xcode (Product → Scheme → Edit Scheme → Run → Options → StoreKit Configuration)
+
+**Verificat, nu doar scris:** build real (`xcodebuild`) fără erori/avertismente pe niciun fișier atins; suita PHP completă rulează curat (9/9 teste noi, nimic stricat din portofelul existent).
+
+## Ce rămâne de făcut (blocat pe business, nu pe cod)
+
+1. Descarcă `AppleRootCA-G3.cer` (public, fără cont Apple) și pune-l la `storage/app/apple/AppleRootCA-G3.cer` — necesar doar pentru Sandbox/Production real
+2. Confirmă pașii din §8 (banking Moldova, Paid Applications Agreement, W-8BEN-E, Small Business Program)
+3. Creează produsele reale în App Store Connect cu aceleași ID-uri ca în `Filmoteca.storekit` / `IapCreditPackService::DEFAULT_SETTINGS`
+4. Completează `.env`: `APPLE_APP_APPLE_ID`, `APPLE_IAP_SIGNING_KEY`/`APPLE_IAP_KEY_ID`/`APPLE_IAP_ISSUER_ID`
+5. Configurează grila finală de pachete din admin (`platform-settings` → `iap_credit_packs`), odată confirmată moneda reală a storefront-ului
 
 ---
 

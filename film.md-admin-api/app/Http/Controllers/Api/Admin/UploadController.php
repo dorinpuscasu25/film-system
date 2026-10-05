@@ -31,14 +31,20 @@ class UploadController extends Controller
             'files' => ['nullable', 'array', 'max:20'],
             'files.*' => ['file', 'max:262144'],
             'directory' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\-\/]+$/'],
+            // Images are the default so existing callers keep working; "video"
+            // is used for ad creatives, which VAST needs as progressive files.
+            'kind' => ['nullable', 'string', 'in:image,video'],
         ]);
 
-        $directory = $request->input('directory', 'uploads');
+        $isVideo = $request->input('kind') === 'video';
+        $directory = $request->input('directory', $isVideo ? 'ads/creatives' : 'uploads');
 
         // Single file upload
         if ($request->hasFile('file')) {
             try {
-                $url = $this->uploadService->upload($request->file('file'), $directory);
+                $url = $isVideo
+                    ? $this->uploadService->uploadVideo($request->file('file'), $directory)
+                    : $this->uploadService->upload($request->file('file'), $directory);
 
                 return response()->json(['url' => $url], Response::HTTP_CREATED);
             } catch (\InvalidArgumentException $e) {
@@ -53,7 +59,9 @@ class UploadController extends Controller
 
             foreach ($request->file('files') as $index => $file) {
                 try {
-                    $urls[] = $this->uploadService->upload($file, $directory);
+                    $urls[] = $isVideo
+                        ? $this->uploadService->uploadVideo($file, $directory)
+                        : $this->uploadService->upload($file, $directory);
                 } catch (\InvalidArgumentException $e) {
                     $errors[] = [
                         'index' => $index,

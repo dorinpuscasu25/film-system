@@ -25,6 +25,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { resizedImageUrl } from '../lib/images';
 import { isBunnyApiAssetUrl, isDirectMediaUrl, resolveEmbedUrl } from '../lib/videoEmbeds';
 import { formatRuntimeMinutes } from '../lib/time';
+import { AdBreakOverlay } from './AdBreakOverlay';
+import { AdBreak, fetchAdBreaks } from '../lib/ads';
 
 interface PlaybackDrmConfig {
   policy?: string | null;
@@ -58,6 +60,11 @@ interface VideoPlayerProps {
     event_type: string;
   }) => void;
   onBack: () => void;
+  /** Playback session token, used so ad frequency caps apply per view. */
+  playbackSessionToken?: string | null;
+  accountProfileId?: string | number | null;
+  /** Numeric content id. `movie.id` carries the slug, which ad targeting cannot use. */
+  contentId?: number | null;
 }
 
 type VariantTrack = shaka.extern.Track;
@@ -270,6 +277,9 @@ export function VideoPlayer({
   onEpisodeSelect,
   onProgress,
   onBack,
+  playbackSessionToken,
+  accountProfileId,
+  contentId,
 }: VideoPlayerProps) {
   const { getTimeRemaining } = useWallet();
   const { t, currentLanguage } = useLanguage();
@@ -287,6 +297,11 @@ export function VideoPlayer({
   const embedPlayerRef = useRef<PlayerJsPlayer | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  // Ad breaks for this playback. Resolved once per session; `played` is flipped
+  // in place so a break never repeats after a seek.
+  const adBreaksRef = useRef<AdBreak[]>([]);
+  const [activeAdBreak, setActiveAdBreak] = useState<AdBreak | null>(null);
+  const [adsResolved, setAdsResolved] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
@@ -405,6 +420,21 @@ export function VideoPlayer({
       if (typeof data === 'object' && data && Number.isFinite(data.duration)) {
         embedDurationRef.current = Number(data.duration);
       }
+
+      // Mid-rolls are evaluated from reported position, so seeking past a break
+      // skips it rather than queueing it up.
+      const due = adBreaksRef.current.find(
+        (item) =>
+          item.placement === 'mid-roll'
+          && !item.played
+          && Number.isFinite(item.timeOffsetSeconds)
+          && position >= item.timeOffsetSeconds,
+      );
+      if (due) {
+        due.played = true;
+        player?.pause();
+        setActiveAdBreak(due);
+      }
     };
     const onPlay = () => {
       embedPlayingRef.current = true;
@@ -420,6 +450,14 @@ export function VideoPlayer({
       embedPlayingRef.current = false;
       setIsPlaying(false);
       syncEmbedProgress('complete');
+
+      const postRoll = adBreaksRef.current.find(
+        (item) => item.placement === 'post-roll' && !item.played,
+      );
+      if (postRoll) {
+        postRoll.played = true;
+        setActiveAdBreak(postRoll);
+      }
     };
 
     void loadPlayerJs()
@@ -580,8 +618,37 @@ export function VideoPlayer({
     const onEnded = () => {
       setIsPlaying(false);
       syncProgress('complete');
+
+      const postRoll = adBreaksRef.current.find(
+        (item) => item.placement === 'post-roll' && !item.played,
+      );
+      if (postRoll) {
+        postRoll.played = true;
+        setActiveAdBreak(postRoll);
+      }
     };
 
+    // Mid-rolls fire from timeupdate rather than a timer so seeking past a break
+    // skips it instead of queueing it up.
+    const checkMidRoll = () => {
+      if (video.paused) return;
+
+      const due = adBreaksRef.current.find(
+        (item) =>
+          item.placement === 'mid-roll'
+          && !item.played
+          && Number.isFinite(item.timeOffsetSeconds)
+          && video.currentTime >= item.timeOffsetSeconds,
+      );
+
+      if (due) {
+        due.played = true;
+        video.pause();
+        setActiveAdBreak(due);
+      }
+    };
+
+    video.addEventListener('timeupdate', checkMidRoll);
     video.addEventListener('timeupdate', updateTime);
     video.addEventListener('durationchange', updateTime);
     video.addEventListener('progress', updateTime);
@@ -598,6 +665,7 @@ export function VideoPlayer({
 
     return () => {
       syncProgress('stop');
+      video.removeEventListener('timeupdate', checkMidRoll);
       video.removeEventListener('timeupdate', updateTime);
       video.removeEventListener('durationchange', updateTime);
       video.removeEventListener('progress', updateTime);
@@ -607,6 +675,67 @@ export function VideoPlayer({
       window.clearInterval(heartbeat);
     };
   }, [shouldUseExternalEmbed, syncProgress]);
+
+  /**
+   * Pauses whichever player is showing the film.
+   *
+   * On the Bunny iframe path we drive their player through the player.js bridge
+   * that is already loaded for progress tracking, so ad breaks need no
+   * configuration on Bunny's side and the DRM playback they handle is untouched.
+   */
+  const pauseActivePlayer = useCallback(() => {
+    if (shouldUseExternalEmbed) {
+      embedPlayerRef.current?.pause();
+      return;
+    }
+    videoRef.current?.pause();
+  }, [shouldUseExternalEmbed]);
+
+  /** Resumes the film once a break ends, is skipped, or fails. */
+  const handleAdFinished = useCallback(() => {
+    setActiveAdBreak(null);
+
+    if (shouldUseExternalEmbed) {
+      embedPlayerRef.current?.play();
+      return;
+    }
+
+    const video = videoRef.current;
+    if (video && !video.ended) {
+      void video.play().catch(() => undefined);
+    }
+  }, [shouldUseExternalEmbed]);
+
+  // Resolve ad breaks once per playback. Covers both playback paths: our own
+  // <video> element, and Bunny's iframe driven through the player.js bridge.
+  useEffect(() => {
+    if (adsResolved || !contentId) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void fetchAdBreaks({
+      contentId,
+      sessionToken: playbackSessionToken,
+      accountProfileId,
+      platform: 'web',
+      signal: controller.signal,
+    }).then((breaks) => {
+      if (controller.signal.aborted) return;
+      adBreaksRef.current = breaks;
+      setAdsResolved(true);
+
+      const preRoll = breaks.find((item) => item.placement === 'pre-roll');
+      if (preRoll) {
+        preRoll.played = true;
+        pauseActivePlayer();
+        setActiveAdBreak(preRoll);
+      }
+    });
+
+    return () => controller.abort();
+  }, [accountProfileId, adsResolved, contentId, pauseActivePlayer, playbackSessionToken, shouldUseExternalEmbed]);
 
   useEffect(() => {
     const video = videoRef.current as WebkitVideoElement | null;
@@ -952,6 +1081,12 @@ export function VideoPlayer({
           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
         />
+
+        {/* Covers Bunny's player while an ad plays; their player is paused
+            through the player.js bridge, so nothing changes on Bunny's side. */}
+        {activeAdBreak && (
+          <AdBreakOverlay adBreak={activeAdBreak} onFinished={handleAdFinished} />
+        )}
         <div className="player-safe-top pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/90 via-black/40 to-transparent">
           <div className="pointer-events-auto flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
@@ -988,6 +1123,10 @@ export function VideoPlayer({
       className="player-viewport group relative flex w-full items-center justify-center overflow-hidden bg-black"
       onDoubleClick={toggleFullscreen}
     >
+      {activeAdBreak && (
+        <AdBreakOverlay adBreak={activeAdBreak} onFinished={handleAdFinished} />
+      )}
+
       <video
         ref={videoRef}
         className="h-full w-full bg-black object-contain"

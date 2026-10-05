@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\Api\Admin\AccountingTransactionController;
 use App\Http\Controllers\Api\Admin\AdCampaignController;
+use App\Http\Controllers\Api\Admin\AdCampaignReportController;
 use App\Http\Controllers\Api\Admin\AdStatsController;
 use App\Http\Controllers\Api\Admin\AdTestController;
 use App\Http\Controllers\Api\Admin\AnalyticsController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
+use App\Http\Controllers\Api\Admin\BackupController;
 use App\Http\Controllers\Api\Admin\BunnyHealthController;
 use App\Http\Controllers\Api\Admin\CmsPageController;
 use App\Http\Controllers\Api\Admin\ContentController;
@@ -38,6 +40,7 @@ use App\Http\Controllers\Api\AdsController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\DeviceAuthController;
 use App\Http\Controllers\Api\Auth\InvitationController;
+use App\Http\Controllers\Api\AppleWebhookController;
 use App\Http\Controllers\Api\BunnyWebhookController;
 use App\Http\Controllers\Api\ContentReviewController;
 use App\Http\Controllers\Api\OpenApiController;
@@ -53,6 +56,7 @@ use App\Http\Controllers\Api\StorefrontDeviceController;
 use App\Http\Controllers\Api\StorefrontParentalController;
 use App\Http\Controllers\Api\StorefrontProfileController;
 use App\Http\Controllers\Api\StorefrontTrackingController;
+use App\Http\Controllers\Api\StorefrontAppleIapController;
 use App\Http\Controllers\Api\StorefrontWalletTopUpController;
 use App\Http\Controllers\Api\StorefrontWatchPartyController;
 use Illuminate\Support\Facades\Route;
@@ -101,15 +105,25 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('webhooks/bunny')->middleware('throttle:240,1')->group(function (): void {
         Route::post('video', [BunnyWebhookController::class, 'video']);
         Route::post('ads', [BunnyWebhookController::class, 'ads']);
-        // Bunny Stream calls this on videoStart to fetch ad payload (pre/mid/post-roll)
-        Route::any('ad-injection', [BunnyWebhookController::class, 'adInjection']);
     });
 
     Route::get('ads/vast', [AdsController::class, 'vast'])->middleware('throttle:240,1')->name('ads.vast');
+    // VMAP returns every ad break for one playback in a single response.
+    Route::get('ads/vmap', [AdsController::class, 'vmap'])->middleware('throttle:240,1')->name('ads.vmap');
     Route::get('ads/track', [AdsController::class, 'track'])->middleware('throttle:600,1');
     Route::post('ads/events', [AdsController::class, 'event'])->middleware('throttle:240,1');
     Route::any('payments/pay-filmoteca/callback', PayFilmotecaCallbackController::class)->middleware('throttle:120,1');
+    // App Store Server Notifications V2 — authenticity comes from Apple's JWS signature
+    // (verified in AppleIapService), not a shared secret, so no extra auth middleware here.
+    Route::prefix('webhooks/apple')->middleware('throttle:240,1')->group(function (): void {
+        Route::post('notifications', [AppleWebhookController::class, 'notifications']);
+    });
     Route::get('docs/openapi.json', [OpenApiController::class, 'show']);
+
+    // Short-lived signed links issued by the admin backup page.
+    Route::get('backups/download', [BackupController::class, 'download'])
+        ->middleware(['signed', 'throttle:30,1'])
+        ->name('backups.download');
 
     Route::middleware('api.token')->group(function (): void {
         Route::prefix('auth')->group(function (): void {
@@ -147,6 +161,9 @@ Route::prefix('v1')->group(function (): void {
             Route::get('wallet/top-ups/latest', [StorefrontWalletTopUpController::class, 'latest'])->middleware('permission:wallet.top_up');
             Route::post('wallet/top-ups', [StorefrontWalletTopUpController::class, 'store'])->middleware(['permission:wallet.top_up', 'throttle:20,1']);
             Route::get('wallet/top-ups/{topUp}', [StorefrontWalletTopUpController::class, 'show'])->middleware('permission:wallet.top_up');
+            // iOS-only: StoreKit credit pack redemption. Web/Android/TV keep using wallet/top-ups above.
+            Route::get('wallet/apple-iap/packs', [StorefrontAppleIapController::class, 'packs']);
+            Route::post('wallet/apple-iap/redeem', [StorefrontAppleIapController::class, 'redeem'])->middleware(['permission:wallet.top_up', 'throttle:20,1']);
 
             Route::post('offers/{offer}/purchase', [StorefrontController::class, 'purchase'])->middleware('permission:content.purchase');
             Route::get('content/{identifier}/playback', [StorefrontController::class, 'playback'])->middleware('permission:content.watch');
@@ -170,6 +187,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('financial-summary', [FinancialSummaryController::class, 'show'])->middleware('permission:commerce.view_billing');
             Route::get('reporting', [RightsReportingController::class, 'dashboard'])->middleware('permission:content.view_financials');
             Route::get('reporting/profiles', [RightsReportingController::class, 'profiles'])->middleware('permission:reporting.manage_profiles');
+            Route::post('reporting/holders', [RightsReportingController::class, 'onboardHolder'])->middleware('permission:reporting.manage_profiles');
             Route::post('reporting/contracts', [RightsReportingController::class, 'storeContract'])->middleware('permission:reporting.manage_profiles');
             Route::post('reporting/fiscal-profiles', [RightsReportingController::class, 'storeFiscalProfile'])->middleware('permission:reporting.manage_profiles');
             Route::post('reporting/settings', [RightsReportingController::class, 'storeSettings'])->middleware('permission:reporting.manage_profiles');
@@ -223,9 +241,25 @@ Route::prefix('v1')->group(function (): void {
             // Per-campaign stats (caiet §3 enhanced)
             Route::get('ad-campaigns/{campaign}/stats', [AdStatsController::class, 'show'])->middleware('permission:advertising.view');
             Route::get('ad-campaigns/{campaign}/events', [AdStatsController::class, 'events'])->middleware('permission:advertising.view');
+            Route::get('ad-campaigns/{campaign}/report', [AdCampaignReportController::class, 'show'])->middleware('permission:advertising.view');
 
             // VAST debug — see which campaign would serve, the resolved XML, and why others were excluded
             Route::post('ad-test/resolve', [AdTestController::class, 'resolve'])->middleware('permission:advertising.view');
+
+            // Backups (Settings → Backup-uri)
+            Route::prefix('backups')->middleware('permission:settings.manage_backups')->group(function (): void {
+                Route::get('/', [BackupController::class, 'index']);
+                Route::post('/', [BackupController::class, 'store']);
+                Route::put('settings', [BackupController::class, 'updateSettings']);
+                Route::post('settings/test-remote', [BackupController::class, 'testRemote'])->middleware('throttle:10,1');
+                Route::post('settings/test-notification', [BackupController::class, 'testNotification'])->middleware('throttle:5,1');
+                Route::post('pre-migration/download-link', [BackupController::class, 'preMigrationLink']);
+                Route::get('{backupRun}', [BackupController::class, 'show'])->whereNumber('backupRun');
+                Route::patch('{backupRun}', [BackupController::class, 'update'])->whereNumber('backupRun');
+                Route::delete('{backupRun}', [BackupController::class, 'destroy'])->whereNumber('backupRun');
+                Route::post('{backupRun}/restore-test', [BackupController::class, 'restoreTest'])->whereNumber('backupRun');
+                Route::post('{backupRun}/download-link', [BackupController::class, 'downloadLink'])->whereNumber('backupRun');
+            });
 
             // Bunny integration health probe (Settings → Bunny Health)
             Route::get('bunny/health', [BunnyHealthController::class, 'show'])->middleware('permission:settings.edit_home_curation');

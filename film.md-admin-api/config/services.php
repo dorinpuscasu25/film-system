@@ -52,6 +52,14 @@ return [
         'stream_base_url' => env('BUNNY_STREAM_BASE_URL', 'https://video.bunnycdn.com'),
         'stats_api_base' => env('BUNNY_STATS_API_BASE', 'https://video.bunnycdn.com'),
 
+        // Serve the resolved HLS playlist to the web client instead of Bunny's
+        // iframe embed. Off by default: the iframe player performs MediaCage DRM
+        // decryption, and our Shaka setup only carries license servers when
+        // content_formats.meta.drm.servers is populated. Turn this on per
+        // environment only after confirming DRM and CORS work end to end —
+        // ad breaks and our own subtitle/quality controls depend on it.
+        'web_native_playback' => env('BUNNY_WEB_NATIVE_PLAYBACK', false),
+
         // Token Authentication Key (Library → Settings → Security)
         // Used to sign HLS playback URLs so only authorized viewers can play.
         'token_key' => env('BUNNY_STREAM_TOKEN_KEY'),
@@ -106,6 +114,30 @@ return [
         'success_url' => env('PAY_FILMOTECA_SUCCESS_URL'),
         'failed_url' => env('PAY_FILMOTECA_FAILED_URL'),
         'timeout' => (int) env('PAY_FILMOTECA_TIMEOUT', 60),
+    ],
+
+    // Apple In-App Purchase (StoreKit 2, iOS credit packs). See docs/ios-in-app-purchase-audit.md.
+    // Everything below is safe to leave unset for local `.storekit`-file development — only the
+    // Sandbox/Production paths need real values, and those require the Paid Applications
+    // Agreement to be Active before they can be used at all.
+    'apple' => [
+        'bundle_id' => env('APPLE_BUNDLE_ID', 'md.filmoteca.ios'),
+        // Numeric App Store Connect app ID — required before Production redemptions can work.
+        'app_apple_id' => env('APPLE_APP_APPLE_ID'),
+        // Download from https://www.apple.com/certificateauthority/AppleRootCA-G3.cer (public,
+        // no Apple account needed) and place at this path. Comma-separate multiple paths if
+        // Apple ever rotates/adds a root.
+        'root_certificate_paths' => array_filter(array_map('trim', explode(
+            ',',
+            env('APPLE_ROOT_CA_PATHS', storage_path('app/apple/AppleRootCA-G3.cer')),
+        ))),
+        'enable_online_checks' => (bool) env('APPLE_IAP_ENABLE_ONLINE_CHECKS', true),
+        // In-App Purchase Key (.p8) contents, Key ID and Issuer ID — from App Store Connect →
+        // Users and Access → Integrations → In-App Purchase. Needed only for the optional
+        // CONSUMPTION_REQUEST response; redemption and refund handling work without them.
+        'signing_key' => env('APPLE_IAP_SIGNING_KEY'),
+        'key_id' => env('APPLE_IAP_KEY_ID'),
+        'issuer_id' => env('APPLE_IAP_ISSUER_ID'),
     ],
 
 ];

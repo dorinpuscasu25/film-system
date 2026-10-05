@@ -6,11 +6,13 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\AdCampaign;
 use App\Models\AdEventAggregate;
 use App\Models\Content;
+use App\Services\AdTargetingService;
 use App\Services\AuditLogService;
 use App\Services\ContentScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class AdCampaignController extends ApiController
@@ -75,6 +77,17 @@ class AdCampaignController extends ApiController
                     'starts_at' => $campaign->starts_at?->toIso8601String(),
                     'ends_at' => $campaign->ends_at?->toIso8601String(),
                     'is_active' => $campaign->is_active,
+                    'frequency_cap_per_session' => $campaign->frequency_cap_per_session,
+                    'frequency_cap_per_day' => $campaign->frequency_cap_per_day,
+                    'mid_roll_offset_seconds' => $campaign->mid_roll_offset_seconds,
+                    'target_countries' => $campaign->target_countries ?? [],
+                    'target_groups' => $campaign->target_groups ?? [],
+                    'target_content_ids' => $campaign->target_content_ids ?? [],
+                    'target_excluded_content_ids' => $campaign->target_excluded_content_ids ?? [],
+                    'target_age_ratings' => $campaign->target_age_ratings ?? [],
+                    'target_min_profile_rating' => $campaign->target_min_profile_rating,
+                    'exclude_kids_profiles' => (bool) $campaign->exclude_kids_profiles,
+                    'target_platforms' => $campaign->target_platforms ?? [],
                     'creatives' => $campaign->creatives->map(fn ($creative) => [
                         'id' => $creative->id,
                         'name' => $creative->name,
@@ -109,6 +122,13 @@ class AdCampaignController extends ApiController
                     AdCampaign::STATUS_COMPLETED,
                 ],
                 'allowed_groups' => ['movies', 'trailers'],
+                'platforms' => AdTargetingService::PLATFORMS,
+                'age_ratings' => collect(Content::availableAgeRatings())
+                    ->map(fn (string $rating): array => [
+                        'value' => $rating,
+                        'label' => Content::ageRatingLabels()[$rating] ?? $rating,
+                    ])
+                    ->values(),
                 'contents' => Content::query()
                     ->when($isScoped, fn ($query) => $query->whereIn('id', $assignedContentIds))
                     ->orderBy('original_title')
@@ -183,6 +203,12 @@ class AdCampaignController extends ApiController
             'target_content_ids.*' => ['integer'],
             'target_excluded_content_ids' => ['nullable', 'array'],
             'target_excluded_content_ids.*' => ['integer'],
+            'target_age_ratings' => ['nullable', 'array'],
+            'target_age_ratings.*' => ['string', Rule::in(Content::availableAgeRatings())],
+            'target_min_profile_rating' => ['nullable', 'string', Rule::in(Content::availableAgeRatings())],
+            'exclude_kids_profiles' => ['sometimes', 'boolean'],
+            'target_platforms' => ['nullable', 'array'],
+            'target_platforms.*' => ['string', Rule::in(AdTargetingService::PLATFORMS)],
             'creatives' => ['nullable', 'array'],
             'creatives.*.name' => ['required', 'string', 'max:255'],
             'creatives.*.media_url' => ['required', 'url', 'max:2048'],
@@ -234,6 +260,12 @@ class AdCampaignController extends ApiController
             'target_groups' => $payload['target_groups'] ?? null,
             'target_content_ids' => $payload['target_content_ids'] ?? null,
             'target_excluded_content_ids' => $payload['target_excluded_content_ids'] ?? null,
+            'target_age_ratings' => $payload['target_age_ratings'] ?? null,
+            'target_min_profile_rating' => $payload['target_min_profile_rating'] ?? null,
+            // Defaults to excluding kids profiles: advertising to children is a
+            // deliberate decision, never an accident of an omitted field.
+            'exclude_kids_profiles' => $payload['exclude_kids_profiles'] ?? true,
+            'target_platforms' => $payload['target_platforms'] ?? null,
         ])->save();
 
         $campaign->creatives()->delete();

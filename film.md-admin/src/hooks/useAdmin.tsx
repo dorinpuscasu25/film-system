@@ -33,6 +33,7 @@ export type AdminPage =
   | 'roles'
   | 'moderation'
   | 'bunny-health'
+  | 'backups'
   | 'account';
 
 export function adminPathForPage(page: AdminPage, contentId: string | null = null): string {
@@ -67,6 +68,7 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
     roles: '/roles',
     moderation: '/moderation',
     'bunny-health': '/bunny-health',
+    backups: '/backups',
     account: '/account',
   };
 
@@ -102,6 +104,7 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     roles: 'Roluri',
     moderation: 'Moderare',
     'bunny-health': 'Bunny Health',
+    backups: 'Backup-uri',
     account: 'Setări cont',
   };
 
@@ -155,6 +158,7 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
     users: 'users.view',
     moderation: 'moderation.view_queue',
     'bunny-health': 'settings.edit_home_curation',
+    backups: 'settings.manage_backups',
   };
 
   const requiredPermission = mapping[page];

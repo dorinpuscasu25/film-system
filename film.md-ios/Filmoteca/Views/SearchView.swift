@@ -40,7 +40,10 @@ struct SearchView: View {
                         }
                     }
 
-                    if viewModel.canLoadMore {
+                    if let loadMoreError = viewModel.loadMoreError {
+                        Text(loadMoreError).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity)
+                    }
+                    if viewModel.hasMorePages {
                         Button {
                             Task { await viewModel.loadMore(locale: app.locale, profile: app.activeProfile) }
                         } label: {

@@ -22,11 +22,14 @@ final class LibraryViewModel {
         if app.favorites.isEmpty {
             favoriteContent = []
         } else {
+            // Requests run concurrently (the tasks suspend on the network), results keep order.
+            let locale = app.locale
+            let requests = app.favorites.sorted().map { slug in
+                Task { try? await catalog.content(slug: slug, locale: locale) }
+            }
             var resolved: [Content] = []
-            for slug in app.favorites.sorted() {
-                if let content = try? await catalog.content(slug: slug, locale: app.locale), app.allows(content) {
-                    resolved.append(content)
-                }
+            for request in requests {
+                if let content = await request.value, app.allows(content) { resolved.append(content) }
             }
             favoriteContent = resolved
         }

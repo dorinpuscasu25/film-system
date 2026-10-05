@@ -25,6 +25,7 @@ export interface AdminUser {
   email_verified_at: string | null;
   preferred_locale: "en" | "ro" | "ru";
   status: "active" | "suspended" | "pending_verification";
+  is_test_account?: boolean;
   avatar_url: string | null;
   last_seen_at: string | null;
   created_at: string | null;
@@ -475,9 +476,17 @@ export interface ExportJobsResponse {
 }
 
 export interface ExportJobPayload {
-  format: "excel" | "pdf" | "json";
+  /** The API also accepts "xlsx" and "csv" for data exports. */
+  format: "excel" | "xlsx" | "csv" | "pdf" | "json";
   scope: string;
   filters?: Record<string, unknown>;
+}
+
+/** Filters accepted by the "ads-campaign" export scope. */
+export interface AdsCampaignExportFilters {
+  campaign_id?: number;
+  from?: string;
+  to?: string;
 }
 
 export interface PaymentRefundItem {
@@ -677,9 +686,74 @@ export interface AdminAdCampaign {
   starts_at: string | null;
   ends_at: string | null;
   is_active: boolean;
+  frequency_cap_per_session: number | null;
+  frequency_cap_per_day: number | null;
+  mid_roll_offset_seconds: number | null;
+  target_countries: string[];
+  target_groups: string[];
+  target_content_ids: number[];
+  target_excluded_content_ids: number[];
+  /** Content maturity ratings this campaign may run against. */
+  target_age_ratings: string[];
+  /** Minimum profile maturity required to be shown the ad. */
+  target_min_profile_rating: string | null;
+  exclude_kids_profiles: boolean;
+  /** web / ios / tvos / android; empty means every platform. */
+  target_platforms: string[];
   creatives: AdminAdCreative[];
   targeting_rules: AdminAdTargetingRule[];
   stats: AdminAdCampaignStats;
+}
+
+export interface AdCampaignReportBreakdown {
+  key: string;
+  impressions: number;
+  completed_views: number;
+  clicks: number;
+  share_percent: number;
+  view_through_rate: number;
+  click_through_rate: number;
+}
+
+/** Advertiser-facing performance report for one campaign. */
+export interface AdCampaignReport {
+  campaign: {
+    id: number;
+    name: string;
+    company_name: string | null;
+    placement: string;
+    status: string;
+    starts_at: string | null;
+    ends_at: string | null;
+  };
+  period: { from: string; to: string; days: number };
+  headline: {
+    impressions: number;
+    completed_views: number;
+    clicks: number;
+    unique_reach: number;
+    view_through_rate: number;
+    click_through_rate: number;
+    skip_rate: number;
+    average_completion_percent: number;
+  };
+  funnel: Array<{ stage: string; count: number; percent: number }>;
+  by_country: AdCampaignReportBreakdown[];
+  by_platform: AdCampaignReportBreakdown[];
+  by_title: Array<{
+    content_id: number;
+    title: string;
+    impressions: number;
+    completed_views: number;
+    view_through_rate: number;
+  }>;
+  daily: Array<{
+    date: string;
+    impressions: number;
+    completed_views: number;
+    clicks: number;
+    skips: number;
+  }>;
 }
 
 export interface AdCampaignOptionContent {
@@ -692,6 +766,8 @@ export interface AdCampaignOptions {
   placements: string[];
   statuses: string[];
   allowed_groups: string[];
+  platforms: string[];
+  age_ratings: Array<{ value: string; label: string }>;
   contents: AdCampaignOptionContent[];
 }
 

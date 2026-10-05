@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\AdCampaign;
-use App\Models\Content;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
@@ -16,6 +15,11 @@ use Illuminate\Support\Facades\Redis;
  */
 class AdTargetingService
 {
+    /** Maturity ratings ordered from most permissive to most restrictive. */
+    public const AGE_RATINGS_ORDERED = ['AG', 'A.P.-12', 'N-15', 'I.M.-18', 'I.M.-18-XXX', 'I.C.'];
+
+    public const PLATFORMS = ['web', 'ios', 'tvos', 'android'];
+
     public const PLACEMENTS = [
         AdCampaign::PLACEMENT_PRE_ROLL,
         AdCampaign::PLACEMENT_MID_ROLL,
@@ -25,12 +29,11 @@ class AdTargetingService
     /**
      * @return Collection<int, AdCampaign>
      */
-    public function eligibleCampaigns(
-        string $placement,
-        Content $content,
-        ?string $countryCode = null,
-        ?string $allowedGroup = null,
-    ): Collection {
+    public function eligibleCampaigns(string $placement, AdRequestContext $context): Collection
+    {
+        $content = $context->content;
+        $countryCode = $context->countryCode;
+        $allowedGroup = $context->allowedGroup;
         $now = Carbon::now();
 
         $campaigns = AdCampaign::query()
@@ -42,7 +45,37 @@ class AdTargetingService
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
             ->get();
 
-        return $campaigns->filter(function (AdCampaign $campaign) use ($content, $countryCode, $allowedGroup): bool {
+        return $campaigns->filter(function (AdCampaign $campaign) use ($content, $countryCode, $allowedGroup, $context): bool {
+            // Kids profiles get no advertising at all unless a campaign opts in.
+            if ($context->isKidsProfile && ($campaign->exclude_kids_profiles ?? true)) {
+                return false;
+            }
+
+            // Platform filter (web / ios / tvos / android).
+            $platforms = array_map('strtolower', $campaign->target_platforms ?? []);
+            if (! empty($platforms) && $context->platform !== null
+                && ! in_array(strtolower($context->platform), $platforms, true)) {
+                return false;
+            }
+
+            // Content maturity filter: which ratings may carry this creative.
+            $ageRatings = array_map('strtoupper', $campaign->target_age_ratings ?? []);
+            if (! empty($ageRatings)) {
+                $contentRating = strtoupper((string) ($content->age_rating ?? 'AG'));
+                if (! in_array($contentRating, $ageRatings, true)) {
+                    return false;
+                }
+            }
+
+            // Viewer maturity filter: an 18+ creative must not reach a profile
+            // capped below that rating.
+            $minProfileRating = $campaign->target_min_profile_rating;
+            if ($minProfileRating !== null && $context->profileMaxRating !== null) {
+                if (self::ratingIndex($context->profileMaxRating) < self::ratingIndex($minProfileRating)) {
+                    return false;
+                }
+            }
+
             // Per-content include/exclude
             $included = $campaign->target_content_ids ?? [];
             if (! empty($included) && ! in_array($content->id, array_map('intval', $included), true)) {
@@ -75,20 +108,14 @@ class AdTargetingService
      * Picks the highest-bid campaign that hasn't exceeded frequency caps for
      * the given session. Returns null if no eligible campaign remains.
      */
-    public function pickForSession(
-        string $placement,
-        Content $content,
-        ?string $countryCode,
-        ?string $allowedGroup,
-        ?string $playbackSessionId,
-        ?int $userId,
-    ): ?AdCampaign {
-        $candidates = $this->eligibleCampaigns($placement, $content, $countryCode, $allowedGroup)
+    public function pickForSession(string $placement, AdRequestContext $context): ?AdCampaign
+    {
+        $candidates = $this->eligibleCampaigns($placement, $context)
             ->sortByDesc('bid_amount')
             ->values();
 
         foreach ($candidates as $campaign) {
-            if (! $this->frequencyCapAllows($campaign, $playbackSessionId, $userId)) {
+            if (! $this->frequencyCapAllows($campaign, $context->playbackSessionId, $context->userId)) {
                 continue;
             }
 
@@ -96,6 +123,17 @@ class AdTargetingService
         }
 
         return null;
+    }
+
+    /**
+     * Position of a maturity rating in {@see self::AGE_RATINGS_ORDERED}.
+     * Unknown ratings fall back to the most permissive bucket.
+     */
+    public static function ratingIndex(string $rating): int
+    {
+        $index = array_search(strtoupper(trim($rating)), self::AGE_RATINGS_ORDERED, true);
+
+        return is_int($index) ? $index : 0;
     }
 
     public function recordImpression(AdCampaign $campaign, ?string $playbackSessionId, ?int $userId): void

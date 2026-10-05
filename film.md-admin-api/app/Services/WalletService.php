@@ -43,6 +43,7 @@ class WalletService
                         'initial_credit' => $welcomeCredit,
                         'platform_credit_balance' => $welcomeCredit,
                         'own_credit_balance' => 0,
+                        'apple_credit_balance' => 0,
                         'registration_credit' => [
                             'enabled' => $registrationCredit['enabled'],
                             'amount' => $welcomeCredit,
@@ -106,6 +107,7 @@ class WalletService
             'meta' => [
                 ...($wallet->meta ?? []),
                 'platform_credit_balance' => $funding['platform_credit_balance_after'],
+                'apple_credit_balance' => $funding['apple_credit_balance_after'],
                 'own_credit_balance' => $funding['own_credit_balance_after'],
             ],
         ])->save();
@@ -118,10 +120,12 @@ class WalletService
             [
                 ...$meta,
                 'platform_amount' => $funding['platform_amount'],
+                'apple_amount' => $funding['apple_amount'],
                 'own_amount' => $funding['own_amount'],
                 'platform_percent' => $normalizedAmount > 0 ? round($funding['platform_amount'] / $normalizedAmount * 100, 2) : 0,
+                'apple_percent' => $normalizedAmount > 0 ? round($funding['apple_amount'] / $normalizedAmount * 100, 2) : 0,
                 'own_percent' => $normalizedAmount > 0 ? round($funding['own_amount'] / $normalizedAmount * 100, 2) : 0,
-                'funding_source' => $this->fundingSourceLabel($funding['platform_amount'], $funding['own_amount']),
+                'funding_source' => $this->fundingSourceLabel($funding['platform_amount'], $funding['apple_amount'], $funding['own_amount']),
             ],
             $reference,
             $newBalance,
@@ -140,21 +144,24 @@ class WalletService
         $currentBalance = round((float) $wallet->balance_amount, 2);
         $newBalance = round($currentBalance + $normalizedAmount, 2);
         $balances = $this->fundingBalances($wallet);
-        $isPlatformCredit = $type === WalletTransaction::TYPE_WELCOME_BONUS
-            || ($meta['funding_source'] ?? null) === 'platform';
-        $platformBalance = $isPlatformCredit
-            ? round($balances['platform_credit_balance'] + $normalizedAmount, 2)
-            : $balances['platform_credit_balance'];
-        $ownBalance = $isPlatformCredit
-            ? $balances['own_credit_balance']
-            : round($balances['own_credit_balance'] + $normalizedAmount, 2);
+        $fundingSource = $type === WalletTransaction::TYPE_WELCOME_BONUS
+            ? 'platform'
+            : (($meta['funding_source'] ?? null) === 'apple' ? 'apple' : (($meta['funding_source'] ?? null) === 'platform' ? 'platform' : 'own'));
+
+        $bucketKey = match ($fundingSource) {
+            'platform' => 'platform_credit_balance',
+            'apple' => 'apple_credit_balance',
+            default => 'own_credit_balance',
+        };
 
         $wallet->forceFill([
             'balance_amount' => $newBalance,
             'meta' => [
                 ...($wallet->meta ?? []),
-                'platform_credit_balance' => $platformBalance,
-                'own_credit_balance' => $ownBalance,
+                'platform_credit_balance' => $balances['platform_credit_balance'],
+                'apple_credit_balance' => $balances['apple_credit_balance'],
+                'own_credit_balance' => $balances['own_credit_balance'],
+                $bucketKey => round(($balances[$bucketKey] ?? 0) + $normalizedAmount, 2),
             ],
         ])->save();
 
@@ -165,9 +172,10 @@ class WalletService
             $description,
             [
                 ...$meta,
-                'funding_source' => $isPlatformCredit ? 'platform' : 'own',
-                'platform_amount' => $isPlatformCredit ? $normalizedAmount : 0,
-                'own_amount' => $isPlatformCredit ? 0 : $normalizedAmount,
+                'funding_source' => $fundingSource,
+                'platform_amount' => $fundingSource === 'platform' ? $normalizedAmount : 0,
+                'apple_amount' => $fundingSource === 'apple' ? $normalizedAmount : 0,
+                'own_amount' => $fundingSource === 'own' ? $normalizedAmount : 0,
             ],
             $reference,
             $newBalance,
@@ -182,23 +190,53 @@ class WalletService
         array $meta = [],
         ?Model $reference = null,
     ): WalletTransaction {
+        return $this->debitBucket($wallet, 'own_credit_balance', 'Insufficient customer-paid wallet balance for this refund.', $amount, $type, $description, $meta, $reference);
+    }
+
+    /**
+     * Claws back an Apple IAP credit purchase on a REFUND/REVOKE server notification. Only ever
+     * pulls from the apple_credit_balance bucket, never touching platform or own-sourced credit.
+     */
+    public function debitAppleCredit(
+        Wallet $wallet,
+        float $amount,
+        string $type,
+        ?string $description = null,
+        array $meta = [],
+        ?Model $reference = null,
+    ): WalletTransaction {
+        return $this->debitBucket($wallet, 'apple_credit_balance', 'Insufficient Apple-sourced wallet balance for this clawback.', $amount, $type, $description, $meta, $reference);
+    }
+
+    private function debitBucket(
+        Wallet $wallet,
+        string $bucketKey,
+        string $insufficientMessage,
+        float $amount,
+        string $type,
+        ?string $description,
+        array $meta,
+        ?Model $reference,
+    ): WalletTransaction {
         $normalizedAmount = round(abs($amount), 2);
         $currentBalance = round((float) $wallet->balance_amount, 2);
         $balances = $this->fundingBalances($wallet);
+        $bucketBalance = $balances[$bucketKey] ?? 0.0;
 
-        if ($normalizedAmount > $balances['own_credit_balance']) {
-            throw ValidationException::withMessages([
-                'wallet' => ['Insufficient customer-paid wallet balance for this refund.'],
-            ]);
+        if ($normalizedAmount > $bucketBalance) {
+            throw ValidationException::withMessages(['wallet' => [$insufficientMessage]]);
         }
 
+        $fundingSource = str_replace('_credit_balance', '', $bucketKey);
         $newBalance = round($currentBalance - $normalizedAmount, 2);
         $wallet->forceFill([
             'balance_amount' => $newBalance,
             'meta' => [
                 ...($wallet->meta ?? []),
                 'platform_credit_balance' => $balances['platform_credit_balance'],
-                'own_credit_balance' => round($balances['own_credit_balance'] - $normalizedAmount, 2),
+                'apple_credit_balance' => $balances['apple_credit_balance'],
+                'own_credit_balance' => $balances['own_credit_balance'],
+                $bucketKey => round($bucketBalance - $normalizedAmount, 2),
             ],
         ])->save();
 
@@ -209,11 +247,13 @@ class WalletService
             $description,
             [
                 ...$meta,
-                'funding_source' => 'own',
+                'funding_source' => $fundingSource,
                 'platform_amount' => 0,
-                'own_amount' => $normalizedAmount,
+                'apple_amount' => $fundingSource === 'apple' ? $normalizedAmount : 0,
+                'own_amount' => $fundingSource === 'own' ? $normalizedAmount : 0,
                 'platform_percent' => 0,
-                'own_percent' => 100,
+                'apple_percent' => $fundingSource === 'apple' ? 100 : 0,
+                'own_percent' => $fundingSource === 'own' ? 100 : 0,
             ],
             $reference,
             $newBalance,
@@ -244,24 +284,32 @@ class WalletService
     }
 
     /**
-     * @return array{platform_amount: float, own_amount: float, platform_credit_balance_after: float, own_credit_balance_after: float}
+     * Consumption order: platform (free bonus) first, then Apple-sourced, then own (web top-up)
+     * last — spend the credit with the fewest strings attached before the credit that's most
+     * useful to keep around (own-sourced is what refunds pull from).
+     *
+     * @return array{platform_amount: float, apple_amount: float, own_amount: float, platform_credit_balance_after: float, apple_credit_balance_after: float, own_credit_balance_after: float}
      */
     protected function allocateDebitFunding(Wallet $wallet, float $amount): array
     {
         $balances = $this->fundingBalances($wallet);
         $platformAmount = min($amount, $balances['platform_credit_balance']);
-        $ownAmount = round($amount - $platformAmount, 2);
+        $remaining = round($amount - $platformAmount, 2);
+        $appleAmount = min($remaining, $balances['apple_credit_balance']);
+        $ownAmount = round($remaining - $appleAmount, 2);
 
         return [
             'platform_amount' => round($platformAmount, 2),
+            'apple_amount' => round($appleAmount, 2),
             'own_amount' => round($ownAmount, 2),
             'platform_credit_balance_after' => round($balances['platform_credit_balance'] - $platformAmount, 2),
+            'apple_credit_balance_after' => round($balances['apple_credit_balance'] - $appleAmount, 2),
             'own_credit_balance_after' => round(max(0, $balances['own_credit_balance'] - $ownAmount), 2),
         ];
     }
 
     /**
-     * @return array{platform_credit_balance: float, own_credit_balance: float}
+     * @return array{platform_credit_balance: float, apple_credit_balance: float, own_credit_balance: float}
      */
     protected function fundingBalances(Wallet $wallet): array
     {
@@ -270,11 +318,13 @@ class WalletService
         if (array_key_exists('platform_credit_balance', $meta) || array_key_exists('own_credit_balance', $meta)) {
             return [
                 'platform_credit_balance' => round((float) ($meta['platform_credit_balance'] ?? 0), 2),
+                'apple_credit_balance' => round((float) ($meta['apple_credit_balance'] ?? 0), 2),
                 'own_credit_balance' => round((float) ($meta['own_credit_balance'] ?? 0), 2),
             ];
         }
 
         $platform = 0.0;
+        $apple = 0.0;
         $own = 0.0;
 
         WalletTransaction::query()
@@ -282,16 +332,19 @@ class WalletService
             ->oldest('processed_at')
             ->oldest('id')
             ->get()
-            ->each(function (WalletTransaction $transaction) use (&$platform, &$own): void {
+            ->each(function (WalletTransaction $transaction) use (&$platform, &$apple, &$own): void {
                 $amount = round((float) $transaction->amount, 2);
                 $meta = $transaction->meta ?? [];
+                $source = $transaction->type === WalletTransaction::TYPE_WELCOME_BONUS
+                    ? 'platform'
+                    : ($meta['funding_source'] ?? 'own');
 
                 if ($amount >= 0) {
-                    if ($transaction->type === WalletTransaction::TYPE_WELCOME_BONUS || ($meta['funding_source'] ?? null) === 'platform') {
-                        $platform = round($platform + $amount, 2);
-                    } else {
-                        $own = round($own + $amount, 2);
-                    }
+                    match ($source) {
+                        'platform' => $platform = round($platform + $amount, 2),
+                        'apple' => $apple = round($apple + $amount, 2),
+                        default => $own = round($own + $amount, 2),
+                    };
 
                     return;
                 }
@@ -299,28 +352,32 @@ class WalletService
                 $debit = abs($amount);
                 $platformDebit = min($debit, $platform);
                 $platform = round($platform - $platformDebit, 2);
-                $own = round(max(0, $own - ($debit - $platformDebit)), 2);
+                $debit = round($debit - $platformDebit, 2);
+                $appleDebit = min($debit, $apple);
+                $apple = round($apple - $appleDebit, 2);
+                $own = round(max(0, $own - ($debit - $appleDebit)), 2);
             });
 
         $balance = round((float) $wallet->balance_amount, 2);
         $platform = min($platform, $balance);
+        $apple = min($apple, round($balance - $platform, 2));
 
         return [
             'platform_credit_balance' => round($platform, 2),
-            'own_credit_balance' => round(max(0, $balance - $platform), 2),
+            'apple_credit_balance' => round(max(0, $apple), 2),
+            'own_credit_balance' => round(max(0, $balance - $platform - $apple), 2),
         ];
     }
 
-    protected function fundingSourceLabel(float $platformAmount, float $ownAmount): string
+    protected function fundingSourceLabel(float $platformAmount, float $appleAmount, float $ownAmount): string
     {
-        if ($platformAmount > 0 && $ownAmount > 0) {
+        $usedBuckets = collect(['platform' => $platformAmount, 'apple' => $appleAmount, 'own' => $ownAmount])
+            ->filter(fn (float $amount): bool => $amount > 0);
+
+        if ($usedBuckets->count() > 1) {
             return 'mixed';
         }
 
-        if ($platformAmount > 0) {
-            return 'platform';
-        }
-
-        return 'own';
+        return $usedBuckets->keys()->first() ?? 'own';
     }
 }
