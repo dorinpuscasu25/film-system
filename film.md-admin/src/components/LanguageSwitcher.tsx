@@ -17,7 +17,7 @@ export function LanguageSwitcher() {
       onChange={(e) => {
         void i18n.changeLanguage(e.target.value);
       }}
-      className="rounded-md bg-zinc-800/60 text-zinc-100 px-2 py-1 text-sm border border-zinc-700"
+      className="rounded-md border border-border bg-background px-2 py-1 text-sm outline-none focus:border-primary"
       aria-label="Language switcher"
     >
       {SUPPORTED_LOCALES.map((loc) => (

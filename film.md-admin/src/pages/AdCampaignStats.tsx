@@ -36,16 +36,16 @@ export function AdCampaignStats({ campaignId }: Props) {
   const maxCountryCount = Math.max(1, ...data.country_chart.map((c) => c.count));
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{data.campaign.name}</h1>
-          <div className="text-sm text-zinc-400">{data.campaign.company_name}</div>
+          <div className="text-sm text-muted-foreground">{data.campaign.company_name}</div>
         </div>
         <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
-          className="bg-zinc-800/60 text-zinc-100 border border-zinc-700 rounded-md px-3 py-1 text-sm"
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary"
         >
           <option value={7}>7 zile</option>
           <option value={30}>30 zile</option>
@@ -62,15 +62,15 @@ export function AdCampaignStats({ campaignId }: Props) {
         <Stat label={t('ads.stats.completion_rate')} value={`${data.campaign.rollups.completion_rate.toFixed(2)}%`} />
       </div>
 
-      <section className="bg-zinc-900 border border-zinc-700 rounded-lg p-4">
+      <section className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-lg font-medium mb-3">{t('ads.stats.events_chart')}</h2>
         <div className="space-y-2">
           {data.events_chart.map((e) => (
             <div key={e.event} className="flex items-center gap-3 text-sm">
-              <span className="w-32 text-zinc-400">{e.event}</span>
-              <div className="flex-1 h-6 bg-zinc-800 rounded overflow-hidden">
+              <span className="w-32 text-muted-foreground">{e.event}</span>
+              <div className="h-6 flex-1 overflow-hidden rounded bg-muted">
                 <div
-                  className="h-full bg-violet-500"
+                  className="h-full bg-primary"
                   style={{ width: `${(e.count / maxEventCount) * 100}%` }}
                 />
               </div>
@@ -80,30 +80,30 @@ export function AdCampaignStats({ campaignId }: Props) {
         </div>
       </section>
 
-      <section className="bg-zinc-900 border border-zinc-700 rounded-lg p-4">
+      <section className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-lg font-medium mb-3">{t('ads.stats.country_chart')}</h2>
         <div className="space-y-2">
           {data.country_chart.map((c) => (
             <div key={c.country} className="flex items-center gap-3 text-sm">
               <span className="w-12 font-mono">{c.country}</span>
-              <div className="flex-1 h-4 bg-zinc-800 rounded overflow-hidden">
+              <div className="h-4 flex-1 overflow-hidden rounded bg-muted">
                 <div
                   className="h-full bg-emerald-500"
                   style={{ width: `${(c.count / maxCountryCount) * 100}%` }}
                 />
               </div>
               <span className="w-16 text-right tabular-nums">{c.count}</span>
-              <span className="w-16 text-right text-zinc-400">{c.percent.toFixed(2)}%</span>
+              <span className="w-16 text-right text-muted-foreground">{c.percent.toFixed(2)}%</span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="bg-zinc-900 border border-zinc-700 rounded-lg p-4">
+      <section className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-lg font-medium mb-3">{t('ads.stats.events_log')}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-800/60">
+            <thead className="bg-muted/60">
               <tr>
                 <th className="text-left p-2">Eveniment</th>
                 <th className="text-left p-2">Țară</th>
@@ -114,12 +114,12 @@ export function AdCampaignStats({ campaignId }: Props) {
             </thead>
             <tbody>
               {events?.items.map((e) => (
-                <tr key={e.id} className="border-t border-zinc-700/60">
+                <tr key={e.id} className="border-t border-border">
                   <td className="p-2 font-mono">{e.event_type}</td>
                   <td className="p-2 font-mono">{e.country_code ?? '—'}</td>
-                  <td className="p-2 text-zinc-500 text-xs">{e.playback_session_id?.slice(0, 12)}</td>
-                  <td className="p-2 text-zinc-500 text-xs">{e.ip_address}</td>
-                  <td className="p-2 text-zinc-400">{e.occurred_at?.slice(0, 19).replace('T', ' ')}</td>
+                  <td className="p-2 text-xs text-muted-foreground">{e.playback_session_id?.slice(0, 12)}</td>
+                  <td className="p-2 text-xs text-muted-foreground">{e.ip_address}</td>
+                  <td className="p-2 text-muted-foreground">{e.occurred_at?.slice(0, 19).replace('T', ' ')}</td>
                 </tr>
               ))}
             </tbody>
@@ -132,8 +132,8 @@ export function AdCampaignStats({ campaignId }: Props) {
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3">
-      <div className="text-xs text-zinc-400">{label}</div>
+    <div className="rounded-xl border border-border bg-card p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-2xl font-bold tabular-nums">{value}</div>
     </div>
   );

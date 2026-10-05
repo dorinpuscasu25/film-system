@@ -436,26 +436,27 @@ export function Billing() {
         { id: "costs", label: "Costuri", icon: Settings2Icon },
         { id: "exports", label: "Exporturi", icon: FileSpreadsheetIcon },
       ]}
-      actions={
-        activeTab === "overview" || activeTab === "wallet" ? (
-          <Tabs
-            tabs={[
-              { id: "3months", label: "3 luni" },
-              { id: "30days", label: "30 zile" },
-              { id: "7days", label: "7 zile" },
-            ]}
-            activeTab={range}
-            onChange={(value) => setRange(value as RangeValue)}
-          />
-        ) : null
-      }
     >
       {(tab) => (
         <div className="space-y-6">
           <TabSync tab={tab} onChange={setActiveTab} />
 
       {activeTab === "overview" ? (
-        <OverviewSection dashboard={dashboard} costs={costs} loading={isDashboardLoading} />
+        <>
+          <div className="flex justify-end">
+            <Tabs
+              tabs={[
+                { id: "3months", label: "3 luni" },
+                { id: "30days", label: "30 zile" },
+                { id: "7days", label: "7 zile" },
+              ]}
+              activeTab={range}
+              onChange={(value) => setRange(value as RangeValue)}
+            />
+          </div>
+
+            <OverviewSection dashboard={dashboard} costs={costs} loading={isDashboardLoading} />
+        </>
       ) : null}
 
       {activeTab === "accounting" ? (
@@ -474,7 +475,20 @@ export function Billing() {
       ) : null}
 
       {activeTab === "wallet" ? (
-        <WalletSection
+        <>
+          <div className="flex justify-end">
+            <Tabs
+              tabs={[
+                { id: "3months", label: "3 luni" },
+                { id: "30days", label: "30 zile" },
+                { id: "7days", label: "7 zile" },
+              ]}
+              activeTab={range}
+              onChange={(value) => setRange(value as RangeValue)}
+            />
+          </div>
+
+          <WalletSection
           dashboard={dashboard}
           loading={isDashboardLoading}
           search={walletSearch}
@@ -484,7 +498,8 @@ export function Billing() {
           direction={walletDirection}
           setDirection={setWalletDirection}
           items={filteredWalletTransactions}
-        />
+          />
+        </>
       ) : null}
 
       {activeTab === "payments" ? (

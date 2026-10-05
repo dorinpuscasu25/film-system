@@ -17,8 +17,6 @@ interface SectionLayoutProps {
   /** Heading shown above the sub-navigation, e.g. "Prețuri". */
   navLabel?: string;
   children: (activeTab: string) => React.ReactNode;
-  /** Optional actions rendered next to the page title. */
-  actions?: React.ReactNode;
 }
 
 /**
@@ -37,7 +35,6 @@ export function SectionLayout({
   tabs,
   navLabel,
   children,
-  actions,
 }: SectionLayoutProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const visibleTabs = tabs.filter((tab) => tab.show !== false);
@@ -55,12 +52,9 @@ export function SectionLayout({
 
   return (
     <div className="space-y-6">
-      <div className="page-header flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="page-title">{title}</h1>
-          {description && <p className="page-description">{description}</p>}
-        </div>
-        {actions}
+      <div className="page-header">
+        <h1 className="page-title">{title}</h1>
+        {description && <p className="page-description">{description}</p>}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">

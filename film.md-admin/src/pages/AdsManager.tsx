@@ -45,6 +45,12 @@ interface CampaignForm {
   click_through_url: string;
   vast_tag_url: string;
   bid_amount: string;
+  /**
+   * "all" runs everywhere minus the exclusions; "selected" runs only on the
+   * chosen films. The backend derives this from whether the include list is
+   * empty, so only one of the two lists is ever meaningful.
+   */
+  scope_mode: "all" | "selected";
   target_content_ids: number[];
   target_excluded_content_ids: number[];
   target_countries: string[];
@@ -70,6 +76,7 @@ const EMPTY_FORM: CampaignForm = {
   click_through_url: "",
   vast_tag_url: "",
   bid_amount: "",
+  scope_mode: "all",
   target_content_ids: [],
   target_excluded_content_ids: [],
   target_countries: [],
@@ -102,6 +109,7 @@ function campaignToForm(campaign: AdminAdCampaign): CampaignForm {
     click_through_url: campaign.click_through_url ?? "",
     vast_tag_url: campaign.vast_tag_url ?? "",
     bid_amount: campaign.bid_amount ? String(campaign.bid_amount) : "",
+    scope_mode: (campaign.target_content_ids ?? []).length > 0 ? "selected" : "all",
     target_content_ids: campaign.target_content_ids ?? [],
     target_excluded_content_ids: campaign.target_excluded_content_ids ?? [],
     target_countries: campaign.target_countries ?? [],
@@ -216,6 +224,12 @@ export function AdsManager() {
       setError("Încarcă video-ul reclamei.");
       return;
     }
+    // An include list that is empty means "everywhere" server-side, which is the
+    // opposite of what this choice says — block it rather than silently invert.
+    if (form.scope_mode === "selected" && form.target_content_ids.length === 0) {
+      setError("Ai ales „Doar la filme alese”, dar nu ai adăugat niciun film. Adaugă cel puțin unul.");
+      return;
+    }
 
     setIsSaving(true);
 
@@ -237,8 +251,8 @@ export function AdsManager() {
       click_through_url: form.click_through_url.trim() || null,
       vast_tag_url: form.vast_tag_url.trim() || null,
       bid_amount: numberOrNull(form.bid_amount),
-      target_content_ids: form.target_content_ids,
-      target_excluded_content_ids: form.target_excluded_content_ids,
+      target_content_ids: form.scope_mode === "selected" ? form.target_content_ids : [],
+      target_excluded_content_ids: form.scope_mode === "all" ? form.target_excluded_content_ids : [],
       target_countries: form.target_countries,
       target_age_ratings: form.target_age_ratings,
       target_platforms: form.target_platforms,
@@ -542,25 +556,55 @@ export function AdsManager() {
           <section className="space-y-4">
             <h3 className="section-title">4. La ce filme apare</h3>
 
-            <div>
-              {label("Doar la aceste filme", "Lasă gol ca reclama să apară la toate filmele. Adaugă filme ca să o limitezi doar la ele.")}
-              <ContentMultiSelect
-                contents={options?.contents ?? []}
-                value={form.target_content_ids}
-                onChange={(ids) => update("target_content_ids", ids)}
-                emptyLabel="Apare la toate filmele."
-              />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => update("scope_mode", "all")}
+                className={`rounded-xl border p-4 text-left transition-colors ${
+                  form.scope_mode === "all" ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"
+                }`}
+              >
+                <span className="block text-sm font-medium">La toate filmele</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Reclama rulează peste tot. Poți exclude anumite filme.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => update("scope_mode", "selected")}
+                className={`rounded-xl border p-4 text-left transition-colors ${
+                  form.scope_mode === "selected" ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"
+                }`}
+              >
+                <span className="block text-sm font-medium">Doar la filme alese</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Reclama rulează exclusiv la filmele pe care le adaugi.
+                </span>
+              </button>
             </div>
 
-            <div>
-              {label("Niciodată la aceste filme", "Filme la care reclama nu trebuie să apară, chiar dacă restul condițiilor se potrivesc.")}
-              <ContentMultiSelect
-                contents={options?.contents ?? []}
-                value={form.target_excluded_content_ids}
-                onChange={(ids) => update("target_excluded_content_ids", ids)}
-                emptyLabel="Nicio excludere."
-              />
-            </div>
+            {form.scope_mode === "selected" ? (
+              <div>
+                {label("Filmele la care apare", "Reclama rulează doar la aceste filme. Caută după titlu și adaugă câte vrei.")}
+                <ContentMultiSelect
+                  contents={options?.contents ?? []}
+                  value={form.target_content_ids}
+                  onChange={(ids) => update("target_content_ids", ids)}
+                  emptyLabel="Adaugă cel puțin un film, altfel reclama nu apare nicăieri."
+                />
+              </div>
+            ) : (
+              <div>
+                {label("Cu excepția acestor filme", "Opțional. Filme la care reclama nu trebuie să apară — restul catalogului rămâne acoperit.")}
+                <ContentMultiSelect
+                  contents={options?.contents ?? []}
+                  value={form.target_excluded_content_ids}
+                  onChange={(ids) => update("target_excluded_content_ids", ids)}
+                  emptyLabel="Nicio excludere — apare la tot catalogul."
+                />
+              </div>
+            )}
 
             <div>
               {label("Pe ce dispozitive", "Lasă toate nebifate ca să apară peste tot.")}

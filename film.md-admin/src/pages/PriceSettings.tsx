@@ -237,20 +237,6 @@ export function PriceSettings() {
         { id: "credit", label: "Credit la înregistrare", icon: GiftIcon },
         { id: "iap", label: "Pachete App Store", icon: SmartphoneIcon },
       ]}
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => void load()}>
-            <RefreshCwIcon className="h-4 w-4" />
-            Reîncarcă
-          </Button>
-          {!editing && canEdit ? (
-            <Button onClick={() => setEditing(true)}>
-              <PencilIcon className="h-4 w-4" />
-              Editează
-            </Button>
-          ) : null}
-        </div>
-      }
     >
       {(tab) => (
         <div className="space-y-6">
@@ -270,8 +256,20 @@ export function PriceSettings() {
                       Valorile curente folosite la recalculul lunar. Modificările se aplică doar versiunilor noi.
                     </CardDescription>
                   </div>
-                  <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
-                    {savedAt ? `Activă din ${new Date(savedAt).toLocaleString()}` : "Fără versiune salvată"}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
+                      {savedAt ? `Activă din ${new Date(savedAt).toLocaleString()}` : "Fără versiune salvată"}
+                    </div>
+                    <Button variant="outline" onClick={() => void load()}>
+                      <RefreshCwIcon className="h-4 w-4" />
+                      Reîncarcă
+                    </Button>
+                    {!editing && canEdit ? (
+                      <Button onClick={() => setEditing(true)}>
+                        <PencilIcon className="h-4 w-4" />
+                        Editează
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </CardHeader>
