@@ -684,6 +684,17 @@ export const adminApi = {
     });
   },
 
+  /** Uploads an ad creative. `kind=video` is what allows a non-image file. */
+  uploadAdCreative(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("kind", "video");
+    formData.append("directory", "ads/creatives");
+    return request<{ url: string }>("POST", "/admin/upload", {
+      data: formData,
+    });
+  },
+
   uploadFiles(files: File[], directory?: string) {
     const formData = new FormData();
     for (const file of files) {
@@ -1112,43 +1123,6 @@ export const adminApi = {
     return request<{ settings: Record<string, unknown> }>("PUT", "/admin/platform-settings", {
       data: { settings },
     });
-  },
-
-  // === Ad VAST test (debug) ===
-  testAdResolve(payload: {
-    content_id: number;
-    placement: "pre-roll" | "mid-roll" | "post-roll";
-    country_code?: string;
-    group?: string;
-    session_id?: string;
-    user_id?: number;
-  }) {
-    return request<{
-      inputs: { content_id: number; content_title: string; country_code: string | null; placement: string; group: string };
-      chosen: {
-        id: number;
-        name: string;
-        company_name: string | null;
-        bid_amount: number;
-        placement: string;
-        skip_offset_seconds: number | null;
-        click_through_url: string | null;
-        creative: { media_url: string; duration_seconds: number; mime_type: string } | null;
-      } | null;
-      vast_xml: string | null;
-      tracking_pixels: string[];
-      eligible_count: number;
-      candidates: Array<{
-        id: number;
-        name: string;
-        bid: number;
-        placement: string;
-        eligible: boolean;
-        chosen: boolean;
-        reasons_excluded: string[];
-        creatives_count: number;
-      }>;
-    }>("POST", "/admin/ad-test/resolve", { data: payload });
   },
 
   // === Backups ===

@@ -204,10 +204,6 @@ class ProducerAccessApiTest extends TestCase
             ->assertForbidden();
         $this->getJson("/api/v1/admin/ad-campaigns/{$foreignCampaign->id}/events", $this->authHeaders())
             ->assertForbidden();
-        $this->postJson('/api/v1/admin/ad-test/resolve', [
-            'content_id' => $this->foreignContent->id,
-            'placement' => 'pre-roll',
-        ], $this->authHeaders())->assertForbidden();
     }
 
     public function test_invited_producer_receives_selected_content_when_accepting_invitation(): void

@@ -40,10 +40,12 @@ class AdTargetingService
             ->with(['creatives' => fn ($q) => $q->where('is_active', true)])
             ->where('is_active', true)
             ->where('status', AdCampaign::STATUS_ACTIVE)
-            ->where('placement', $placement)
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
-            ->get();
+            ->get()
+            // Filtered in PHP because `placements` is JSON and the legacy single
+            // `placement` column is still the fallback for older rows.
+            ->filter(fn (AdCampaign $campaign): bool => in_array($placement, $campaign->resolvedPlacements(), true));
 
         return $campaigns->filter(function (AdCampaign $campaign) use ($content, $countryCode, $allowedGroup, $context): bool {
             // Kids profiles get no advertising at all unless a campaign opts in.

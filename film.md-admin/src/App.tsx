@@ -30,7 +30,8 @@ import { ContentCreators } from './pages/ContentCreators';
 import { WatchParties } from './pages/WatchParties';
 import { GeoStats } from './pages/GeoStats';
 import { PriceSettings } from './pages/PriceSettings';
-import { AdTest } from './pages/AdTest';
+import { AdsManager } from './pages/AdsManager';
+import { SettingsHub } from './pages/SettingsHub';
 import { BunnyHealth } from './pages/BunnyHealth';
 import { Backups } from './pages/Backups';
 import { Reviews } from './pages/Reviews';
@@ -148,12 +149,12 @@ function AdminRouter() {
       <Route path="/prices" element={<RoutePage page="price-settings" breadcrumbs={['Setări prețuri']}><PriceSettings /></RoutePage>} />
       <Route path="/coupons" element={<RoutePage page="coupons" breadcrumbs={['Cupoane']}><Coupons /></RoutePage>} />
       <Route path="/geo-stats" element={<RoutePage page="geo-stats" breadcrumbs={['Distribuție geografică']}><GeoStats /></RoutePage>} />
-      <Route path="/ads" element={<RoutePage page="ads" breadcrumbs={['Reclame']}><PlaybackOps initialTab="advertising" advertisingOnly /></RoutePage>} />
-      <Route path="/ads/test" element={<RoutePage page="ad-test" breadcrumbs={['Reclame', 'VAST Test']}><AdTest /></RoutePage>} />
+      <Route path="/ads" element={<RoutePage page="ads" breadcrumbs={['Reclame']}><AdsManager /></RoutePage>} />
       <Route path="/watch-parties" element={<RoutePage page="watch-parties" breadcrumbs={['Watch Parties']}><WatchParties /></RoutePage>} />
       <Route path="/users" element={<RoutePage page="users" breadcrumbs={['Utilizatori']}><Users /></RoutePage>} />
       <Route path="/creators" element={<RoutePage page="content-creators" breadcrumbs={['Creatori']}><ContentCreators /></RoutePage>} />
       <Route path="/roles" element={<RoutePage page="roles" breadcrumbs={['Roluri']}><RolesPermissions /></RoutePage>} />
+      <Route path="/settings" element={<RoutePage page="settings" breadcrumbs={['Setări']}><SettingsHub /></RoutePage>} />
       <Route path="/home-curation" element={<RoutePage page="home-curation" breadcrumbs={['Pagina principală']}><HomeCuration /></RoutePage>} />
       <Route path="/seo" element={<RoutePage page="seo" breadcrumbs={['SEO']}><SeoSettings /></RoutePage>} />
       <Route path="/discovery" element={<RoutePage page="discovery" breadcrumbs={['Căutare']}><SearchDiscovery /></RoutePage>} />

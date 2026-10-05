@@ -26,6 +26,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'target_content_ids',
     'target_excluded_content_ids',
     'mid_roll_offset_seconds',
+    'placements',
+    'mid_roll_every_minutes',
     'target_age_ratings',
     'target_min_profile_rating',
     'exclude_kids_profiles',
@@ -43,6 +45,21 @@ class AdCampaign extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_PAUSED = 'paused';
     public const STATUS_COMPLETED = 'completed';
+
+    /**
+     * Every slot this campaign may fill.
+     *
+     * Falls back to the legacy single `placement` column so rows created before
+     * multi-placement support keep working untouched.
+     *
+     * @return array<int, string>
+     */
+    public function resolvedPlacements(): array
+    {
+        $placements = array_values(array_filter((array) ($this->placements ?? [])));
+
+        return $placements !== [] ? $placements : array_filter([$this->placement]);
+    }
 
     public const PLACEMENT_PRE_ROLL = 'pre-roll';
     public const PLACEMENT_MID_ROLL = 'mid-roll';
@@ -84,6 +101,8 @@ class AdCampaign extends Model
             'target_content_ids' => 'array',
             'target_excluded_content_ids' => 'array',
             'mid_roll_offset_seconds' => 'integer',
+            'placements' => 'array',
+            'mid_roll_every_minutes' => 'integer',
             'target_age_ratings' => 'array',
             'exclude_kids_profiles' => 'boolean',
             'target_platforms' => 'array',

@@ -14,6 +14,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { SectionLayout } from "../components/shared/SectionLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { adminApi } from "../lib/api";
@@ -227,15 +228,16 @@ export function PriceSettings() {
   }
 
   return (
-    <div className="w-full space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="page-header">
-          <h1 className="page-title">Setări prețuri</h1>
-          <p className="page-description">
-            Configurezi costurile de stocare, livrare, DRM și cursul valutar folosite în calculele platformei.
-          </p>
-        </div>
-
+    <SectionLayout
+      title="Setări prețuri"
+      description="Costurile de stocare, livrare și DRM, creditul de bun venit și pachetele vândute în aplicația iOS."
+      navLabel="Prețuri"
+      tabs={[
+        { id: "costs", label: "Prețuri active", icon: DollarSignIcon },
+        { id: "credit", label: "Credit la înregistrare", icon: GiftIcon },
+        { id: "iap", label: "Pachete App Store", icon: SmartphoneIcon },
+      ]}
+      actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => void load()}>
             <RefreshCwIcon className="h-4 w-4" />
@@ -248,424 +250,428 @@ export function PriceSettings() {
             </Button>
           ) : null}
         </div>
-      </div>
-
-      {error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
-
-      <Card className="w-full">
-        <CardHeader className="gap-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle>Prețuri active</CardTitle>
-              <CardDescription>
-                Valorile curente folosite la recalculul lunar. Modificările se aplică doar versiunilor noi.
-              </CardDescription>
-            </div>
-            <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
-              {savedAt ? `Activă din ${new Date(savedAt).toLocaleString()}` : "Fără versiune salvată"}
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <PriceCard
-              icon={TagIcon}
-              label="Storage cost per GB"
-              helper={`Original: $${ORIGINAL_DEFAULTS.storage_cost_per_gb_day}`}
-              value={form.storage_cost_per_gb_day}
-              unit="$"
-              unitPrefix
-              editing={editing}
-              onChange={(value) => setForm({ ...form, storage_cost_per_gb_day: value })}
-            />
-            <PriceCard
-              icon={HardDriveIcon}
-              label="Delivery cost per GB"
-              helper={`Original: $${ORIGINAL_DEFAULTS.delivery_cost_per_gb}`}
-              value={form.delivery_cost_per_gb}
-              unit="$"
-              unitPrefix
-              editing={editing}
-              onChange={(value) => setForm({ ...form, delivery_cost_per_gb: value })}
-            />
-            <PriceCard
-              icon={KeyRoundIcon}
-              label="DRM cost per license"
-              helper={`Original: $${ORIGINAL_DEFAULTS.drm_cost_per_license}`}
-              value={form.drm_cost_per_license}
-              unit="$"
-              unitPrefix
-              editing={editing}
-              onChange={(value) => setForm({ ...form, drm_cost_per_license: value })}
-            />
-            <PriceCard
-              icon={DollarSignIcon}
-              label="Curs valutar USD/MDL"
-              helper={`Original: ${ORIGINAL_DEFAULTS.usd_to_mdl_rate} MDL`}
-              value={form.usd_to_mdl_rate}
-              unit="MDL"
-              displayPrefix="1 $ ="
-              editing={editing}
-              onChange={(value) => setForm({ ...form, usd_to_mdl_rate: value })}
-            />
-          </div>
-
-          {editing ? (
-            <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEditing(false);
-                  void load();
-                }}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button onClick={() => void save()} disabled={saving}>
-                <SaveIcon className="h-4 w-4" />
-                {saving ? `${t("common.loading")}…` : t("common.save")}
-              </Button>
+      }
+    >
+      {(tab) => (
+        <div className="space-y-6">
+          {error ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
             </div>
           ) : null}
-        </CardContent>
-      </Card>
 
-      {!canEdit ? (
-        <p className="text-xs text-muted-foreground">
-          Doar utilizatorii cu permisiunea <code>commerce.manage_costs</code> pot edita prețurile.
-        </p>
-      ) : null}
+          {tab === "costs" ? (
+            <Card className="w-full">
+              <CardHeader className="gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>Prețuri active</CardTitle>
+                    <CardDescription>
+                      Valorile curente folosite la recalculul lunar. Modificările se aplică doar versiunilor noi.
+                    </CardDescription>
+                  </div>
+                  <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
+                    {savedAt ? `Activă din ${new Date(savedAt).toLocaleString()}` : "Fără versiune salvată"}
+                  </div>
+                </div>
+              </CardHeader>
 
-      <Card className="w-full">
-        <CardHeader className="gap-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle>Credit la înregistrare</CardTitle>
-              <CardDescription>
-                Controlezi suma primită automat de utilizatorii noi și campaniile active pe intervale.
-              </CardDescription>
-            </div>
-            <div className="rounded-md border bg-muted p-2">
-              <GiftIcon className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormField
-              label="Activ"
-              type="toggle"
-              checked={registrationCredit.enabled}
-              helperText="Dacă este oprit, utilizatorii noi primesc 0 MDL."
-              disabled={!canEdit}
-              onChange={(event) =>
-                setRegistrationCredit((current) => ({ ...current, enabled: event.target.checked }))
-              }
-            />
-            <FormField
-              label="Sumă implicită"
-              type="number"
-              min="0"
-              step="0.01"
-              value={registrationCredit.default_amount}
-              disabled={!canEdit}
-              onChange={(event) =>
-                setRegistrationCredit((current) => ({ ...current, default_amount: event.target.value }))
-              }
-              helperText="Se aplică în afara campaniilor active."
-            />
-            <FormField
-              label="Valută"
-              value={registrationCredit.currency}
-              disabled
-              helperText="Wallet-ul platformei folosește MDL."
-            />
-          </div>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <PriceCard
+                    icon={TagIcon}
+                    label="Storage cost per GB"
+                    helper={`Original: $${ORIGINAL_DEFAULTS.storage_cost_per_gb_day}`}
+                    value={form.storage_cost_per_gb_day}
+                    unit="$"
+                    unitPrefix
+                    editing={editing}
+                    onChange={(value) => setForm({ ...form, storage_cost_per_gb_day: value })}
+                  />
+                  <PriceCard
+                    icon={HardDriveIcon}
+                    label="Delivery cost per GB"
+                    helper={`Original: $${ORIGINAL_DEFAULTS.delivery_cost_per_gb}`}
+                    value={form.delivery_cost_per_gb}
+                    unit="$"
+                    unitPrefix
+                    editing={editing}
+                    onChange={(value) => setForm({ ...form, delivery_cost_per_gb: value })}
+                  />
+                  <PriceCard
+                    icon={KeyRoundIcon}
+                    label="DRM cost per license"
+                    helper={`Original: $${ORIGINAL_DEFAULTS.drm_cost_per_license}`}
+                    value={form.drm_cost_per_license}
+                    unit="$"
+                    unitPrefix
+                    editing={editing}
+                    onChange={(value) => setForm({ ...form, drm_cost_per_license: value })}
+                  />
+                  <PriceCard
+                    icon={DollarSignIcon}
+                    label="Curs valutar USD/MDL"
+                    helper={`Original: ${ORIGINAL_DEFAULTS.usd_to_mdl_rate} MDL`}
+                    value={form.usd_to_mdl_rate}
+                    unit="MDL"
+                    displayPrefix="1 $ ="
+                    editing={editing}
+                    onChange={(value) => setForm({ ...form, usd_to_mdl_rate: value })}
+                  />
+                </div>
 
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-sm font-medium">Campanii pe perioadă</div>
-                <p className="text-sm text-muted-foreground">
-                  Prima campanie activă care include data înregistrării suprascrie suma implicită.
-                </p>
-              </div>
-              {canEdit ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setRegistrationCredit((current) => ({
-                      ...current,
-                      campaigns: [
-                        { label: "", amount: "100", starts_at: "", ends_at: "", enabled: true },
-                        ...current.campaigns,
-                      ],
-                    }))
-                  }
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Adaugă campanie
-                </Button>
-              ) : null}
-            </div>
+                {editing ? (
+                  <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditing(false);
+                        void load();
+                      }}
+                    >
+                      {t("common.cancel")}
+                    </Button>
+                    <Button onClick={() => void save()} disabled={saving}>
+                      <SaveIcon className="h-4 w-4" />
+                      {saving ? `${t("common.loading")}…` : t("common.save")}
+                    </Button>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
 
-            {registrationCredit.campaigns.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-                Nu există campanii. Se folosește suma implicită.
-              </div>
-            ) : (
-              registrationCredit.campaigns.map((campaign, index) => (
-                <div key={index} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_120px_160px_160px_120px_40px]">
+          {tab === "credit" ? (
+            <Card className="w-full">
+              <CardHeader className="gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>Credit la înregistrare</CardTitle>
+                    <CardDescription>
+                      Controlezi suma primită automat de utilizatorii noi și campaniile active pe intervale.
+                    </CardDescription>
+                  </div>
+                  <div className="rounded-md border bg-muted p-2">
+                    <GiftIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
                   <FormField
-                    label="Nume"
-                    value={campaign.label}
+                    label="Activ"
+                    type="toggle"
+                    checked={registrationCredit.enabled}
+                    helperText="Dacă este oprit, utilizatorii noi primesc 0 MDL."
                     disabled={!canEdit}
-                    onChange={(event) => updateCampaign(index, { label: event.target.value })}
+                    onChange={(event) =>
+                      setRegistrationCredit((current) => ({ ...current, enabled: event.target.checked }))
+                    }
                   />
                   <FormField
-                    label="Sumă"
+                    label="Sumă implicită"
                     type="number"
                     min="0"
                     step="0.01"
-                    value={campaign.amount}
+                    value={registrationCredit.default_amount}
                     disabled={!canEdit}
-                    onChange={(event) => updateCampaign(index, { amount: event.target.value })}
+                    onChange={(event) =>
+                      setRegistrationCredit((current) => ({ ...current, default_amount: event.target.value }))
+                    }
+                    helperText="Se aplică în afara campaniilor active."
                   />
                   <FormField
-                    label="De la"
-                    type="date"
-                    value={campaign.starts_at}
-                    disabled={!canEdit}
-                    onChange={(event) => updateCampaign(index, { starts_at: event.target.value })}
+                    label="Valută"
+                    value={registrationCredit.currency}
+                    disabled
+                    helperText="Wallet-ul platformei folosește MDL."
                   />
-                  <FormField
-                    label="Până la"
-                    type="date"
-                    value={campaign.ends_at}
-                    disabled={!canEdit}
-                    onChange={(event) => updateCampaign(index, { ends_at: event.target.value })}
-                  />
-                  <FormField
-                    label="Activă"
-                    type="toggle"
-                    checked={campaign.enabled}
-                    disabled={!canEdit}
-                    onChange={(event) => updateCampaign(index, { enabled: event.target.checked })}
-                  />
-                  {canEdit ? (
-                    <div className="flex items-end justify-end">
+                </div>
+
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-medium">Campanii pe perioadă</div>
+                      <p className="text-sm text-muted-foreground">
+                        Prima campanie activă care include data înregistrării suprascrie suma implicită.
+                      </p>
+                    </div>
+                    {canEdit ? (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
                         onClick={() =>
                           setRegistrationCredit((current) => ({
                             ...current,
-                            campaigns: current.campaigns.filter((_, campaignIndex) => campaignIndex !== index),
+                            campaigns: [
+                              { label: "", amount: "100", starts_at: "", ends_at: "", enabled: true },
+                              ...current.campaigns,
+                            ],
                           }))
                         }
                       >
-                        <TrashIcon className="h-4 w-4" />
+                        <PlusIcon className="h-4 w-4" />
+                        Adaugă campanie
                       </Button>
-                    </div>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </div>
-
-          {registrationCreditMessage ? (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              {registrationCreditMessage}
-            </div>
-          ) : null}
-
-          {canEdit ? (
-            <div className="flex justify-end border-t pt-4">
-              <Button onClick={() => void saveRegistrationCredit()} disabled={savingRegistrationCredit}>
-                <SaveIcon className="h-4 w-4" />
-                {savingRegistrationCredit ? "Se salvează..." : "Salvează creditul"}
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card className="w-full">
-        <CardHeader className="gap-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle>Pachete de credite App Store (iOS)</CardTitle>
-              <CardDescription>
-                În aplicația iOS utilizatorii cumpără credite prin Apple, care reține comisionul. Pe site (maib)
-                1 MDL = 1 credit, fără comision. Prețul filmelor rămâne același peste tot — comisionul se acoperă
-                aici, prin câte credite primește utilizatorul pentru prețul plătit la Apple.
-              </CardDescription>
-            </div>
-            <div className="rounded-md border bg-muted p-2">
-              <SmartphoneIcon className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormField
-              label="Comision Apple (%)"
-              type="number"
-              min="0"
-              max="99"
-              step="1"
-              value={iapPacks.commission_rate}
-              disabled={!canEdit}
-              onChange={(event) => setIapPacks((current) => ({ ...current, commission_rate: event.target.value }))}
-              helperText="15% cu Small Business Program, 30% fără."
-            />
-            <FormField
-              label="Curs USD/MDL"
-              value={form.usd_to_mdl_rate || "—"}
-              disabled
-              helperText="Preluat din „Curs valutar USD/MDL” de mai sus."
-            />
-          </div>
-
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-sm font-medium">Pachete</div>
-                <p className="text-sm text-muted-foreground">
-                  Product ID-ul trebuie să fie identic cu produsul (Consumable) din App Store Connect. Prețul USD e
-                  doar pentru calcul — prețul real îl stabilește Apple.
-                </p>
-              </div>
-              {canEdit ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setIapPacks((current) => ({
-                      ...current,
-                      packs: [
-                        ...current.packs,
-                        { product_id: "md.filmoteca.ios.credits.", credits_mdl: "", apple_price_usd: "", sort_order: String(current.packs.length + 1) },
-                      ],
-                    }))
-                  }
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Adaugă pachet
-                </Button>
-              ) : null}
-            </div>
-
-            {iapPacks.packs.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-                Nu există pachete. Aplicația iOS nu va putea vinde credite.
-              </div>
-            ) : (
-              iapPacks.packs.map((pack, index) => {
-                const net = iapNetMdl(pack.apple_price_usd, iapPacks.commission_rate, form.usd_to_mdl_rate);
-                const credits = Number(pack.credits_mdl || 0);
-                const losing = net !== null && credits > net;
-
-                return (
-                  <div key={index} className="space-y-2 rounded-lg border p-4">
-                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_130px_130px_90px_40px]">
-                      <FormField
-                        label="Product ID"
-                        value={pack.product_id}
-                        disabled={!canEdit}
-                        onChange={(event) => updateIapPack(index, { product_id: event.target.value })}
-                      />
-                      <FormField
-                        label="Preț Apple (USD)"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={pack.apple_price_usd}
-                        disabled={!canEdit}
-                        onChange={(event) => updateIapPack(index, { apple_price_usd: event.target.value })}
-                      />
-                      <FormField
-                        label="Credite acordate"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={pack.credits_mdl}
-                        disabled={!canEdit}
-                        onChange={(event) => updateIapPack(index, { credits_mdl: event.target.value })}
-                      />
-                      <FormField
-                        label="Ordine"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={pack.sort_order}
-                        disabled={!canEdit}
-                        onChange={(event) => updateIapPack(index, { sort_order: event.target.value })}
-                      />
-                      {canEdit ? (
-                        <div className="flex items-end justify-end">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              setIapPacks((current) => ({
-                                ...current,
-                                packs: current.packs.filter((_, packIndex) => packIndex !== index),
-                              }))
-                            }
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                    {net !== null ? (
-                      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${losing ? "text-destructive" : "text-muted-foreground"}`}>
-                        <span>Încasezi net după comision: ≈ {net.toFixed(2)} MDL</span>
-                        <span>Credite recomandate: {Math.floor(net)}</span>
-                        {losing ? <span className="font-medium">Acorzi mai multe credite decât încasezi — pierdere pe fiecare vânzare.</span> : null}
-                        {canEdit && credits !== Math.floor(net) ? (
-                          <button
-                            type="button"
-                            className="underline underline-offset-2"
-                            onClick={() => updateIapPack(index, { credits_mdl: String(Math.floor(net)) })}
-                          >
-                            Aplică recomandarea
-                          </button>
-                        ) : null}
-                      </div>
                     ) : null}
                   </div>
-                );
-              })
-            )}
-          </div>
 
-          {iapPacksMessage ? (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              {iapPacksMessage}
-            </div>
+                  {registrationCredit.campaigns.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+                      Nu există campanii. Se folosește suma implicită.
+                    </div>
+                  ) : (
+                    registrationCredit.campaigns.map((campaign, index) => (
+                      <div key={index} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_120px_160px_160px_120px_40px]">
+                        <FormField
+                          label="Nume"
+                          value={campaign.label}
+                          disabled={!canEdit}
+                          onChange={(event) => updateCampaign(index, { label: event.target.value })}
+                        />
+                        <FormField
+                          label="Sumă"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={campaign.amount}
+                          disabled={!canEdit}
+                          onChange={(event) => updateCampaign(index, { amount: event.target.value })}
+                        />
+                        <FormField
+                          label="De la"
+                          type="date"
+                          value={campaign.starts_at}
+                          disabled={!canEdit}
+                          onChange={(event) => updateCampaign(index, { starts_at: event.target.value })}
+                        />
+                        <FormField
+                          label="Până la"
+                          type="date"
+                          value={campaign.ends_at}
+                          disabled={!canEdit}
+                          onChange={(event) => updateCampaign(index, { ends_at: event.target.value })}
+                        />
+                        <FormField
+                          label="Activă"
+                          type="toggle"
+                          checked={campaign.enabled}
+                          disabled={!canEdit}
+                          onChange={(event) => updateCampaign(index, { enabled: event.target.checked })}
+                        />
+                        {canEdit ? (
+                          <div className="flex items-end justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                setRegistrationCredit((current) => ({
+                                  ...current,
+                                  campaigns: current.campaigns.filter((_, campaignIndex) => campaignIndex !== index),
+                                }))
+                              }
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {registrationCreditMessage ? (
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {registrationCreditMessage}
+                  </div>
+                ) : null}
+
+                {canEdit ? (
+                  <div className="flex justify-end border-t pt-4">
+                    <Button onClick={() => void saveRegistrationCredit()} disabled={savingRegistrationCredit}>
+                      <SaveIcon className="h-4 w-4" />
+                      {savingRegistrationCredit ? "Se salvează..." : "Salvează creditul"}
+                    </Button>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
           ) : null}
 
-          {canEdit ? (
-            <div className="flex justify-end border-t pt-4">
-              <Button onClick={() => void saveIapPacks()} disabled={savingIapPacks}>
-                <SaveIcon className="h-4 w-4" />
-                {savingIapPacks ? "Se salvează..." : "Salvează pachetele"}
-              </Button>
-            </div>
+          {tab === "iap" ? (
+            <Card className="w-full">
+              <CardHeader className="gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>Pachete de credite App Store (iOS)</CardTitle>
+                    <CardDescription>
+                      În aplicația iOS utilizatorii cumpără credite prin Apple, care reține comisionul. Pe site (maib)
+                      1 MDL = 1 credit, fără comision. Prețul filmelor rămâne același peste tot — comisionul se acoperă
+                      aici, prin câte credite primește utilizatorul pentru prețul plătit la Apple.
+                    </CardDescription>
+                  </div>
+                  <div className="rounded-md border bg-muted p-2">
+                    <SmartphoneIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <FormField
+                    label="Comision Apple (%)"
+                    type="number"
+                    min="0"
+                    max="99"
+                    step="1"
+                    value={iapPacks.commission_rate}
+                    disabled={!canEdit}
+                    onChange={(event) => setIapPacks((current) => ({ ...current, commission_rate: event.target.value }))}
+                    helperText="15% cu Small Business Program, 30% fără."
+                  />
+                  <FormField
+                    label="Curs USD/MDL"
+                    value={form.usd_to_mdl_rate || "—"}
+                    disabled
+                    helperText="Preluat din „Curs valutar USD/MDL” de mai sus."
+                  />
+                </div>
+
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-medium">Pachete</div>
+                      <p className="text-sm text-muted-foreground">
+                        Product ID-ul trebuie să fie identic cu produsul (Consumable) din App Store Connect. Prețul USD e
+                        doar pentru calcul — prețul real îl stabilește Apple.
+                      </p>
+                    </div>
+                    {canEdit ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          setIapPacks((current) => ({
+                            ...current,
+                            packs: [
+                              ...current.packs,
+                              { product_id: "md.filmoteca.ios.credits.", credits_mdl: "", apple_price_usd: "", sort_order: String(current.packs.length + 1) },
+                            ],
+                          }))
+                        }
+                      >
+                        <PlusIcon className="h-4 w-4" />
+                        Adaugă pachet
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  {iapPacks.packs.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+                      Nu există pachete. Aplicația iOS nu va putea vinde credite.
+                    </div>
+                  ) : (
+                    iapPacks.packs.map((pack, index) => {
+                      const net = iapNetMdl(pack.apple_price_usd, iapPacks.commission_rate, form.usd_to_mdl_rate);
+                      const credits = Number(pack.credits_mdl || 0);
+                      const losing = net !== null && credits > net;
+
+                      return (
+                        <div key={index} className="space-y-2 rounded-lg border p-4">
+                          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_130px_130px_90px_40px]">
+                            <FormField
+                              label="Product ID"
+                              value={pack.product_id}
+                              disabled={!canEdit}
+                              onChange={(event) => updateIapPack(index, { product_id: event.target.value })}
+                            />
+                            <FormField
+                              label="Preț Apple (USD)"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={pack.apple_price_usd}
+                              disabled={!canEdit}
+                              onChange={(event) => updateIapPack(index, { apple_price_usd: event.target.value })}
+                            />
+                            <FormField
+                              label="Credite acordate"
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={pack.credits_mdl}
+                              disabled={!canEdit}
+                              onChange={(event) => updateIapPack(index, { credits_mdl: event.target.value })}
+                            />
+                            <FormField
+                              label="Ordine"
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={pack.sort_order}
+                              disabled={!canEdit}
+                              onChange={(event) => updateIapPack(index, { sort_order: event.target.value })}
+                            />
+                            {canEdit ? (
+                              <div className="flex items-end justify-end">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    setIapPacks((current) => ({
+                                      ...current,
+                                      packs: current.packs.filter((_, packIndex) => packIndex !== index),
+                                    }))
+                                  }
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                          {net !== null ? (
+                            <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${losing ? "text-destructive" : "text-muted-foreground"}`}>
+                              <span>Încasezi net după comision: ≈ {net.toFixed(2)} MDL</span>
+                              <span>Credite recomandate: {Math.floor(net)}</span>
+                              {losing ? <span className="font-medium">Acorzi mai multe credite decât încasezi — pierdere pe fiecare vânzare.</span> : null}
+                              {canEdit && credits !== Math.floor(net) ? (
+                                <button
+                                  type="button"
+                                  className="underline underline-offset-2"
+                                  onClick={() => updateIapPack(index, { credits_mdl: String(Math.floor(net)) })}
+                                >
+                                  Aplică recomandarea
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {iapPacksMessage ? (
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {iapPacksMessage}
+                  </div>
+                ) : null}
+
+                {canEdit ? (
+                  <div className="flex justify-end border-t pt-4">
+                    <Button onClick={() => void saveIapPacks()} disabled={savingIapPacks}>
+                      <SaveIcon className="h-4 w-4" />
+                      {savingIapPacks ? "Se salvează..." : "Salvează pachetele"}
+                    </Button>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
           ) : null}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      )}
+    </SectionLayout>
   );
 }
 

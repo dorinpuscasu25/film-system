@@ -17,6 +17,10 @@ use App\Models\AdCampaign;
  */
 class VmapService
 {
+    /** Upper bound on materialised repeating mid-rolls for one playback. */
+    private const MAX_MID_ROLL_REPEATS = 8;
+
+
     public function __construct(
         protected AdTargetingService $targeting,
         protected VastService $vast,
@@ -45,6 +49,9 @@ class VmapService
                 'placement' => $placement,
                 'campaign_id' => $campaign->id,
                 'time_offset' => $this->timeOffset($placement, $campaign),
+                'repeat_every_minutes' => $placement === AdCampaign::PLACEMENT_MID_ROLL
+                    ? $campaign->mid_roll_every_minutes
+                    : null,
                 'vast' => $this->vast->buildVastXml(
                     $campaign,
                     $trackingBaseUrl,
@@ -66,6 +73,7 @@ class VmapService
                     'placement' => $break['placement'],
                     'campaign_id' => $break['campaign_id'],
                     'time_offset' => $break['time_offset'],
+                    'repeat_every_minutes' => $break['repeat_every_minutes'] ?? null,
                 ],
                 $breaks,
             ),
@@ -85,6 +93,47 @@ class VmapService
     }
 
     /**
+     * Turns a repeating mid-roll into concrete breaks.
+     *
+     * VMAP has no "every N minutes" concept, so the server materialises the
+     * offsets. Capped so a long film cannot produce an unreasonable number of
+     * interruptions.
+     *
+     * @param array<int, array<string, mixed>> $breaks
+     * @return array<int, array<string, mixed>>
+     */
+    private function expandRepeats(array $breaks): array
+    {
+        $expanded = [];
+
+        foreach ($breaks as $break) {
+            $expanded[] = $break;
+
+            $interval = (int) ($break['repeat_every_minutes'] ?? 0);
+            if ($break['placement'] !== AdCampaign::PLACEMENT_MID_ROLL || $interval <= 0) {
+                continue;
+            }
+
+            $first = $this->offsetToSeconds((string) $break['time_offset']);
+            for ($i = 1; $i <= self::MAX_MID_ROLL_REPEATS; $i++) {
+                $expanded[] = [
+                    ...$break,
+                    'time_offset' => gmdate('H:i:s', $first + ($interval * 60 * $i)),
+                ];
+            }
+        }
+
+        return $expanded;
+    }
+
+    private function offsetToSeconds(string $offset): int
+    {
+        $parts = array_map('intval', explode(':', $offset));
+
+        return count($parts) === 3 ? ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2] : 0;
+    }
+
+    /**
      * @param array<int, array{placement: string, campaign_id: int, time_offset: string, vast: string}> $breaks
      */
     private function renderVmap(array $breaks): string
@@ -97,6 +146,7 @@ XML;
         }
 
         $rendered = '';
+        $breaks = $this->expandRepeats($breaks);
         foreach ($breaks as $index => $break) {
             // Strip the inner XML declaration — only the VMAP document may carry one.
             $vast = preg_replace('/^\s*<\?xml[^>]*\?>\s*/', '', $break['vast']) ?? $break['vast'];

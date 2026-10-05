@@ -19,9 +19,9 @@ export type AdminPage =
   | 'coupons'
   | 'geo-stats'
   | 'ads'
-  | 'ad-test'
   | 'watch-parties'
   | 'content-creators'
+  | 'settings'
   | 'home-curation'
   | 'seo'
   | 'discovery'
@@ -54,9 +54,9 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
     coupons: '/coupons',
     'geo-stats': '/geo-stats',
     ads: '/ads',
-    'ad-test': '/ads/test',
     'watch-parties': '/watch-parties',
     'content-creators': '/creators',
+    settings: '/settings',
     'home-curation': '/home-curation',
     seo: '/seo',
     discovery: '/discovery',
@@ -90,9 +90,9 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     coupons: 'Cupoane',
     'geo-stats': 'Distribuție geografică',
     ads: 'Reclame',
-    'ad-test': 'VAST Test',
     'watch-parties': 'Watch Parties',
     'content-creators': 'Creatori',
+    settings: 'Setări',
     'home-curation': 'Pagina principală',
     seo: 'SEO',
     discovery: 'Căutare',
@@ -147,9 +147,9 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
     coupons: 'commerce.view',
     'geo-stats': 'commerce.view_billing',
     ads: 'advertising.view',
-    'ad-test': 'advertising.view',
     'watch-parties': 'content.view',
     'content-creators': 'users.view',
+    settings: 'settings.view',
     'home-curation': 'settings.edit_home_curation',
     discovery: 'settings.edit_search_config',
     cms: 'cms.view',

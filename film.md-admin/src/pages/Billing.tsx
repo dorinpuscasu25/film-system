@@ -23,6 +23,7 @@ import {
 import { Modal } from "../components/shared/Modal";
 import { SalesTimeline } from "../components/shared/SalesTimeline";
 import { Tabs } from "../components/shared/Tabs";
+import { SectionLayout } from "../components/shared/SectionLayout";
 import { TransactionTypeBadge } from "../components/shared/TransactionTypeBadge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -423,16 +424,20 @@ export function Billing() {
   }, [accountingFilters]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="page-header">
-          <h1 className="page-title">Finanțe și facturare</h1>
-          <p className="page-description">
-            Separă banii intrați în platformă, tranzacțiile wallet, plățile, costurile și exporturile contabile.
-          </p>
-        </div>
-
-        {(activeTab === "overview" || activeTab === "wallet") ? (
+    <SectionLayout
+      title="Finanțe și facturare"
+      description="Banii intrați în platformă, tranzacțiile wallet, plățile, costurile și exporturile contabile."
+      navLabel="Finanțe"
+      tabs={[
+        { id: "overview", label: "Prezentare", icon: BarChart3Icon },
+        { id: "accounting", label: "Contabilitate", icon: LandmarkIcon },
+        { id: "wallet", label: "Tranzacții wallet", icon: WalletCardsIcon },
+        { id: "payments", label: "Plăți și refunduri", icon: CreditCardIcon },
+        { id: "costs", label: "Costuri", icon: Settings2Icon },
+        { id: "exports", label: "Exporturi", icon: FileSpreadsheetIcon },
+      ]}
+      actions={
+        activeTab === "overview" || activeTab === "wallet" ? (
           <Tabs
             tabs={[
               { id: "3months", label: "3 luni" },
@@ -442,21 +447,12 @@ export function Billing() {
             activeTab={range}
             onChange={(value) => setRange(value as RangeValue)}
           />
-        ) : null}
-      </div>
-
-      <Tabs
-        tabs={[
-          { id: "overview", label: "Prezentare", icon: BarChart3Icon },
-          { id: "accounting", label: "Contabilitate", icon: LandmarkIcon },
-          { id: "wallet", label: "Tranzacții wallet", icon: WalletCardsIcon },
-          { id: "payments", label: "Plăți și refunduri", icon: CreditCardIcon },
-          { id: "costs", label: "Costuri", icon: Settings2Icon },
-          { id: "exports", label: "Exporturi", icon: FileSpreadsheetIcon },
-        ]}
-        activeTab={activeTab}
-        onChange={(value) => setActiveTab(value as BillingTab)}
-      />
+        ) : null
+      }
+    >
+      {(tab) => (
+        <div className="space-y-6">
+          <TabSync tab={tab} onChange={setActiveTab} />
 
       {activeTab === "overview" ? (
         <OverviewSection dashboard={dashboard} costs={costs} loading={isDashboardLoading} />
@@ -615,8 +611,25 @@ export function Billing() {
           </div>
         ) : null}
       </Modal>
-    </div>
+        </div>
+      )}
+    </SectionLayout>
   );
+}
+
+/**
+ * Mirrors the layout's URL-driven tab back into local state.
+ *
+ * The panels and the date-range selector were already keyed off `activeTab`;
+ * this keeps that working while `SectionLayout` owns the active tab in the URL,
+ * without rewriting every panel condition.
+ */
+function TabSync({ tab, onChange }: { tab: string; onChange: (tab: BillingTab) => void }) {
+  React.useEffect(() => {
+    onChange(tab as BillingTab);
+  }, [tab, onChange]);
+
+  return null;
 }
 
 function ExportProgressNotice({

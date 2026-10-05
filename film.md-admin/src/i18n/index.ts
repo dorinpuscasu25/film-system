@@ -21,8 +21,9 @@ void i18n
     fallbackLng: 'ro',
     supportedLngs: SUPPORTED_LOCALES as unknown as string[],
     interpolation: { escapeValue: false },
+    lng: 'ro',
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['localStorage'],
       caches: ['localStorage'],
       lookupLocalStorage: 'admin_locale',
     },

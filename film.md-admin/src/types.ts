@@ -686,6 +686,9 @@ export interface AdminAdCampaign {
   starts_at: string | null;
   ends_at: string | null;
   is_active: boolean;
+  /** Every slot this campaign runs in; falls back to `placement` for old rows. */
+  placements: string[];
+  mid_roll_every_minutes: number | null;
   frequency_cap_per_session: number | null;
   frequency_cap_per_day: number | null;
   mid_roll_offset_seconds: number | null;
@@ -781,7 +784,22 @@ export interface AdCampaignPayload {
   company_name?: string | null;
   vast_tag_url?: string | null;
   click_through_url?: string | null;
-  placement: string;
+  /** Legacy single slot; the API derives it from `placements`. */
+  placement?: string;
+  /** Every slot the campaign runs in: pre-roll, mid-roll, post-roll. */
+  placements: string[];
+  mid_roll_offset_seconds?: number | null;
+  /** Repeat mid-rolls every N minutes. */
+  mid_roll_every_minutes?: number | null;
+  frequency_cap_per_session?: number | null;
+  frequency_cap_per_day?: number | null;
+  target_countries?: string[];
+  target_content_ids?: number[];
+  target_excluded_content_ids?: number[];
+  target_age_ratings?: string[];
+  target_min_profile_rating?: string | null;
+  exclude_kids_profiles?: boolean;
+  target_platforms?: string[];
   status: string;
   bid_amount?: number | null;
   skip_offset_seconds?: number | null;

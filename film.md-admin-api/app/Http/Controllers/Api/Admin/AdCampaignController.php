@@ -71,6 +71,8 @@ class AdCampaignController extends ApiController
                     'vast_tag_url' => $campaign->vast_tag_url,
                     'click_through_url' => $campaign->click_through_url,
                     'placement' => $campaign->placement,
+                    'placements' => $campaign->resolvedPlacements(),
+                    'mid_roll_every_minutes' => $campaign->mid_roll_every_minutes,
                     'status' => $campaign->status,
                     'bid_amount' => $campaign->bid_amount,
                     'skip_offset_seconds' => $campaign->skip_offset_seconds,
@@ -114,7 +116,11 @@ class AdCampaignController extends ApiController
                 ];
             })->values(),
             'options' => [
-                'placements' => ['pre_roll', 'mid_roll', 'post_roll'],
+                'placements' => [
+                    AdCampaign::PLACEMENT_PRE_ROLL,
+                    AdCampaign::PLACEMENT_MID_ROLL,
+                    AdCampaign::PLACEMENT_POST_ROLL,
+                ],
                 'statuses' => [
                     AdCampaign::STATUS_DRAFT,
                     AdCampaign::STATUS_ACTIVE,
@@ -185,7 +191,10 @@ class AdCampaignController extends ApiController
             'company_name' => ['nullable', 'string', 'max:255'],
             'vast_tag_url' => ['nullable', 'url', 'max:2048'],
             'click_through_url' => ['nullable', 'url', 'max:2048'],
-            'placement' => ['required', 'string', 'max:32', 'in:pre-roll,mid-roll,post-roll'],
+            'placement' => ['nullable', 'string', 'max:32', 'in:pre-roll,mid-roll,post-roll'],
+            'placements' => ['required', 'array', 'min:1'],
+            'placements.*' => ['string', 'in:pre-roll,mid-roll,post-roll'],
+            'mid_roll_every_minutes' => ['nullable', 'integer', 'min:1', 'max:120'],
             'status' => ['required', 'string', 'max:32'],
             'bid_amount' => ['nullable', 'numeric', 'min:0'],
             'skip_offset_seconds' => ['nullable', 'integer', 'min:0'],
@@ -216,6 +225,7 @@ class AdCampaignController extends ApiController
             'creatives.*.duration_seconds' => ['nullable', 'integer', 'min:1'],
             'creatives.*.width' => ['nullable', 'integer', 'min:1'],
             'creatives.*.height' => ['nullable', 'integer', 'min:1'],
+            'creatives.*.id' => ['nullable', 'integer'],
             'creatives.*.is_active' => ['sometimes', 'boolean'],
             'targeting_rules' => ['nullable', 'array'],
             'targeting_rules.*.country_code' => ['nullable', 'string', 'max:5'],
@@ -246,7 +256,11 @@ class AdCampaignController extends ApiController
             'company_name' => $payload['company_name'] ?? null,
             'vast_tag_url' => $payload['vast_tag_url'] ?? null,
             'click_through_url' => $payload['click_through_url'] ?? null,
-            'placement' => $payload['placement'],
+            // The legacy column keeps the first selected slot so older readers
+            // and reports continue to work.
+            'placement' => $payload['placements'][0] ?? $payload['placement'] ?? AdCampaign::PLACEMENT_PRE_ROLL,
+            'placements' => $payload['placements'],
+            'mid_roll_every_minutes' => $payload['mid_roll_every_minutes'] ?? null,
             'status' => $payload['status'],
             'bid_amount' => $payload['bid_amount'] ?? 0,
             'skip_offset_seconds' => $payload['skip_offset_seconds'] ?? null,

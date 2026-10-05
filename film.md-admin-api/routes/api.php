@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\Admin\AccountingTransactionController;
 use App\Http\Controllers\Api\Admin\AdCampaignController;
 use App\Http\Controllers\Api\Admin\AdCampaignReportController;
 use App\Http\Controllers\Api\Admin\AdStatsController;
-use App\Http\Controllers\Api\Admin\AdTestController;
 use App\Http\Controllers\Api\Admin\AnalyticsController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\AvailabilityWindowController;
@@ -244,7 +243,6 @@ Route::prefix('v1')->group(function (): void {
             Route::get('ad-campaigns/{campaign}/report', [AdCampaignReportController::class, 'show'])->middleware('permission:advertising.view');
 
             // VAST debug — see which campaign would serve, the resolved XML, and why others were excluded
-            Route::post('ad-test/resolve', [AdTestController::class, 'resolve'])->middleware('permission:advertising.view');
 
             // Backups (Settings → Backup-uri)
             Route::prefix('backups')->middleware('permission:settings.manage_backups')->group(function (): void {
