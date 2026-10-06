@@ -112,7 +112,12 @@ Route::prefix('v1')->group(function (): void {
     Route::get('playback/break-tag', [AdsController::class, 'vast'])->middleware('throttle:240,1')->name('playback.break_tag');
     // Returns every break for one playback in a single response.
     Route::get('playback/breaks', [AdsController::class, 'vmap'])->middleware('throttle:240,1')->name('playback.breaks');
-    Route::get('playback/beacon', [AdsController::class, 'track'])->middleware('throttle:600,1')->name('playback.beacon');
+    // GET for VAST tracking pixels, POST because navigator.sendBeacon() — which
+    // is what lets a "complete" or "skip" ping survive the tab closing — always
+    // issues a POST.
+    Route::match(['get', 'post'], 'playback/beacon', [AdsController::class, 'track'])
+        ->middleware('throttle:600,1')
+        ->name('playback.beacon');
     Route::post('playback/beacon-batch', [AdsController::class, 'event'])->middleware('throttle:240,1');
     Route::any('payments/pay-filmoteca/callback', PayFilmotecaCallbackController::class)->middleware('throttle:120,1');
     // App Store Server Notifications V2 — authenticity comes from Apple's JWS signature

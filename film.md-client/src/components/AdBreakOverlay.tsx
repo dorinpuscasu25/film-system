@@ -84,11 +84,19 @@ export function AdBreakOverlay({ adBreak, onFinished }: AdBreakOverlayProps) {
     fireAdTracking(creative, video.muted ? "mute" : "unmute");
   }, [creative]);
 
-  // Autoplay can still be refused (no prior gesture); treat that as a failed break.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    void video.play().catch(() => finish());
+
+    // Browsers refuse unmuted autoplay without a recent user gesture, which is
+    // exactly the case on a page reload. Muted autoplay is always permitted, so
+    // fall back to it instead of dropping the break — the viewer can turn sound
+    // on with the control in the corner. Only a second failure ends the break.
+    void video.play().catch(() => {
+      video.muted = true;
+      setIsMuted(true);
+      void video.play().catch(() => finish());
+    });
   }, [finish]);
 
   const canSkip = creative.skipOffsetSeconds !== null && (skipIn ?? 1) <= 0;

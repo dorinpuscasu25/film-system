@@ -706,6 +706,17 @@ export function VideoPlayer({
     }
   }, [shouldUseExternalEmbed]);
 
+  // A pre-roll can resolve before Bunny's player.js bridge finishes loading, in
+  // which case the first pause call reaches nothing and the film plays behind
+  // the ad. Re-issue it once the break is on screen.
+  useEffect(() => {
+    if (!activeAdBreak) return;
+
+    pauseActivePlayer();
+    const retry = window.setTimeout(pauseActivePlayer, 800);
+    return () => window.clearTimeout(retry);
+  }, [activeAdBreak, pauseActivePlayer]);
+
   // Resolve ad breaks once per playback. Covers both playback paths: our own
   // <video> element, and Bunny's iframe driven through the player.js bridge.
   useEffect(() => {
