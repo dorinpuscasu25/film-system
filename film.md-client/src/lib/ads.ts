@@ -11,8 +11,10 @@
  * surface and ~200 KB for what amounts to a handful of selectors.
  */
 
-const API_BASE = (import.meta as unknown as { env: Record<string, string | undefined> }).env
-  ?.VITE_API_BASE_URL ?? "/api/v1";
+// Same variable and fallback as session.ts / storefront.ts. A relative path here
+// would resolve against the storefront host instead of the API host, and the
+// request would 404 silently.
+const API_URL = import.meta.env.VITE_API_URL ?? "https://filmmd-api.veezify.com/api/v1";
 
 export type AdPlacement = "pre-roll" | "mid-roll" | "post-roll";
 
@@ -176,13 +178,22 @@ export async function fetchAdBreaks(options: FetchAdBreaksOptions): Promise<AdBr
   if (options.accountProfileId) params.set("account_profile_id", String(options.accountProfileId));
 
   try {
-    const response = await fetch(`${API_BASE}/ads/vmap?${params.toString()}`, {
+    const response = await fetch(`${API_URL}/playback/breaks?${params.toString()}`, {
       signal: options.signal,
       headers: { Accept: "application/xml" },
     });
-    if (!response.ok || response.status === 204) return [];
+    if (response.status === 204) return [];
+    if (!response.ok) {
+      // Never block playback, but do not fail silently either: a misrouted or
+      // rejected request here looks exactly like "no campaigns are running".
+      console.warn(`[ads] break playlist request failed with ${response.status}`);
+      return [];
+    }
     return parseVmap(await response.text());
-  } catch {
+  } catch (error) {
+    if ((error as Error)?.name !== "AbortError") {
+      console.warn("[ads] break playlist request could not be completed", error);
+    }
     return [];
   }
 }

@@ -49,7 +49,7 @@ final class MediaUploadService
     /**
      * Uploads a short video (ad creative) and returns its public CDN URL.
      */
-    public function uploadVideo(UploadedFile $file, string $directory = 'ads/creatives'): string
+    public function uploadVideo(UploadedFile $file, string $directory = 'media/spots'): string
     {
         $this->validateFile($file, self::ALLOWED_VIDEO_MIMES);
 

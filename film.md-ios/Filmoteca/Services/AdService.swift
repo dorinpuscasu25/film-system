@@ -54,7 +54,7 @@ actor AdService {
         accountProfileID: String?,
         authToken: String?
     ) async -> [AdBreak] {
-        var components = URLComponents(url: baseURL.appending(path: "ads/vmap"), resolvingAgainstBaseURL: false)
+        var components = URLComponents(url: baseURL.appending(path: "playback/breaks"), resolvingAgainstBaseURL: false)
         var query = [
             URLQueryItem(name: "content", value: contentID),
             URLQueryItem(name: "platform", value: "ios"),

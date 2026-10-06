@@ -37,7 +37,7 @@ class UploadController extends Controller
         ]);
 
         $isVideo = $request->input('kind') === 'video';
-        $directory = $request->input('directory', $isVideo ? 'ads/creatives' : 'uploads');
+        $directory = $request->input('directory', $isVideo ? 'media/spots' : 'uploads');
 
         // Single file upload
         if ($request->hasFile('file')) {

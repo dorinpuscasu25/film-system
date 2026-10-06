@@ -98,7 +98,9 @@ class AdsController extends ApiController
 
     private function trackingBaseUrl(): string
     {
-        return rtrim((string) config('app.url'), '/').'/api/v1/ads/track';
+        // Must match the tracking route; see the note in routes/api.php about
+        // why these paths avoid the word "ads".
+        return rtrim((string) config('app.url'), '/').'/api/v1/playback/beacon';
     }
 
     public function vast(Request $request)

@@ -106,11 +106,14 @@ Route::prefix('v1')->group(function (): void {
         Route::post('ads', [BunnyWebhookController::class, 'ads']);
     });
 
-    Route::get('ads/vast', [AdsController::class, 'vast'])->middleware('throttle:240,1')->name('ads.vast');
-    // VMAP returns every ad break for one playback in a single response.
-    Route::get('ads/vmap', [AdsController::class, 'vmap'])->middleware('throttle:240,1')->name('ads.vmap');
-    Route::get('ads/track', [AdsController::class, 'track'])->middleware('throttle:600,1');
-    Route::post('ads/events', [AdsController::class, 'event'])->middleware('throttle:240,1');
+    // Deliberately neutral paths: content blockers match "/ads/" by pattern, so
+    // the previous URLs were dropped for a large share of viewers before the
+    // request ever reached us — which is indistinguishable from "no campaigns".
+    Route::get('playback/break-tag', [AdsController::class, 'vast'])->middleware('throttle:240,1')->name('playback.break_tag');
+    // Returns every break for one playback in a single response.
+    Route::get('playback/breaks', [AdsController::class, 'vmap'])->middleware('throttle:240,1')->name('playback.breaks');
+    Route::get('playback/beacon', [AdsController::class, 'track'])->middleware('throttle:600,1')->name('playback.beacon');
+    Route::post('playback/beacon-batch', [AdsController::class, 'event'])->middleware('throttle:240,1');
     Route::any('payments/pay-filmoteca/callback', PayFilmotecaCallbackController::class)->middleware('throttle:120,1');
     // App Store Server Notifications V2 — authenticity comes from Apple's JWS signature
     // (verified in AppleIapService), not a shared secret, so no extra auth middleware here.

@@ -689,7 +689,7 @@ export const adminApi = {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("kind", "video");
-    formData.append("directory", "ads/creatives");
+    formData.append("directory", "media/spots");
     return request<{ url: string }>("POST", "/admin/upload", {
       data: formData,
     });
