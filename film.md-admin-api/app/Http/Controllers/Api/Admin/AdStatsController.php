@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\AdCampaign;
 use App\Models\AdEvent;
 use App\Models\AdEventAggregate;
+use App\Models\Content;
 use App\Services\AdEventTrackingService;
 use App\Services\ContentScopeService;
 use Carbon\Carbon;
@@ -66,17 +67,34 @@ class AdStatsController extends ApiController
             'percent' => round(($count / $totalCountryCount) * 100, 2),
         ])->values();
 
-        $byDay = $aggregates->groupBy(fn ($row) => $row->date instanceof Carbon ? $row->date->toDateString() : (string) $row->date)
-            ->map(fn ($rows) => [
-                'date' => $rows->first()->date instanceof Carbon ? $rows->first()->date->toDateString() : (string) $rows->first()->date,
-                'impressions' => (int) $rows->where('event_type', AdEventTrackingService::EVENT_IMPRESSION)->sum('count'),
-                'completes' => (int) $rows->where('event_type', AdEventTrackingService::EVENT_COMPLETE)->sum('count'),
-                'clicks' => (int) $rows->where('event_type', AdEventTrackingService::EVENT_CLICK)->sum('count'),
-                'skips' => (int) $rows->where('event_type', AdEventTrackingService::EVENT_SKIP)->sum('count'),
-            ])
-            ->values()
-            ->sortBy('date')
+        $dateKey = fn ($row): string => $row->date instanceof Carbon ? $row->date->toDateString() : substr((string) $row->date, 0, 10);
+        $grouped = $aggregates->groupBy($dateKey);
+
+        // Zero-filled so a report reads as a continuous calendar, not a list
+        // with gaps that a reader has to notice on their own.
+        $byDay = collect();
+        for ($day = Carbon::parse($cutoff); $day->lte(today()); $day->addDay()) {
+            $rows = $grouped->get($day->toDateString(), collect());
+            $byDay->push(['date' => $day->toDateString()] + $this->totals($rows));
+        }
+
+        $byPlatform = $aggregates
+            ->groupBy(fn ($row) => $row->platform ?: 'unknown')
+            ->map(fn ($rows, string $platform): array => ['platform' => $platform] + $this->totals($rows))
+            ->sortByDesc('impressions')
             ->values();
+
+        $byContent = $aggregates
+            ->groupBy(fn ($row) => (int) ($row->content_id ?? 0))
+            ->map(fn ($rows, int $contentId): array => ['content_id' => $contentId ?: null] + $this->totals($rows))
+            ->sortByDesc('impressions')
+            ->values();
+        $titles = Content::query()
+            ->whereIn('id', $byContent->pluck('content_id')->filter())
+            ->pluck('original_title', 'id');
+        $byContent = $byContent->map(fn (array $row): array => $row + [
+            'title' => $row['content_id'] !== null ? ($titles[$row['content_id']] ?? null) : null,
+        ]);
         $impressions = $isScoped
             ? (int) ($byEvent[AdEventTrackingService::EVENT_IMPRESSION] ?? 0)
             : (int) $campaign->impressions_count;
@@ -121,7 +139,44 @@ class AdStatsController extends ApiController
             ])->values(),
             'country_chart' => $countryBreakdown,
             'daily_chart' => $byDay,
+            'period' => [
+                'days' => $daysBack,
+                'from' => $cutoff,
+                'to' => today()->toDateString(),
+            ],
+            // Everything below covers only the selected period, unlike the
+            // lifetime counters in `rollups`, so a report stays self-consistent.
+            'period_totals' => $this->totals($aggregates),
+            'platform_chart' => $byPlatform,
+            'content_chart' => $byContent,
         ]);
+    }
+
+    /**
+     * Event counts and the derived rates for a set of aggregate rows.
+     *
+     * @return array<string, int|float>
+     */
+    private function totals($rows): array
+    {
+        $count = fn (string $event): int => (int) $rows->where('event_type', $event)->sum('count');
+        $impressions = $count(AdEventTrackingService::EVENT_IMPRESSION);
+        $completes = $count(AdEventTrackingService::EVENT_COMPLETE);
+        $clicks = $count(AdEventTrackingService::EVENT_CLICK);
+        $rate = fn (int $part): float => $impressions > 0 ? round(($part / $impressions) * 100, 2) : 0.0;
+
+        return [
+            'impressions' => $impressions,
+            'starts' => $count(AdEventTrackingService::EVENT_START),
+            'first_quartile' => $count(AdEventTrackingService::EVENT_FIRST_QUARTILE),
+            'midpoint' => $count(AdEventTrackingService::EVENT_MIDPOINT),
+            'third_quartile' => $count(AdEventTrackingService::EVENT_THIRD_QUARTILE),
+            'completes' => $completes,
+            'clicks' => $clicks,
+            'skips' => $count(AdEventTrackingService::EVENT_SKIP),
+            'completion_rate' => $rate($completes),
+            'ctr' => $rate($clicks),
+        ];
     }
 
     public function events(Request $request, AdCampaign $campaign): JsonResponse

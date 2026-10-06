@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\AdCampaign;
+use App\Models\AdEventAggregate;
 use App\Models\Content;
 use App\Models\Offer;
 use App\Models\Permission;
@@ -204,6 +205,41 @@ class ProducerAccessApiTest extends TestCase
             ->assertForbidden();
         $this->getJson("/api/v1/admin/ad-campaigns/{$foreignCampaign->id}/events", $this->authHeaders())
             ->assertForbidden();
+    }
+
+    public function test_campaign_stats_include_report_breakdowns_for_the_period(): void
+    {
+        $campaign = $this->createCampaign('Report campaign');
+        $campaign->targetingRules()->create([
+            'content_id' => $this->assignedContent->id,
+            'is_include_rule' => true,
+        ]);
+
+        foreach (['impression' => 4, 'complete' => 3, 'click' => 1] as $event => $count) {
+            AdEventAggregate::query()->create([
+                'ad_campaign_id' => $campaign->id,
+                'content_id' => $this->assignedContent->id,
+                'date' => today()->subDays(2)->toDateString(),
+                'event_type' => $event,
+                'country_code' => 'MD',
+                'platform' => 'web',
+                'count' => $count,
+            ]);
+        }
+
+        $response = $this->getJson("/api/v1/admin/ad-campaigns/{$campaign->id}/stats?days=7", $this->authHeaders())
+            ->assertOk();
+
+        $response->assertJsonPath('period.days', 7)
+            ->assertJsonPath('period_totals.impressions', 4)
+            ->assertJsonPath('period_totals.completion_rate', 75)
+            ->assertJsonPath('platform_chart.0.platform', 'web')
+            ->assertJsonPath('content_chart.0.content_id', $this->assignedContent->id)
+            ->assertJsonPath('content_chart.0.clicks', 1);
+
+        // Every day of the window is present, including the empty ones.
+        $this->assertCount(8, $response->json('daily_chart'));
+        $this->assertSame(4, collect($response->json('daily_chart'))->sum('impressions'));
     }
 
     public function test_invited_producer_receives_selected_content_when_accepting_invitation(): void

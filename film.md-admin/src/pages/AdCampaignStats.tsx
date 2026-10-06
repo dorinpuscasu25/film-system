@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FileSpreadsheetIcon, FileTextIcon, LoaderIcon } from 'lucide-react';
 import { adminApi } from '../lib/api';
+import { downloadAdReportExcel, downloadAdReportPdf } from '../lib/adReport';
 
 interface Props {
   campaignId: number;
@@ -12,6 +14,22 @@ export function AdCampaignStats({ campaignId }: Props) {
   const [data, setData] = useState<Awaited<ReturnType<typeof adminApi.getAdCampaignStats>> | null>(null);
   const [events, setEvents] = useState<Awaited<ReturnType<typeof adminApi.getAdCampaignEvents>> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function exportReport(format: 'excel' | 'pdf') {
+    if (!data || exporting) return;
+    setExporting(format);
+    setExportError(null);
+    try {
+      await (format === 'excel' ? downloadAdReportExcel(data) : downloadAdReportPdf(data));
+    } catch (error) {
+      console.error(error);
+      setExportError(t('ads.stats.export_failed'));
+    } finally {
+      setExporting(null);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -42,16 +60,37 @@ export function AdCampaignStats({ campaignId }: Props) {
           <h1 className="text-2xl font-semibold">{data.campaign.name}</h1>
           <div className="text-sm text-muted-foreground">{data.campaign.company_name}</div>
         </div>
-        <select
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary"
-        >
-          <option value={7}>7 zile</option>
-          <option value={30}>30 zile</option>
-          <option value={90}>90 zile</option>
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary"
+          >
+            <option value={7}>7 zile</option>
+            <option value={30}>30 zile</option>
+            <option value={90}>90 zile</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => void exportReport('excel')}
+            disabled={exporting !== null}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {exporting === 'excel' ? <LoaderIcon className="h-4 w-4 animate-spin" /> : <FileSpreadsheetIcon className="h-4 w-4 text-emerald-600" />}
+            {t('ads.stats.export_excel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportReport('pdf')}
+            disabled={exporting !== null}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {exporting === 'pdf' ? <LoaderIcon className="h-4 w-4 animate-spin" /> : <FileTextIcon className="h-4 w-4 text-red-600" />}
+            {t('ads.stats.export_pdf')}
+          </button>
+        </div>
       </div>
+      {exportError && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{exportError}</div>}
 
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
         <Stat label={t('ads.stats.impressions')} value={data.campaign.rollups.impressions} />

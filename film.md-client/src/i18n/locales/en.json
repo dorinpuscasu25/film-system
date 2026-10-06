@@ -456,6 +456,7 @@
     "skip": "Skip ad",
     "skip_in": "Skip in {{seconds}}s",
     "learn_more": "Learn more",
+    "tap_to_play": "Play ad",
     "mute": "Mute",
     "unmute": "Unmute"
   }

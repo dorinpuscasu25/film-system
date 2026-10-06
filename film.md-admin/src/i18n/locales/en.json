@@ -132,7 +132,10 @@
       "events_chart": "VAST events",
       "country_chart": "Country distribution",
       "daily_chart": "Daily breakdown",
-      "events_log": "Recent events"
+      "events_log": "Recent events",
+      "export_excel": "Export Excel",
+      "export_pdf": "Export PDF",
+      "export_failed": "The report could not be generated. Please try again."
     }
   },
   "coupons": {

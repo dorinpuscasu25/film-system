@@ -141,7 +141,7 @@ function qualityLabel(track: VariantTrack) {
   return track.label || `Track ${track.id}`;
 }
 
-function mobileEmbedUrl(url: string) {
+function mobileEmbedUrl(url: string, inline: boolean) {
   if (!/https?:\/\/[^/]*mediadelivery\.net\/embed\//i.test(url)) {
     return url;
   }
@@ -153,7 +153,12 @@ function mobileEmbedUrl(url: string) {
   if (!/[?&]preload=/i.test(url)) {
     parameters.push('preload=true');
   }
-  if (!/[?&]playsinline=/i.test(url)) {
+  // Native iOS fullscreen covers every DOM element, so with ads scheduled the
+  // film must stay inline or a mid/post-roll plays invisibly behind it.
+  if (inline) {
+    url = url.replace(/([?&])playsinline=[^&]*/i, '$1playsinline=true');
+    if (!/[?&]playsinline=/i.test(url)) parameters.push('playsinline=true');
+  } else if (!/[?&]playsinline=/i.test(url)) {
     parameters.push('playsinline=false');
   }
 
@@ -295,6 +300,8 @@ export function VideoPlayer({
   const embedDurationRef = useRef(0);
   const embedPlayingRef = useRef(false);
   const embedPlayerRef = useRef<PlayerJsPlayer | null>(null);
+  // Session-history bookkeeping for the Bunny iframe; see handleEmbedLoad.
+  const embedHistoryRef = useRef({ loads: 0, historyLength: 0, entriesBehind: 0 });
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   // Ad breaks for this playback. Resolved once per session; `played` is flipped
@@ -302,6 +309,14 @@ export function VideoPlayer({
   const adBreaksRef = useRef<AdBreak[]>([]);
   const [activeAdBreak, setActiveAdBreak] = useState<AdBreak | null>(null);
   const [adsResolved, setAdsResolved] = useState(false);
+  const [hasAdBreaks, setHasAdBreaks] = useState(false);
+  const activeAdBreakRef = useRef<AdBreak | null>(null);
+  // The film is held back until we know whether a pre-roll runs, and through
+  // the pre-roll itself. Starting it and pausing it a moment later is what lost
+  // ads on phones: iOS pauses the ad <video> as soon as another one starts, and
+  // the Bunny iframe can grab native fullscreen on top of the overlay.
+  const [contentHeld, setContentHeld] = useState(Boolean(contentId));
+  const contentHeldRef = useRef(contentHeld);
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
@@ -320,8 +335,8 @@ export function VideoPlayer({
   const [isEpisodeRailOpen, setIsEpisodeRailOpen] = useState(false);
   const resolvedEmbedUrl = useMemo(() => {
     const url = resolveEmbedUrl(sourceUrl, embedUrl);
-    return url ? embedUrlWithStartTime(mobileEmbedUrl(url), initialPositionSeconds) : null;
-  }, [embedUrl, initialPositionSeconds, sourceUrl]);
+    return url ? embedUrlWithStartTime(mobileEmbedUrl(url, hasAdBreaks), initialPositionSeconds) : null;
+  }, [embedUrl, hasAdBreaks, initialPositionSeconds, sourceUrl]);
   const shouldUseExternalEmbed = Boolean(resolvedEmbedUrl && !isDirectMediaUrl(sourceUrl));
   const sortedSeasonsData = useMemo(
     () =>
@@ -378,6 +393,10 @@ export function VideoPlayer({
       event_type: eventType,
     });
   }, []);
+
+  useEffect(() => {
+    embedHistoryRef.current = { loads: 0, historyLength: 0, entriesBehind: 0 };
+  }, [resolvedEmbedUrl]);
 
   useEffect(() => {
     watchSecondsRef.current = 0;
@@ -496,7 +515,7 @@ export function VideoPlayer({
       player?.off?.('ended', onEnded);
       player?.off?.('seeked', onTimeUpdate);
     };
-  }, [initialPositionSeconds, resolvedEmbedUrl, shouldUseExternalEmbed, syncEmbedProgress]);
+  }, [contentHeld, initialPositionSeconds, resolvedEmbedUrl, shouldUseExternalEmbed, syncEmbedProgress]);
 
   useEffect(() => {
     if (shouldUseExternalEmbed) {
@@ -571,7 +590,9 @@ export function VideoPlayer({
         setSelectedVariant('auto');
         setSelectedText(tracks.find((track) => track.active)?.id ?? 'off');
         setIsReady(true);
-        void video.play().catch(() => setIsPlaying(false));
+        if (!contentHeldRef.current) {
+          void video.play().catch(() => setIsPlaying(false));
+        }
       } catch (loadError) {
         const message = loadError instanceof Error ? loadError.message : 'Nu am putut porni stream-ul.';
         if (active) {
@@ -608,6 +629,11 @@ export function VideoPlayer({
       }
     };
     const onPlay = () => {
+      // A tap on the film, a media key or autoplay must not start it under an ad.
+      if (activeAdBreakRef.current || contentHeldRef.current) {
+        video.pause();
+        return;
+      }
       setIsPlaying(true);
       syncProgress('play');
     };
@@ -691,9 +717,58 @@ export function VideoPlayer({
     videoRef.current?.pause();
   }, [shouldUseExternalEmbed]);
 
+  /**
+   * Any navigation inside the iframe after its first load adds an entry to the
+   * tab's history. The browser Back button then rewinds the iframe instead of
+   * leaving the page: the URL stays on /watch and Bunny shows an error on a
+   * black screen. A reload that did not grow history.length is exactly that
+   * traversal, so finish what the viewer asked for and leave the player,
+   * skipping any iframe entries still in the way.
+   */
+  const handleEmbedLoad = useCallback(() => {
+    const state = embedHistoryRef.current;
+    const length = window.history.length;
+    state.loads += 1;
+
+    if (state.loads === 1) {
+      state.historyLength = length;
+      return;
+    }
+
+    if (length > state.historyLength) {
+      state.entriesBehind += length - state.historyLength;
+      state.historyLength = length;
+      return;
+    }
+
+    // Browsers cap history.length (50 in Chrome); past that it says nothing.
+    if (length >= 50) return;
+
+    state.entriesBehind = Math.max(0, state.entriesBehind - 1);
+    window.history.go(-(state.entriesBehind + 1));
+  }, []);
+
+  /** Lets the film start; mounts the iframe or plays our own <video>. */
+  const releaseContent = useCallback(() => {
+    if (!contentHeldRef.current) return;
+    contentHeldRef.current = false;
+    setContentHeld(false);
+
+    const video = videoRef.current;
+    if (!shouldUseExternalEmbed && video && video.readyState > 0 && video.paused) {
+      void video.play().catch(() => setIsPlaying(false));
+    }
+  }, [shouldUseExternalEmbed]);
+
   /** Resumes the film once a break ends, is skipped, or fails. */
   const handleAdFinished = useCallback(() => {
+    activeAdBreakRef.current = null;
     setActiveAdBreak(null);
+
+    if (contentHeldRef.current) {
+      releaseContent();
+      return;
+    }
 
     if (shouldUseExternalEmbed) {
       embedPlayerRef.current?.play();
@@ -704,13 +779,21 @@ export function VideoPlayer({
     if (video && !video.ended) {
       void video.play().catch(() => undefined);
     }
-  }, [shouldUseExternalEmbed]);
+  }, [releaseContent, shouldUseExternalEmbed]);
 
   // A pre-roll can resolve before Bunny's player.js bridge finishes loading, in
   // which case the first pause call reaches nothing and the film plays behind
   // the ad. Re-issue it once the break is on screen.
   useEffect(() => {
+    activeAdBreakRef.current = activeAdBreak;
     if (!activeAdBreak) return;
+
+    // iOS plays our own <video> in native fullscreen, which sits above every
+    // DOM element including the ad overlay. Leave it so the break is visible.
+    const video = videoRef.current as WebkitVideoElement | null;
+    if (video?.webkitDisplayingFullscreen && video.webkitExitFullscreen) {
+      video.webkitExitFullscreen();
+    }
 
     pauseActivePlayer();
     const retry = window.setTimeout(pauseActivePlayer, 800);
@@ -725,6 +808,12 @@ export function VideoPlayer({
     }
 
     const controller = new AbortController();
+    // A slow ad server must not hold the film back for long.
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 4000);
 
     void fetchAdBreaks({
       contentId,
@@ -733,20 +822,29 @@ export function VideoPlayer({
       platform: 'web',
       signal: controller.signal,
     }).then((breaks) => {
-      if (controller.signal.aborted) return;
+      window.clearTimeout(timeout);
+      if (controller.signal.aborted && !timedOut) return;
       adBreaksRef.current = breaks;
+      setHasAdBreaks(breaks.length > 0);
       setAdsResolved(true);
 
       const preRoll = breaks.find((item) => item.placement === 'pre-roll');
       if (preRoll) {
         preRoll.played = true;
         pauseActivePlayer();
+        activeAdBreakRef.current = preRoll;
         setActiveAdBreak(preRoll);
+        return;
       }
+
+      releaseContent();
     });
 
-    return () => controller.abort();
-  }, [accountProfileId, adsResolved, contentId, pauseActivePlayer, playbackSessionToken, shouldUseExternalEmbed]);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [accountProfileId, adsResolved, contentId, pauseActivePlayer, playbackSessionToken, releaseContent]);
 
   useEffect(() => {
     const video = videoRef.current as WebkitVideoElement | null;
@@ -795,6 +893,11 @@ export function VideoPlayer({
     const video = videoRef.current as WebkitVideoElement | null;
 
     if (!container || document.fullscreenElement || video?.webkitDisplayingFullscreen) {
+      return;
+    }
+    // Native video fullscreen (the iPhone fallback below) would hide the ad.
+    const nativeOnly = !container.requestFullscreen;
+    if (nativeOnly && activeAdBreakRef.current) {
       return;
     }
 
@@ -1084,14 +1187,22 @@ export function VideoPlayer({
   if (shouldUseExternalEmbed && resolvedEmbedUrl) {
     return (
       <div ref={containerRef} className="player-viewport relative w-full overflow-hidden bg-black">
-        <iframe
-          ref={iframeRef}
-          title={`${movie.title} player`}
-          src={resolvedEmbedUrl}
-          className="h-full w-full border-0"
-          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-        />
+        {/* Mounted only once the pre-roll is decided, so Bunny cannot start
+            the film (or take over the screen on iOS) underneath the ad. */}
+        {!contentHeld && (
+          <iframe
+            // A new element per URL: changing src on a live iframe would push
+            // a history entry that the Back button then lands on.
+            key={resolvedEmbedUrl}
+            ref={iframeRef}
+            onLoad={handleEmbedLoad}
+            title={`${movie.title} player`}
+            src={resolvedEmbedUrl}
+            className="h-full w-full border-0"
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
+        )}
 
         {/* Covers Bunny's player while an ad plays; their player is paused
             through the player.js bridge, so nothing changes on Bunny's side. */}
@@ -1141,7 +1252,6 @@ export function VideoPlayer({
       <video
         ref={videoRef}
         className="h-full w-full bg-black object-contain"
-        autoPlay
         playsInline
         crossOrigin="anonymous"
         poster={movie.backdropUrl || movie.posterUrl}

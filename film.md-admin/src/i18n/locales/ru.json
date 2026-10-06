@@ -132,7 +132,10 @@
       "events_chart": "VAST события",
       "country_chart": "По странам",
       "daily_chart": "По дням",
-      "events_log": "Последние события"
+      "events_log": "Последние события",
+      "export_excel": "Экспорт Excel",
+      "export_pdf": "Экспорт PDF",
+      "export_failed": "Не удалось сформировать отчёт. Попробуйте ещё раз."
     }
   },
   "coupons": {

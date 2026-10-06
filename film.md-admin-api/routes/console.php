@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AdCreative;
 use App\Models\AdEvent;
 use App\Models\BackupRun;
 use App\Services\Backups\BackupManager;
@@ -11,6 +12,7 @@ use App\Services\AnalyticsBufferService;
 use App\Services\BunnyStatsService;
 use App\Services\ContentSearchService;
 use App\Services\FormatCleanupService;
+use App\Services\MediaUploadService;
 use App\Services\MediaUrlMigrationService;
 use App\Services\PayFilmotecaPaymentService;
 use App\Services\RightsReportingService;
@@ -19,6 +21,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Storage;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -138,6 +141,47 @@ Artisan::command(
         return self::SUCCESS;
     },
 )->purpose('Safely migrate stored media URLs from a legacy R2 origin to the production CDN');
+
+Artisan::command('ads:relocate-creatives {--apply : Copy the files and update the creatives}', function (MediaUploadService $media) {
+    $apply = (bool) $this->option('apply');
+    $moved = 0;
+
+    // Mobile browsers with built-in blocking (Brave, Samsung Internet, Opera,
+    // Safari content blockers) drop any media request whose path contains
+    // "/ads/", so creatives uploaded before the upload directory changed never
+    // play there. Copy them under the neutral directory new uploads already use.
+    AdCreative::query()
+        ->where('media_url', 'like', '%/ads/%')
+        ->orderBy('id')
+        ->each(function (AdCreative $creative) use ($media, $apply, &$moved): void {
+            $from = $media->pathFromUrl((string) $creative->media_url);
+            if ($from === null) {
+                $this->warn("Creative #{$creative->id}: not on our CDN, skipped ({$creative->media_url}).");
+
+                return;
+            }
+
+            $to = 'media/spots/'.basename($from);
+            $this->line("Creative #{$creative->id}: {$from} -> {$to}");
+
+            if ($apply) {
+                $disk = Storage::disk('s3');
+                if (! $disk->exists($to)) {
+                    $disk->copy($from, $to);
+                }
+                $creative->update(['media_url' => $media->publicUrl($to)]);
+            }
+
+            $moved++;
+        });
+
+    $this->info(($apply ? 'Relocated' : 'Would relocate')." {$moved} creative(s).");
+    if (! $apply && $moved > 0) {
+        $this->warn('No data was changed. Run again with --apply.');
+    }
+
+    return self::SUCCESS;
+})->purpose('Move ad creatives off "/ads/" CDN paths that mobile content blockers drop');
 
 Artisan::command('analytics:flush-ad-aggregates', function (AdEventTrackingService $tracking) {
     $count = $tracking->flushAggregatesToDatabase();

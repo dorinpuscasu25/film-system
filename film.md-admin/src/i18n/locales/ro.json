@@ -132,7 +132,10 @@
       "events_chart": "Evenimente VAST",
       "country_chart": "Distribuție pe țări",
       "daily_chart": "Pe zile",
-      "events_log": "Evenimente recente"
+      "events_log": "Evenimente recente",
+      "export_excel": "Export Excel",
+      "export_pdf": "Export PDF",
+      "export_failed": "Raportul nu a putut fi generat. Încearcă din nou."
     }
   },
   "coupons": {

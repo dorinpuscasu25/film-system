@@ -1011,13 +1011,11 @@ export const adminApi = {
       };
       events_chart: Array<{ event: string; count: number }>;
       country_chart: Array<{ country: string; count: number; percent: number }>;
-      daily_chart: Array<{
-        date: string;
-        impressions: number;
-        completes: number;
-        clicks: number;
-        skips: number;
-      }>;
+      daily_chart: Array<{ date: string } & AdReportTotals>;
+      period: { days: number; from: string; to: string };
+      period_totals: AdReportTotals;
+      platform_chart: Array<{ platform: string } & AdReportTotals>;
+      content_chart: Array<{ content_id: number | null; title: string | null } & AdReportTotals>;
     }>("GET", `/admin/ad-campaigns/${campaignId}/stats?days=${days}`);
   },
   getAdCampaignEvents(campaignId: number, params?: { event_type?: string; country_code?: string; per_page?: number }) {
@@ -1200,3 +1198,19 @@ export const adminApi = {
     }>("GET", "/admin/bunny/health");
   },
 };
+
+/** Event counts for one slice of an ad campaign report (rates are percents). */
+export interface AdReportTotals {
+  impressions: number;
+  starts: number;
+  first_quartile: number;
+  midpoint: number;
+  third_quartile: number;
+  completes: number;
+  clicks: number;
+  skips: number;
+  completion_rate: number;
+  ctr: number;
+}
+
+export type AdCampaignStatsResponse = Awaited<ReturnType<typeof adminApi.getAdCampaignStats>>;

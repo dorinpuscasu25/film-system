@@ -33,6 +33,9 @@ export function UniversalVideoPlayer({
   if (embedUrl && !isDirectMediaUrl(trimmedUrl)) {
     return (
       <iframe
+        // A new element per URL: changing src on a live iframe pushes a history
+        // entry, and the browser Back button would rewind the iframe instead.
+        key={embedUrl}
         title={title}
         src={embedUrl}
         className={`h-full w-full border-0 ${className}`}

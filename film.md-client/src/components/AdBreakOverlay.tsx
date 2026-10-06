@@ -20,8 +20,7 @@ interface AdBreakOverlayProps {
  * Rendered only while a break is active; the content <video> stays mounted
  * underneath and paused, so resuming does not re-buffer the film.
  *
- * Any failure (bad media URL, decode error, blocked autoplay) resolves the
- * break immediately rather than trapping the viewer in front of an ad that will
+ * Any media failure (bad URL, decode error) resolves the break immediately rather than trapping the viewer in front of an ad that will
  * not play — a broken advert must never cost us a paying customer.
  */
 export function AdBreakOverlay({ adBreak, onFinished }: AdBreakOverlayProps) {
@@ -33,6 +32,9 @@ export function AdBreakOverlay({ adBreak, onFinished }: AdBreakOverlayProps) {
   const [remaining, setRemaining] = useState<number>(adBreak.creative.durationSeconds);
   const [skipIn, setSkipIn] = useState<number | null>(adBreak.creative.skipOffsetSeconds);
   const [isMuted, setIsMuted] = useState(false);
+  // Set when the browser refused even muted autoplay (iOS Low Power Mode,
+  // data saver). A tap is a user gesture, so playing from it always works.
+  const [needsTap, setNeedsTap] = useState(false);
 
   const { creative } = adBreak;
 
@@ -91,12 +93,23 @@ export function AdBreakOverlay({ adBreak, onFinished }: AdBreakOverlayProps) {
     // Browsers refuse unmuted autoplay without a recent user gesture, which is
     // exactly the case on a page reload. Muted autoplay is always permitted, so
     // fall back to it instead of dropping the break — the viewer can turn sound
-    // on with the control in the corner. Only a second failure ends the break.
+    // on with the control in the corner. If even that is refused, ask for a
+    // tap rather than silently dropping the break, which is what made ads
+    // vanish on phones.
     void video.play().catch(() => {
       video.muted = true;
       setIsMuted(true);
-      void video.play().catch(() => finish());
+      void video.play().catch(() => setNeedsTap(true));
     });
+  }, []);
+
+  const playFromTap = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = false;
+    setIsMuted(false);
+    setNeedsTap(false);
+    void video.play().catch(() => finish());
   }, [finish]);
 
   const canSkip = creative.skipOffsetSeconds !== null && (skipIn ?? 1) <= 0;
@@ -116,7 +129,19 @@ export function AdBreakOverlay({ adBreak, onFinished }: AdBreakOverlayProps) {
         style={{ cursor: creative.clickThroughUrl ? "pointer" : "default" }}
       />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
+      {needsTap && (
+        <button
+          type="button"
+          onClick={playFromTap}
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/40"
+        >
+          <span className="rounded-full bg-accent px-6 py-3 text-base font-semibold text-white shadow-lg">
+            ▶ {t("ads.tap_to_play")}
+          </span>
+        </button>
+      )}
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4">
         <span className="pointer-events-auto rounded-md bg-black/70 px-3 py-1.5 text-xs font-medium text-white">
           {t("ads.label")}
           {remaining > 0 ? ` · ${remaining}s` : ""}
@@ -131,7 +156,7 @@ export function AdBreakOverlay({ adBreak, onFinished }: AdBreakOverlayProps) {
         </button>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-4">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between p-4">
         {creative.clickThroughUrl ? (
           <button
             type="button"
