@@ -508,12 +508,19 @@ export function VideoPlayer({
       if (embedPlayerRef.current === player) embedPlayerRef.current = null;
       if (embedPositionRef.current > 0) syncEmbedProgress('stop');
       if (heartbeat !== null) window.clearInterval(heartbeat);
-      player?.off?.('ready', onReady);
-      player?.off?.('timeupdate', onTimeUpdate);
-      player?.off?.('play', onPlay);
-      player?.off?.('pause', onPause);
-      player?.off?.('ended', onEnded);
-      player?.off?.('seeked', onTimeUpdate);
+      // On unmount React has already removed the iframe, and player.js posts
+      // each `off` to its contentWindow, now null. That throw used to escape
+      // the cleanup and take the whole app down to a black screen on Back.
+      try {
+        player?.off?.('ready', onReady);
+        player?.off?.('timeupdate', onTimeUpdate);
+        player?.off?.('play', onPlay);
+        player?.off?.('pause', onPause);
+        player?.off?.('ended', onEnded);
+        player?.off?.('seeked', onTimeUpdate);
+      } catch {
+        // Nothing left to unsubscribe from.
+      }
     };
   }, [contentHeld, initialPositionSeconds, resolvedEmbedUrl, shouldUseExternalEmbed, syncEmbedProgress]);
 

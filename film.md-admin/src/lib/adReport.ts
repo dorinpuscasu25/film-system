@@ -50,7 +50,7 @@ const shortDateFormat = new Intl.DateTimeFormat("ro-RO", { day: "2-digit", month
 const weekdayFormat = new Intl.DateTimeFormat("ro-RO", { weekday: "long" });
 
 let regionNames: Intl.DisplayNames | null = null;
-function countryName(code: string): string {
+export function countryName(code: string): string {
   if (!code || code === "ZZ") return "Necunoscută";
   try {
     regionNames ??= new Intl.DisplayNames(["ro"], { type: "region" });
@@ -150,7 +150,7 @@ function funnel(totals: AdReportTotals): Array<[string, number]> {
   ];
 }
 
-function triggerDownload(blob: Blob, filename: string) {
+export function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

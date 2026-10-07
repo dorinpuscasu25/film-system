@@ -125,6 +125,28 @@ class RightsReportingApiTest extends TestCase
         $this->assertSame(25.0, (float) $rows->sum('cota_609_film'));
     }
 
+    public function test_finance_report_groups_sales_by_film_and_holder_without_buyer_identity(): void
+    {
+        [$admin, $creator, $content, $offer] = $this->context();
+        $this->contract($creator, $content, 50);
+        $this->fiscal($creator, personType: 'PF', vatRegistered: false, withholdingRate: 12);
+        app(RightsReportingService::class)->capturePurchase($this->entitlement($content, $offer, 120, 'moldova'));
+        [, $token] = PersonalAccessToken::issue($admin, 'finance-report-test');
+
+        $response = $this->getJson('/api/v1/admin/finance/report', ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('summary.purchases', 1)
+            ->assertJsonPath('summary.buyers', 1)
+            ->assertJsonPath('summary.gross_amount', 120)
+            ->assertJsonPath('by_film.0.purchases', 1)
+            ->assertJsonPath('by_holder.0.name', $creator->name)
+            ->assertJsonPath('by_holder.0.net_payable_amount', 44)
+            ->assertJsonCount(1, 'transactions')
+            ->assertJsonStructure(['period' => ['from', 'to'], 'top_ups' => ['count', 'amount'], 'costs' => ['months', 'items']]);
+
+        $this->assertStringNotContainsString('buyer-private@example.com', $response->getContent());
+    }
+
     public function test_capture_missing_repairs_sales_that_were_captured_before_the_contract_existed(): void
     {
         [$admin, $creator, $content, $offer] = $this->context();

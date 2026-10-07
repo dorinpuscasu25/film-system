@@ -267,6 +267,106 @@ class RightsReportingService
         ];
     }
 
+    /**
+     * Everything the finance report needs in one pass over the sales: the
+     * dashboard figures plus a per-holder breakdown and the full transaction
+     * list. Buyer identity is deliberately left out so the report can be
+     * forwarded to holders and management as-is.
+     */
+    public function financeReport(User $user, array $filters): array
+    {
+        $sales = $this->filteredSalesQuery($user, $filters)->with('allocations')->orderBy('purchased_at')->get();
+        $visibleCreatorIds = $this->visibleCreatorIds($user);
+
+        if ($visibleCreatorIds !== null) {
+            $sales->each(fn (ReportingSale $sale) => $sale->setRelation(
+                'allocations',
+                $sale->allocations->whereIn('content_creator_id', $visibleCreatorIds)->values(),
+            ));
+        }
+
+        $paid = $sales->where('gross_amount', '>', 0);
+        $allocationSum = fn (Collection $rows, string $field): float => $this->money(
+            (float) $rows->sum(fn (ReportingSale $s) => $s->allocations->sum($field)),
+        );
+
+        $byFilm = $sales->groupBy('content_id')->map(function (Collection $rows) use ($allocationSum): array {
+            $first = $rows->first();
+
+            return [
+                'content_id' => $first?->content_id,
+                'title' => $first?->content_title,
+                'purchases' => $rows->where('gross_amount', '>', 0)->count(),
+                'buyers' => $rows->pluck('buyer_user_id')->filter()->unique()->count(),
+                'gross_amount' => $this->money($rows->sum('gross_amount')),
+                'vat_amount' => $this->money($rows->sum('vat_amount')),
+                'net_ex_vat_amount' => $this->money($rows->sum('net_ex_vat_amount')),
+                'platform_share_amount' => $this->money($rows->sum('platform_share_amount')),
+                'holder_gross_amount' => $allocationSum($rows, 'gross_share_amount'),
+                'withholding_amount' => $allocationSum($rows, 'withholding_amount'),
+                'net_payable_amount' => $allocationSum($rows, 'net_payable_amount'),
+                'refund_amount' => $this->money($rows->sum('refund_amount')),
+                'holders' => $rows->flatMap(fn (ReportingSale $s) => $s->allocations->pluck('holder_name'))->filter()->unique()->values(),
+            ];
+        })->sortByDesc('gross_amount')->values();
+
+        $byHolder = $sales
+            ->flatMap(fn (ReportingSale $sale) => $sale->allocations->map(fn ($allocation) => [$sale, $allocation]))
+            ->groupBy(fn (array $pair) => $pair[1]->content_creator_id ?: $pair[1]->holder_name)
+            ->map(function (Collection $pairs): array {
+                $allocation = $pairs->first()[1];
+
+                return [
+                    'name' => $allocation->holder_name,
+                    'person_type' => $allocation->person_type,
+                    'is_vat_registered' => (bool) $allocation->is_vat_registered,
+                    'share_percent' => $allocation->share_percent,
+                    'films' => $pairs->map(fn (array $pair) => $pair[0]->content_title)->filter()->unique()->values(),
+                    'purchases' => $pairs->filter(fn (array $pair) => $pair[0]->gross_amount > 0)->count(),
+                    'gross_amount' => $this->money($pairs->sum(fn (array $pair) => $pair[0]->gross_amount)),
+                    'gross_share_amount' => $this->money($pairs->sum(fn (array $pair) => $pair[1]->gross_share_amount)),
+                    'withholding_amount' => $this->money($pairs->sum(fn (array $pair) => $pair[1]->withholding_amount)),
+                    'net_payable_amount' => $this->money($pairs->sum(fn (array $pair) => $pair[1]->net_payable_amount)),
+                ];
+            })->sortByDesc('net_payable_amount')->values();
+
+        return [
+            'scope' => ['is_holder' => $visibleCreatorIds !== null],
+            'summary' => [
+                ...$this->summary($sales, $visibleCreatorIds !== null),
+                'buyers' => $paid->pluck('buyer_user_id')->filter()->unique()->count(),
+                'films_sold' => $paid->pluck('content_id')->unique()->count(),
+                'refunds' => $sales->where('refund_amount', '>', 0)->count(),
+                'without_holder' => $paid->filter(fn (ReportingSale $s) => $s->allocations->isEmpty())->count(),
+            ],
+            'by_film' => $byFilm,
+            'by_holder' => $byHolder,
+            'timeline' => $this->dimension($sales, fn (ReportingSale $s) => $s->purchased_at?->format('Y-m-d') ?? 'N/A'),
+            'countries' => $this->dimension($sales, fn (ReportingSale $s) => $s->country_code ?: 'N/A'),
+            'markets' => $this->dimension($sales, fn (ReportingSale $s) => $s->market ?: 'N/A'),
+            'qualities' => $this->dimension($sales, fn (ReportingSale $s) => $s->quality ?: 'N/A'),
+            'durations' => $this->dimension($sales, fn (ReportingSale $s) => $s->rental_days ? (string) $s->rental_days : 'permanent'),
+            'payment_methods' => $this->dimension($sales, fn (ReportingSale $s) => $s->payment_method ?: 'N/A'),
+            'transactions' => $sales->sortByDesc('purchased_at')->take(5000)->map(fn (ReportingSale $sale) => [
+                'purchased_at' => $sale->purchased_at?->toIso8601String(),
+                'film' => $sale->content_title,
+                'offer' => $sale->offer_name,
+                'quality' => $sale->quality,
+                'rental_days' => $sale->rental_days,
+                'country_code' => $sale->country_code,
+                'market' => $sale->market,
+                'payment_method' => $sale->payment_method,
+                'gross_amount' => $sale->gross_amount,
+                'vat_amount' => $sale->vat_amount,
+                'platform_share_amount' => $sale->platform_share_amount,
+                'holder_share_amount' => $this->money($sale->allocations->sum('gross_share_amount')),
+                'holders' => $sale->allocations->pluck('holder_name')->filter()->implode(', '),
+                'refund_amount' => $sale->refund_amount,
+                'calculation_status' => $sale->calculation_status,
+            ])->values(),
+        ];
+    }
+
     public function exportRows(User $user, array $filters): Collection
     {
         $visibleCreatorIds = $this->visibleCreatorIds($user);

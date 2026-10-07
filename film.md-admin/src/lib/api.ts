@@ -390,6 +390,12 @@ export const adminApi = {
     return request<T>("GET", `/admin/reporting${query ? `?${query}` : ""}`);
   },
 
+  getFinanceReport(filters: { from: string; to: string; content_id?: number }) {
+    const searchParams = new URLSearchParams({ from: filters.from, to: filters.to });
+    if (filters.content_id) searchParams.set("content_id", String(filters.content_id));
+    return request<FinanceReportResponse>("GET", `/admin/finance/report?${searchParams.toString()}`);
+  },
+
   getRightsReportingProfiles<T = unknown>() {
     return request<T>("GET", "/admin/reporting/profiles");
   },
@@ -1214,3 +1220,110 @@ export interface AdReportTotals {
 }
 
 export type AdCampaignStatsResponse = Awaited<ReturnType<typeof adminApi.getAdCampaignStats>>;
+
+/** A slice of sales grouped by one dimension (day, country, quality…). */
+export interface FinanceDimensionRow {
+  label: string;
+  purchases: number;
+  amount: number;
+}
+
+export interface FinanceReportResponse {
+  period: { from: string; to: string };
+  generated_by: string | null;
+  scope: { is_holder: boolean };
+  summary: {
+    purchases: number;
+    buyers: number;
+    films_sold: number;
+    refunds: number;
+    without_holder: number;
+    gross_amount: number;
+    vat_amount: number;
+    net_ex_vat_amount: number;
+    holder_gross_amount: number;
+    withholding_amount: number;
+    holder_net_amount: number;
+    platform_share_amount: number;
+    refund_amount: number;
+    domestic_amount: number;
+    export_amount: number;
+    needs_review: number;
+    currency: string;
+  };
+  by_film: Array<{
+    content_id: number | null;
+    title: string | null;
+    purchases: number;
+    buyers: number;
+    gross_amount: number;
+    vat_amount: number;
+    net_ex_vat_amount: number;
+    platform_share_amount: number;
+    holder_gross_amount: number;
+    withholding_amount: number;
+    net_payable_amount: number;
+    refund_amount: number;
+    holders: string[];
+  }>;
+  by_holder: Array<{
+    name: string | null;
+    person_type: string | null;
+    is_vat_registered: boolean;
+    share_percent: number | null;
+    films: string[];
+    purchases: number;
+    gross_amount: number;
+    gross_share_amount: number;
+    withholding_amount: number;
+    net_payable_amount: number;
+  }>;
+  timeline: FinanceDimensionRow[];
+  countries: FinanceDimensionRow[];
+  markets: FinanceDimensionRow[];
+  qualities: FinanceDimensionRow[];
+  durations: FinanceDimensionRow[];
+  payment_methods: FinanceDimensionRow[];
+  transactions: Array<{
+    purchased_at: string | null;
+    film: string | null;
+    offer: string | null;
+    quality: string | null;
+    rental_days: number | null;
+    country_code: string | null;
+    market: string | null;
+    payment_method: string | null;
+    gross_amount: number;
+    vat_amount: number;
+    platform_share_amount: number;
+    holder_share_amount: number;
+    holders: string;
+    refund_amount: number;
+    calculation_status: string;
+  }>;
+  top_ups: {
+    count: number;
+    amount: number;
+    payers: number;
+    refunded_count: number;
+    refunded_amount: number;
+    currency: string;
+  } | null;
+  costs: {
+    months: string[];
+    usd_to_mdl_rate: number;
+    items: Array<{
+      month: string;
+      title: string;
+      quality: string | null;
+      views: number;
+      watch_hours: number;
+      bandwidth_gb: number;
+      storage_cost_usd: number;
+      delivery_cost_usd: number;
+      drm_cost_usd: number;
+      revenue_usd: number;
+      profit_usd: number;
+    }>;
+  };
+}

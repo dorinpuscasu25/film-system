@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Admin\CostSettingsController;
 use App\Http\Controllers\Api\Admin\CouponController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ExportController;
+use App\Http\Controllers\Api\Admin\FinanceReportController;
 use App\Http\Controllers\Api\Admin\FinancialSummaryController;
 use App\Http\Controllers\Api\Admin\GeoStatsController;
 use App\Http\Controllers\Api\Admin\HomeCurationController;
@@ -203,6 +204,7 @@ Route::prefix('v1')->group(function (): void {
             Route::post('payments/top-ups/{topUp}/refunds', [PaymentTopUpController::class, 'refund'])->middleware('permission:commerce.process_refunds');
             Route::get('cost-settings', [CostSettingsController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::post('cost-settings', [CostSettingsController::class, 'store'])->middleware('permission:commerce.manage_costs');
+            Route::get('finance/report', [FinanceReportController::class, 'show'])->middleware('permission:content.view_financials');
             Route::get('exports', [ExportController::class, 'index'])->middleware('permission:commerce.view_billing');
             Route::post('exports', [ExportController::class, 'store'])->middleware('permission:content.view_financials');
             Route::get('exports/{exportJob}/download', [ExportController::class, 'download'])->middleware('permission:content.view_financials');

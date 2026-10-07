@@ -10,6 +10,7 @@ import {
   CreditCardIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
+  FileTextIcon,
   FilterIcon,
   LandmarkIcon,
   LoaderCircleIcon,
@@ -32,6 +33,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Textarea } from "../components/ui/textarea";
 import { useAdmin } from "../hooks/useAdmin";
 import { adminApi } from "../lib/api";
+import { downloadFinanceReportExcel, downloadFinanceReportPdf } from "../lib/financeReport";
 import {
   AccountingFilters,
   AccountingTransactionItem,
@@ -118,6 +120,7 @@ function billingAddressLabel(topUp: PaymentTopUpItem) {
 export function Billing() {
   const { can } = useAdmin();
   const canManageExports = can("exports.manage");
+  const canViewFinancials = can("content.view_financials");
   const canManageCosts = can("commerce.manage_costs");
   const canProcessRefunds = can("commerce.process_refunds");
   const [activeTab, setActiveTab] = React.useState<BillingTab>("overview");
@@ -370,6 +373,44 @@ export function Billing() {
     }
   };
 
+  /** Builds the readable finance report in the browser for the selected range. */
+  const createFinanceReport = async (format: "excel" | "pdf") => {
+    const key = `finance:${format}:${range}`;
+    const days = range === "7days" ? 7 : range === "3months" ? 90 : 30;
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days + 1);
+    const iso = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+    setExportingKey(key);
+    setExportProgress({
+      key,
+      status: "preparing",
+      title: "Se pregătește raportul",
+      detail: `Adunăm vânzările, titularii și costurile pentru ultimele ${days} zile.`,
+    });
+
+    try {
+      const report = await adminApi.getFinanceReport({ from: iso(from), to: iso(to) });
+      setExportProgress({ key, status: "downloading", title: "Raportul este gata", detail: "Descărcarea pornește automat." });
+      await (format === "excel" ? downloadFinanceReportExcel(report) : downloadFinanceReportPdf(report));
+      setExportProgress({ key, status: "completed", title: "Raport descărcat", detail: "Fișierul a fost salvat pe calculator." });
+      window.setTimeout(() => {
+        setExportProgress((current) => (current?.key === key ? null : current));
+      }, 5000);
+    } catch (error) {
+      setExportProgress({
+        key,
+        status: "error",
+        title: "Raportul nu a reușit",
+        detail: error instanceof Error ? error.message : "Încearcă din nou.",
+      });
+    } finally {
+      setExportingKey(null);
+    }
+  };
+
   const copyCheckoutId = async (checkoutId: string) => {
     await navigator.clipboard.writeText(checkoutId);
     setCopiedCheckoutId(checkoutId);
@@ -443,7 +484,35 @@ export function Billing() {
 
       {activeTab === "overview" ? (
         <>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {canViewFinancials ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => void createFinanceReport("excel")}
+                  disabled={Boolean(exportingKey)}
+                >
+                  {exportingKey === `finance:excel:${range}` ? (
+                    <LoaderCircleIcon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileSpreadsheetIcon className="h-4 w-4 text-emerald-600" />
+                  )}
+                  Raport Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void createFinanceReport("pdf")}
+                  disabled={Boolean(exportingKey)}
+                >
+                  {exportingKey === `finance:pdf:${range}` ? (
+                    <LoaderCircleIcon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileTextIcon className="h-4 w-4 text-red-600" />
+                  )}
+                  Raport PDF
+                </Button>
+              </>
+            ) : null}
             <Tabs
               tabs={[
                 { id: "3months", label: "3 luni" },
@@ -536,6 +605,7 @@ export function Billing() {
           downloadingId={downloadingExportId}
           range={range}
           onCreate={createExport}
+          onFinanceReport={createFinanceReport}
           onDownload={downloadExport}
         />
       ) : null}
@@ -1576,6 +1646,7 @@ function ExportsSection({
   downloadingId,
   range,
   onCreate,
+  onFinanceReport,
   onDownload,
 }: {
   data: ExportJobsResponse;
@@ -1589,8 +1660,11 @@ function ExportsSection({
     scope: string,
     filters?: Record<string, unknown>,
   ) => Promise<void>;
+  onFinanceReport: (format: "excel" | "pdf") => Promise<void>;
   onDownload: (jobId: number, fileName?: string | null) => Promise<void>;
 }) {
+  const rangeLabel = range === "7days" ? "ultimele 7 zile" : range === "3months" ? "ultimele 3 luni" : "ultimele 30 de zile";
+
   return (
     <div className="space-y-6">
       <Card>
@@ -1619,25 +1693,25 @@ function ExportsSection({
               <Button
                 variant="outline"
                 className="h-auto justify-start p-4"
-                onClick={() => void onCreate("excel", "billing", { range })}
+                onClick={() => void onFinanceReport("excel")}
                 disabled={Boolean(exportingKey)}
               >
                 <ReceiptTextIcon className="h-5 w-5 text-sky-600" />
                 <span className="text-left">
-                  <span className="block font-semibold">Excel operațional</span>
-                  <span className="block text-xs text-muted-foreground">Wallet, costuri și producători</span>
+                  <span className="block font-semibold">Raport financiar Excel</span>
+                  <span className="block text-xs text-muted-foreground">Pe filme, titulari, zile și costuri · {rangeLabel}</span>
                 </span>
               </Button>
               <Button
                 variant="outline"
                 className="h-auto justify-start p-4"
-                onClick={() => void onCreate("pdf", "creator-statements", {})}
+                onClick={() => void onFinanceReport("pdf")}
                 disabled={Boolean(exportingKey)}
               >
-                <DownloadIcon className="h-5 w-5 text-violet-600" />
+                <FileTextIcon className="h-5 w-5 text-red-600" />
                 <span className="text-left">
-                  <span className="block font-semibold">PDF producători</span>
-                  <span className="block text-xs text-muted-foreground">Situații lunare de payout</span>
+                  <span className="block font-semibold">Raport financiar PDF</span>
+                  <span className="block text-xs text-muted-foreground">Rezumat ușor de citit, gata de trimis · {rangeLabel}</span>
                 </span>
               </Button>
             </div>
