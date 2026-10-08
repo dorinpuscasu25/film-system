@@ -87,6 +87,82 @@ const EMPTY_FORM: CampaignForm = {
 };
 
 /** Minutes in the form, seconds in the API. */
+// Campaign windows are always entered and shown in Moldova time, whatever
+// timezone the admin's computer is set to. The API stores UTC.
+const SCHEDULE_TIME_ZONE = "Europe/Chisinau";
+
+const scheduleParts = new Intl.DateTimeFormat("en-GB", {
+  timeZone: SCHEDULE_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Wall-clock fields of `date` in Moldova, as a UTC timestamp. */
+const scheduleWallClock = (date: Date) => {
+  const parts = Object.fromEntries(scheduleParts.formatToParts(date).map((p) => [p.type, p.value]));
+  return Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
+};
+
+/** UTC ISO from the API → "YYYY-MM-DDTHH:mm" in Moldova time for the input. */
+const toScheduleInput = (iso: string | null | undefined) => {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(scheduleWallClock(date)).toISOString().slice(0, 16);
+};
+
+/** "YYYY-MM-DDTHH:mm" in Moldova time → UTC ISO for the API. */
+const fromScheduleInput = (local: string) => {
+  if (!local) return null;
+  const [datePart, timePart = "00:00"] = local.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  const wanted = Date.UTC(y, m - 1, d, hh, mm);
+  if (Number.isNaN(wanted)) return null;
+  // Shift by Moldova's offset; repeat once so a DST boundary between the guess
+  // and the result is accounted for.
+  let utc = wanted - (scheduleWallClock(new Date(wanted)) - wanted);
+  utc = wanted - (scheduleWallClock(new Date(utc)) - utc);
+  return new Date(utc).toISOString();
+};
+
+const scheduleDisplay = new Intl.DateTimeFormat("ro-RO", {
+  timeZone: SCHEDULE_TIME_ZONE,
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** Plain-language state of the window, so an admin sees at once if it is live. */
+function scheduleSummary(startsAt: string, endsAt: string): { text: string; tone: "ok" | "wait" | "bad" } | null {
+  const start = fromScheduleInput(startsAt);
+  const end = fromScheduleInput(endsAt);
+  const now = Date.now();
+  if (start && end && new Date(end) <= new Date(start)) {
+    return { text: "Data de sfârșit trebuie să fie după data de început.", tone: "bad" };
+  }
+  if (end && new Date(end).getTime() <= now) {
+    return { text: `Perioada s-a încheiat pe ${scheduleDisplay.format(new Date(end))} — reclama nu va rula.`, tone: "bad" };
+  }
+  if (start && new Date(start).getTime() > now) {
+    return { text: `Reclama pornește pe ${scheduleDisplay.format(new Date(start))} (ora Moldovei).`, tone: "wait" };
+  }
+  if (start || end) {
+    return {
+      text: end
+        ? `Perioada e activă acum, până pe ${scheduleDisplay.format(new Date(end))} (ora Moldovei).`
+        : "Perioada e activă acum.",
+      tone: "ok",
+    };
+  }
+  return null;
+}
+
 const toMinutes = (seconds: number | null | undefined) =>
   seconds === null || seconds === undefined ? "" : String(Math.round(seconds / 60));
 
@@ -104,8 +180,8 @@ function campaignToForm(campaign: AdminAdCampaign): CampaignForm {
     skip_offset_seconds: campaign.skip_offset_seconds === null ? "" : String(campaign.skip_offset_seconds),
     frequency_cap_per_session: campaign.frequency_cap_per_session ? String(campaign.frequency_cap_per_session) : "",
     frequency_cap_per_day: campaign.frequency_cap_per_day ? String(campaign.frequency_cap_per_day) : "",
-    starts_at: campaign.starts_at ? campaign.starts_at.slice(0, 16) : "",
-    ends_at: campaign.ends_at ? campaign.ends_at.slice(0, 16) : "",
+    starts_at: toScheduleInput(campaign.starts_at),
+    ends_at: toScheduleInput(campaign.ends_at),
     click_through_url: campaign.click_through_url ?? "",
     vast_tag_url: campaign.vast_tag_url ?? "",
     bid_amount: campaign.bid_amount ? String(campaign.bid_amount) : "",
@@ -246,8 +322,8 @@ export function AdsManager() {
       skip_offset_seconds: numberOrNull(form.skip_offset_seconds),
       frequency_cap_per_session: numberOrNull(form.frequency_cap_per_session),
       frequency_cap_per_day: numberOrNull(form.frequency_cap_per_day),
-      starts_at: form.starts_at || null,
-      ends_at: form.ends_at || null,
+      starts_at: fromScheduleInput(form.starts_at),
+      ends_at: fromScheduleInput(form.ends_at),
       click_through_url: form.click_through_url.trim() || null,
       vast_tag_url: form.vast_tag_url.trim() || null,
       bid_amount: numberOrNull(form.bid_amount),
@@ -667,7 +743,7 @@ export function AdsManager() {
             <h3 className="section-title">5. Perioadă și stare</h3>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                {label("Începe la", "Lasă gol ca să pornească imediat ce o activezi.")}
+                {label("Începe la (ora Moldovei)", "Ora Chișinăului, indiferent de fusul orar al calculatorului tău. Lasă gol ca să pornească imediat ce o activezi.")}
                 <input
                   type="datetime-local"
                   value={form.starts_at}
@@ -676,7 +752,7 @@ export function AdsManager() {
                 />
               </div>
               <div>
-                {label("Se termină la", "Lasă gol ca să ruleze până o oprești manual.")}
+                {label("Se termină la (ora Moldovei)", "Ora Chișinăului, indiferent de fusul orar al calculatorului tău. Lasă gol ca să ruleze până o oprești manual.")}
                 <input
                   type="datetime-local"
                   value={form.ends_at}
@@ -685,6 +761,16 @@ export function AdsManager() {
                 />
               </div>
             </div>
+            {(() => {
+              const summary = scheduleSummary(form.starts_at, form.ends_at);
+              if (!summary) return null;
+              const tone = {
+                ok: "border-emerald-200 bg-emerald-50 text-emerald-800",
+                wait: "border-amber-200 bg-amber-50 text-amber-800",
+                bad: "border-red-200 bg-red-50 text-red-700",
+              }[summary.tone];
+              return <p className={`rounded-lg border px-4 py-2.5 text-sm ${tone}`}>{summary.text}</p>;
+            })()}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>

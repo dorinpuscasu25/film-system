@@ -16,7 +16,11 @@ final class FilmotecaModel {
     var profilePickerPresented = false
     var globalError: String?
     var refreshID = UUID()
+    /// Session restored and the first screen has its data — the intro may hand over.
+    private(set) var isInitialRouteReady = false
     let container: AppContainer
+    /// Home is fetched while the intro plays instead of after it.
+    @ObservationIgnored private var homePrefetch: (locale: LocaleCode, task: Task<HomeResponse, Error>)?
 
     init(container: AppContainer) {
         self.container = container
@@ -24,7 +28,22 @@ final class FilmotecaModel {
         container.storeKitService.onBackgroundRedeem = { [weak self] in
             Task { await self?.refreshAccount() }
         }
+        let locale = locale
+        homePrefetch = (locale, Task { [catalog = container.catalogRepository] in try await catalog.home(locale: locale) })
         Task { await restoreSession() }
+    }
+
+    /// The home response fetched at launch, handed out once. Nil if it failed or the locale changed.
+    func takePrefetchedHome(locale: LocaleCode) async -> HomeResponse? {
+        guard let prefetch = homePrefetch else { return nil }
+        homePrefetch = nil
+        guard prefetch.locale == locale else { prefetch.task.cancel(); return nil }
+        return try? await prefetch.task.value
+    }
+
+    func markInitialRouteReady() {
+        guard !isInitialRouteReady else { return }
+        isInitialRouteReady = true
     }
 
     var isAuthenticated: Bool { session == .authenticated }

@@ -16,10 +16,10 @@ final class HomeViewModel {
         playback = container.playbackRepository
     }
 
-    func load(locale: LocaleCode, authenticated: Bool, profileID: String?) async {
+    func load(locale: LocaleCode, authenticated: Bool, profileID: String?, prefetched: HomeResponse? = nil) async {
         state = .loading
         do {
-            response = try await catalog.home(locale: locale)
+            if let prefetched { response = prefetched } else { response = try await catalog.home(locale: locale) }
             continueItems = authenticated ? (try? await playback.continueWatching(locale: locale, profileID: profileID)) ?? [] : []
             heroIndex = 0
             state = .loaded

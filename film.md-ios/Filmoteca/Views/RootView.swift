@@ -2,23 +2,22 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(FilmotecaModel.self) private var app
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(IntroController.self) private var intro
     @State private var selection = 0
-    @State private var isLaunching = true
 
     var body: some View {
-        Group {
-            if isLaunching { CinematicLaunchScreen().transition(.opacity) }
-            else { applicationContent.transition(.opacity) }
+        // The app loads underneath the intro, so the intro covers loading time instead of adding to it.
+        ZStack {
+            applicationContent
+            if intro.isVisible { IntroView(controller: intro).transition(.opacity).zIndex(1) }
         }
-        .animation(.easeInOut(duration: reduceMotion ? 0.12 : 0.38), value: isLaunching)
-        .task {
-            try? await Task.sleep(for: .milliseconds(reduceMotion ? 180 : 1350))
-            isLaunching = false
-        }
+        .animation(.easeInOut(duration: IntroConfiguration.exitFadeDuration), value: intro.isVisible)
+        .statusBarHidden(intro.isVisible)
+        .persistentSystemOverlays(intro.isVisible ? .hidden : .automatic)
+        .onChange(of: app.isInitialRouteReady, initial: true) { _, ready in intro.isRouteReady = ready }
         .sheet(isPresented: Bindable(app).authPresented) { AuthView(container: app.container).presentationDetents([.large]).presentationCornerRadius(28) }
         .fullScreenCover(isPresented: Bindable(app).profilePickerPresented) { ProfilePickerView(container: app.container) }
-        .alert("FILMOTECA", isPresented: Binding(get: { app.globalError != nil }, set: { if !$0 { app.globalError = nil } })) { Button("OK") { app.globalError = nil } } message: { Text(app.globalError ?? "") }
+        .alert("FILMOTECA", isPresented: Binding(get: { app.globalError != nil && !intro.isVisible }, set: { if !$0 { app.globalError = nil } })) { Button("OK") { app.globalError = nil } } message: { Text(app.globalError ?? "") }
     }
 
     @ViewBuilder private var applicationContent: some View {

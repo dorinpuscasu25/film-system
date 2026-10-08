@@ -34,7 +34,9 @@ struct HomeView: View {
             else { LoadingScreen() }
         }
         .task(id: "\(app.locale.rawValue)-\(app.activeProfile?.id ?? "")-\(app.refreshID)") {
-            await viewModel.load(locale: app.locale, authenticated: app.isAuthenticated, profileID: app.activeProfile?.id)
+            let prefetched = await app.takePrefetchedHome(locale: app.locale)
+            await viewModel.load(locale: app.locale, authenticated: app.isAuthenticated, profileID: app.activeProfile?.id, prefetched: prefetched)
+            app.markInitialRouteReady()
         }
         .toolbar(.hidden, for: .navigationBar)
     }
