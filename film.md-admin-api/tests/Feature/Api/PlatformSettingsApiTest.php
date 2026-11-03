@@ -78,4 +78,23 @@ class PlatformSettingsApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('settings.contact.email');
     }
+    public function test_admin_can_save_iap_credit_packs(): void
+    {
+        $this->putJson('/api/v1/admin/platform-settings', [
+            'settings' => [
+                'iap_credit_packs' => [
+                    'commission_rate' => 0.29,
+                    'packs' => [
+                        ['product_id' => 'md.filmoteca.wallet.100', 'credits_mdl' => 100, 'apple_price_usd' => 8.99, 'sort_order' => 1, 'is_placeholder' => false],
+                        ['product_id' => 'md.filmoteca.wallet.200', 'credits_mdl' => 200, 'apple_price_usd' => 15.99, 'sort_order' => 2, 'is_placeholder' => false],
+                    ],
+                ],
+            ],
+        ], [
+            'Authorization' => 'Bearer '.$this->token,
+        ])
+            ->assertOk()
+            ->assertJsonPath('settings.iap_credit_packs.packs.1.product_id', 'md.filmoteca.wallet.200')
+            ->assertJsonPath('settings.iap_credit_packs.packs.1.credits_mdl', 200);
+    }
 }

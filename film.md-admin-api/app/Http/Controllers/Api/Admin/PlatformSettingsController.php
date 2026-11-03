@@ -58,7 +58,7 @@ class PlatformSettingsController extends ApiController
 
     public function update(Request $request): JsonResponse
     {
-        $data = $request->validate([
+        $request->validate([
             'settings' => ['required', 'array'],
             'settings.contact' => ['sometimes', 'array'],
             'settings.contact.operator_name' => ['nullable', 'string', 'max:255'],
@@ -72,7 +72,13 @@ class PlatformSettingsController extends ApiController
             'settings.contact.description.*' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        foreach ($data['settings'] as $key => $value) {
+        // Not $request->validated(): with nested `settings.contact.*` rules present, Laravel drops
+        // the whole `settings` array from validated data whenever `contact` isn't in the payload,
+        // so saving any other key (IAP packs, registration credit) crashed. Every known key is
+        // normalized below and unknown keys are skipped, so reading the raw input is safe.
+        $settings = (array) $request->input('settings', []);
+
+        foreach ($settings as $key => $value) {
             if (! in_array($key, self::KNOWN_KEYS, true)) {
                 continue;
             }
@@ -91,7 +97,7 @@ class PlatformSettingsController extends ApiController
             PlatformSetting::setValue($key, $value);
         }
 
-        $this->auditLog->record('platform_settings.updated', 'platform_settings', null, array_keys($data['settings']), $request->user(), $request);
+        $this->auditLog->record('platform_settings.updated', 'platform_settings', null, array_keys($settings), $request->user(), $request);
         $this->storefrontCache->clear();
 
         return $this->index();
