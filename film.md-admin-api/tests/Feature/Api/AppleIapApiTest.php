@@ -45,6 +45,31 @@ class AppleIapApiTest extends TestCase
         $this->assertSame(1, AppleIapTransaction::query()->count());
     }
 
+    public function test_a_concurrent_duplicate_delivery_returns_the_winners_record_instead_of_failing(): void
+    {
+        $user = $this->storefrontUser();
+        $signed = $this->fakeSignedTransaction(['transactionId' => 'txn-race']);
+        $winner = app(AppleIapService::class)->redeem($user, $signed);
+
+        // Simulate the losing request of a race: it passed the existence check before the
+        // winner committed, so its own insert hits the unique index on transaction_id.
+        $service = new class(app(WalletService::class), app(IapCreditPackService::class)) extends AppleIapService
+        {
+            protected function recordAndCredit(...$args): AppleIapTransaction
+            {
+                AppleIapTransaction::query()->create(AppleIapTransaction::query()->firstOrFail()->only([
+                    'transaction_id', 'user_id', 'product_id', 'credits_granted', 'environment', 'status', 'signed_transaction',
+                ]));
+            }
+        };
+
+        $loser = $service->redeem($user, $signed);
+
+        $this->assertSame($winner->id, $loser->id);
+        $this->assertSame(1, AppleIapTransaction::query()->count());
+        $this->assertSame(120.0, (float) $user->wallet()->firstOrFail()->balance_amount);
+    }
+
     public function test_redeem_rejects_a_product_id_with_no_configured_credit_pack(): void
     {
         $user = $this->storefrontUser();

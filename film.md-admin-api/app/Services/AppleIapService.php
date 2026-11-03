@@ -16,6 +16,7 @@ use AppStoreServerLibrary\Models\ResponseBodyV2DecodedPayload;
 use AppStoreServerLibrary\SignedDataVerifier;
 use AppStoreServerLibrary\SignedDataVerifier\VerificationException;
 use AppStoreServerLibrary\SignedDataVerifier\VerificationStatus;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -56,6 +57,22 @@ class AppleIapService
             ]);
         }
 
+        try {
+            return $this->recordAndCredit($user, $signedTransaction, $decoded, $transactionId);
+        } catch (UniqueConstraintViolationException) {
+            // Two concurrent deliveries of the same transaction (the app's `Transaction.updates`
+            // and `Transaction.unfinished` both fire at launch) both pass the existence check —
+            // `lockForUpdate` can't lock a row that doesn't exist yet — and the loser hits the
+            // unique index. The winner already credited it; answer like any other replay.
+            return AppleIapTransaction::query()->where('transaction_id', $transactionId)->firstOrFail();
+        }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    protected function recordAndCredit(User $user, string $signedTransaction, JWSTransactionDecodedPayload $decoded, string $transactionId): AppleIapTransaction
+    {
         return DB::transaction(function () use ($user, $signedTransaction, $decoded, $transactionId): AppleIapTransaction {
             $existing = AppleIapTransaction::query()->where('transaction_id', $transactionId)->lockForUpdate()->first();
             if ($existing !== null) {
