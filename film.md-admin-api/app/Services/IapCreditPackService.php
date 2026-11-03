@@ -26,9 +26,8 @@ class IapCreditPackService
         // backend never charges or computes anything from it.
         'commission_rate' => 0.15,
         'packs' => [
-            ['product_id' => 'md.filmoteca.ios.credits.100', 'credits_mdl' => 100, 'apple_price_usd' => 6.99, 'sort_order' => 1, 'is_placeholder' => true],
-            ['product_id' => 'md.filmoteca.ios.credits.250', 'credits_mdl' => 250, 'apple_price_usd' => 16.99, 'sort_order' => 2, 'is_placeholder' => true],
-            ['product_id' => 'md.filmoteca.ios.credits.500', 'credits_mdl' => 500, 'apple_price_usd' => 33.99, 'sort_order' => 3, 'is_placeholder' => true],
+            ['product_id' => 'md.filmoteca.wallet.100', 'credits_mdl' => 100, 'apple_price_usd' => 6.99, 'sort_order' => 1, 'is_placeholder' => true],
+            ['product_id' => 'md.filmoteca.wallet.200', 'credits_mdl' => 200, 'apple_price_usd' => 12.99, 'sort_order' => 2, 'is_placeholder' => true],
         ],
     ];
 

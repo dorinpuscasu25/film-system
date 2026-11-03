@@ -18,48 +18,28 @@
           "locale": "en_US"
         }
       ],
-      "productID": "md.filmoteca.ios.credits.100",
-      "referenceName": "Credits 100",
+      "productID": "md.filmoteca.wallet.100",
+      "referenceName": "Wallet 100 MDL",
       "type": "Consumable"
     },
     {
-      "displayPrice": "16.99",
+      "displayPrice": "12.99",
       "familyShareable": false,
       "internalID": "B2F3D4E5-6A7B-4C8D-9E0F-1A2B3C4D5E6F",
       "localizations": [
         {
-          "description": "250 credite Filmoteca (1 credit = 1 MDL)",
-          "displayName": "250 credite",
+          "description": "200 credite Filmoteca (1 credit = 1 MDL)",
+          "displayName": "200 credite",
           "locale": "ro"
         },
         {
-          "description": "250 Filmoteca credits (1 credit = 1 MDL)",
-          "displayName": "250 credits",
+          "description": "200 Filmoteca credits (1 credit = 1 MDL)",
+          "displayName": "200 credits",
           "locale": "en_US"
         }
       ],
-      "productID": "md.filmoteca.ios.credits.250",
-      "referenceName": "Credits 250",
-      "type": "Consumable"
-    },
-    {
-      "displayPrice": "33.99",
-      "familyShareable": false,
-      "internalID": "C3A4E5F6-7B8C-4D9E-0F1A-2B3C4D5E6F7A",
-      "localizations": [
-        {
-          "description": "500 credite Filmoteca (1 credit = 1 MDL)",
-          "displayName": "500 credite",
-          "locale": "ro"
-        },
-        {
-          "description": "500 Filmoteca credits (1 credit = 1 MDL)",
-          "displayName": "500 credits",
-          "locale": "en_US"
-        }
-      ],
-      "productID": "md.filmoteca.ios.credits.500",
-      "referenceName": "Credits 500",
+      "productID": "md.filmoteca.wallet.200",
+      "referenceName": "Wallet 200 MDL",
       "type": "Consumable"
     }
   ],

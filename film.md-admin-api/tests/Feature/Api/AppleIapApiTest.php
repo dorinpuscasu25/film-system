@@ -20,7 +20,7 @@ class AppleIapApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const PRODUCT_ID = 'md.filmoteca.ios.credits.100';
+    private const PRODUCT_ID = 'md.filmoteca.wallet.100';
 
     public function test_local_testing_redemption_credits_the_apple_bucket_and_is_idempotent(): void
     {
@@ -170,7 +170,7 @@ class AppleIapApiTest extends TestCase
         $this->assertSame(42.0, $credits);
         $this->assertNull(app(IapCreditPackService::class)->creditsForProduct(self::PRODUCT_ID));
         // Placeholder packs beyond the saved list's length must not survive an index-wise merge.
-        $this->assertNull(app(IapCreditPackService::class)->creditsForProduct('md.filmoteca.ios.credits.500'));
+        $this->assertNull(app(IapCreditPackService::class)->creditsForProduct('md.filmoteca.wallet.200'));
         $this->assertCount(1, app(IapCreditPackService::class)->packs());
     }
 

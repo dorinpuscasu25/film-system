@@ -123,13 +123,13 @@ return [
     'apple' => [
         'bundle_id' => env('APPLE_BUNDLE_ID', 'md.filmoteca.ios'),
         // Numeric App Store Connect app ID — required before Production redemptions can work.
-        'app_apple_id' => env('APPLE_APP_APPLE_ID'),
-        // Download from https://www.apple.com/certificateauthority/AppleRootCA-G3.cer (public,
-        // no Apple account needed) and place at this path. Comma-separate multiple paths if
+        'app_apple_id' => env('APPLE_APP_APPLE_ID') ?: '6790725769',
+        // Apple's public root CA (https://www.apple.com/certificateauthority/AppleRootCA-G3.cer),
+        // bundled in resources/apple. Override with a comma-separated list of paths if
         // Apple ever rotates/adds a root.
         'root_certificate_paths' => array_filter(array_map('trim', explode(
             ',',
-            env('APPLE_ROOT_CA_PATHS', storage_path('app/apple/AppleRootCA-G3.cer')),
+            env('APPLE_ROOT_CA_PATHS') ?: resource_path('apple/AppleRootCA-G3.cer'),
         ))),
         'enable_online_checks' => (bool) env('APPLE_IAP_ENABLE_ONLINE_CHECKS', true),
         // In-App Purchase Key (.p8) contents, Key ID and Issuer ID — from App Store Connect →

@@ -553,7 +553,7 @@ export function PriceSettings() {
                             ...current,
                             packs: [
                               ...current.packs,
-                              { product_id: "md.filmoteca.ios.credits.", credits_mdl: "", apple_price_usd: "", sort_order: String(current.packs.length + 1) },
+                              { product_id: "md.filmoteca.wallet.", credits_mdl: "", apple_price_usd: "", sort_order: String(current.packs.length + 1) },
                             ],
                           }))
                         }
