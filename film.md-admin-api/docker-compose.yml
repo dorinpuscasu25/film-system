@@ -116,7 +116,7 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -145,7 +145,7 @@ services:
       MEILI_MASTER_KEY: ${MEILISEARCH_KEY:-masterKey}
       MEILI_NO_ANALYTICS: 'true'
     ports:
-      - '7700:7700'
+      - '127.0.0.1:7700:7700'
     restart: unless-stopped
     volumes:
       - meilisearch_data:/meili_data
@@ -160,7 +160,7 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - '6379:6379'
+      - '127.0.0.1:6379:6379'
     restart: unless-stopped
     volumes:
       - redis_data:/data
