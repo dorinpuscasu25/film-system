@@ -92,8 +92,21 @@ class AppleIapApiTest extends TestCase
         app(AppleIapService::class)->redeem($this->storefrontUser(), $forged);
     }
 
+    public function test_sandbox_environment_is_allowed_for_any_account_by_default_for_app_review(): void
+    {
+        $user = $this->storefrontUser()->fresh();
+        $this->assertFalse($user->is_test_account);
+
+        $method = new ReflectionMethod(AppleIapService::class, 'assertEnvironmentAllowed');
+        $method->setAccessible(true);
+        $method->invoke(app(AppleIapService::class), $user, \AppStoreServerLibrary\Models\Environment::SANDBOX);
+
+        $this->assertTrue(true); // no exception thrown
+    }
+
     public function test_sandbox_environment_is_rejected_for_accounts_not_flagged_as_test_accounts(): void
     {
+        config(['services.apple.sandbox_for_all_accounts' => false]);
         $user = $this->storefrontUser()->fresh();
         $this->assertFalse($user->is_test_account);
 

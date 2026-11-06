@@ -132,6 +132,10 @@ return [
             env('APPLE_ROOT_CA_PATHS') ?: resource_path('apple/AppleRootCA-G3.cer'),
         ))),
         'enable_online_checks' => (bool) env('APPLE_IAP_ENABLE_ONLINE_CHECKS', true),
+        // Credit Sandbox purchases (TestFlight, App Review) for every account, not only those
+        // flagged `is_test_account`. App Review fails without it: reviewers register their own
+        // accounts and their purchases are always Sandbox.
+        'sandbox_for_all_accounts' => (bool) env('APPLE_IAP_SANDBOX_FOR_ALL_ACCOUNTS', true),
         // In-App Purchase Key (.p8) contents, Key ID and Issuer ID — from App Store Connect →
         // Users and Access → Integrations → In-App Purchase. Needed only for the optional
         // CONSUMPTION_REQUEST response; redemption and refund handling work without them.

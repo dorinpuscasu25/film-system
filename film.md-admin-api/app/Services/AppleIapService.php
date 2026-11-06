@@ -240,7 +240,11 @@ class AppleIapService
         }
 
         if ($environment === Environment::SANDBOX) {
-            if (! $user->is_test_account) {
+            // Apple's own reviewers buy in Sandbox, from a production build, on accounts they
+            // create themselves — Apple requires the server to accept those. Sandbox purchases
+            // are free, so this can be turned off (APPLE_IAP_SANDBOX_FOR_ALL_ACCOUNTS=false) to
+            // limit them to flagged test accounts again, at the cost of failing App Review.
+            if (! $user->is_test_account && ! config('services.apple.sandbox_for_all_accounts', true)) {
                 throw ValidationException::withMessages([
                     'signed_transaction' => ['Această chitanță este din mediul Sandbox al Apple și contul tău nu este marcat ca cont de test.'],
                 ]);
