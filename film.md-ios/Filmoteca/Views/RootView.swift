@@ -26,17 +26,29 @@ struct RootView: View {
             LoadingScreen()
         case .guest, .authenticated:
             TabView(selection: $selection) {
-                NavigationStack { HomeView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) }.navigationDestination(for: WatchRoute.self) { ContentDetailView(seed: $0.content, container: app.container, autoplay: true) } }
+                NavigationStack { HomeView(container: app.container).filmotecaDestinations(app.container) }
                     .tabItem { Label(app.t("home"), systemImage: selection == 0 ? "house.fill" : "house") }.tag(0)
-                NavigationStack { SearchView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) }.navigationDestination(for: WatchRoute.self) { ContentDetailView(seed: $0.content, container: app.container, autoplay: true) } }
+                NavigationStack { SearchView(container: app.container).filmotecaDestinations(app.container) }
                     .tabItem { Label(app.t("search"), systemImage: "magnifyingglass") }.tag(1)
-                NavigationStack { LibraryView(container: app.container).navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: app.container) }.navigationDestination(for: WatchRoute.self) { ContentDetailView(seed: $0.content, container: app.container, autoplay: true) } }
+                NavigationStack { LibraryView(container: app.container).filmotecaDestinations(app.container) }
                     .tabItem { Label(app.t("library"), systemImage: selection == 2 ? "play.square.stack.fill" : "play.square.stack") }.tag(2)
                 NavigationStack { AccountView() }
                     .tabItem { Label(app.t("account"), systemImage: selection == 3 ? "person.crop.circle.fill" : "person.crop.circle") }.tag(3)
             }
+            .tint(FilmotecaTheme.accent)
+            .sensoryFeedback(.selection, trigger: selection)
             .toolbarBackground(FilmotecaTheme.background.opacity(0.96), for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
         }
+    }
+}
+
+extension View {
+    /// The screens any tab's stack can push: titles, the player route and the browse grids.
+    func filmotecaDestinations(_ container: AppContainer) -> some View {
+        navigationDestination(for: Content.self) { ContentDetailView(seed: $0, container: container) }
+            .navigationDestination(for: WatchRoute.self) { ContentDetailView(seed: $0.content, container: container, autoplay: true) }
+            .navigationDestination(for: SectionRoute.self) { SectionGridView(route: $0) }
+            .navigationDestination(for: GenreRoute.self) { GenreGridView(route: $0) }
     }
 }

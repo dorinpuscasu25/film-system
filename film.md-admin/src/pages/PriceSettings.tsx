@@ -73,11 +73,13 @@ interface IapPackForm {
 
 interface IapPacksForm {
   commission_rate: string;
+  fx_margin_rate: string;
   packs: IapPackForm[];
 }
 
 const EMPTY_IAP_PACKS_FORM: IapPacksForm = {
   commission_rate: "15",
+  fx_margin_rate: "3",
   packs: [],
 };
 
@@ -185,6 +187,7 @@ export function PriceSettings() {
       await adminApi.savePlatformSettings({
         iap_credit_packs: {
           commission_rate: Number(iapPacks.commission_rate || 0) / 100,
+          fx_margin_rate: Number(iapPacks.fx_margin_rate || 0) / 100,
           packs: iapPacks.packs.map((pack, index) => ({
             product_id: pack.product_id.trim(),
             credits_mdl: Number(pack.credits_mdl || 0),
@@ -528,6 +531,17 @@ export function PriceSettings() {
                     helperText="15% cu Small Business Program, 30% fără."
                   />
                   <FormField
+                    label="Marjă conversie (%)"
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="0.5"
+                    value={iapPacks.fx_margin_rate}
+                    disabled={!canEdit}
+                    onChange={(event) => setIapPacks((current) => ({ ...current, fx_margin_rate: event.target.value }))}
+                    helperText="Rezervă pentru cursul băncii la conversia USD → MDL."
+                  />
+                  <FormField
                     label="Curs USD/MDL"
                     value={form.usd_to_mdl_rate || "—"}
                     disabled
@@ -570,8 +584,9 @@ export function PriceSettings() {
                     </div>
                   ) : (
                     iapPacks.packs.map((pack, index) => {
-                      const net = iapNetMdl(pack.apple_price_usd, iapPacks.commission_rate, form.usd_to_mdl_rate);
+                      const net = iapNetMdl(pack.apple_price_usd, iapPacks.commission_rate, iapPacks.fx_margin_rate, form.usd_to_mdl_rate);
                       const credits = Number(pack.credits_mdl || 0);
+                      const suggestedPrice = iapSuggestedPriceUsd(credits, iapPacks.commission_rate, iapPacks.fx_margin_rate, form.usd_to_mdl_rate);
                       const losing = net !== null && credits > net;
 
                       return (
@@ -632,6 +647,20 @@ export function PriceSettings() {
                             <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${losing ? "text-destructive" : "text-muted-foreground"}`}>
                               <span>Încasezi net după comision: ≈ {net.toFixed(2)} MDL</span>
                               <span>Credite recomandate: {Math.floor(net)}</span>
+                              {suggestedPrice !== null ? (
+                                <span>
+                                  Preț Apple minim pentru {credits} credite: ${suggestedPrice.toFixed(2)}
+                                  {canEdit && Number(pack.apple_price_usd) !== suggestedPrice ? (
+                                    <button
+                                      type="button"
+                                      className="ml-1 underline underline-offset-2"
+                                      onClick={() => updateIapPack(index, { apple_price_usd: suggestedPrice.toFixed(2) })}
+                                    >
+                                      folosește
+                                    </button>
+                                  ) : null}
+                                </span>
+                              ) : null}
                               {losing ? <span className="font-medium">Acorzi mai multe credite decât încasezi — pierdere pe fiecare vânzare.</span> : null}
                               {canEdit && credits !== Math.floor(net) ? (
                                 <button
@@ -673,21 +702,42 @@ export function PriceSettings() {
   );
 }
 
-function iapNetMdl(priceUsd: string, commissionPercent: string, usdToMdl: string): number | null {
+/** MDL that reaches the account after Apple's cut and the conversion buffer. */
+function iapNetMdl(priceUsd: string, commissionPercent: string, fxMarginPercent: string, usdToMdl: string): number | null {
   const price = Number(priceUsd);
   const rate = Number(usdToMdl);
   if (!price || !rate) return null;
 
-  return price * (1 - Number(commissionPercent || 0) / 100) * rate;
+  return price * (1 - Number(commissionPercent || 0) / 100) * (1 - Number(fxMarginPercent || 0) / 100) * rate;
+}
+
+/**
+ * Cheapest Apple USD price point that still covers `credits` MDL net. Apple's grid ends in .x9
+ * below $10, in .49/.99 up to $50 and in .99 above — always confirm the point exists in ASC.
+ */
+function iapSuggestedPriceUsd(credits: number, commissionPercent: string, fxMarginPercent: string, usdToMdl: string): number | null {
+  const rate = Number(usdToMdl);
+  const keep = (1 - Number(commissionPercent || 0) / 100) * (1 - Number(fxMarginPercent || 0) / 100);
+  if (!credits || !rate || keep <= 0) return null;
+
+  const needed = credits / rate / keep;
+  const cents = Math.round(needed * 100);
+  const step = needed < 10 ? 10 : needed < 50 ? 50 : 100;
+  // Next value of the form k*step - 1 cent (…9, …49/…99, …99) that is >= needed.
+  const point = (Math.ceil((cents + 1) / step) * step - 1) / 100;
+
+  return Math.round(point * 100) / 100;
 }
 
 function mapIapPacksSettings(value: unknown): IapPacksForm {
   const settings = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
   const packs = Array.isArray(settings.packs) ? settings.packs : [];
   const commission = Number(settings.commission_rate ?? 0.15);
+  const fxMargin = Number(settings.fx_margin_rate ?? 0.03);
 
   return {
     commission_rate: String(Math.round(commission * 10000) / 100),
+    fx_margin_rate: String(Math.round(fxMargin * 10000) / 100),
     packs: packs.map((item, index) => {
       const pack = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
 

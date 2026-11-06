@@ -24,10 +24,13 @@ final class StoreKitService {
         /// Apple charged the customer but our backend didn't confirm the credit yet. The
         /// transaction stays unfinished and is retried on next launch / login.
         case redeemPending(underlying: Error)
+        /// StoreKit could not verify the transaction signature.
+        case unverified
 
         var errorDescription: String? {
             switch self {
             case .redeemPending(let underlying): underlying.localizedDescription
+            case .unverified: "The purchase could not be verified."
             }
         }
     }
@@ -78,27 +81,36 @@ final class StoreKitService {
         }
     }
 
-    /// Returns the redeemed wallet state once the backend confirms the purchase, or `nil` if the
-    /// user cancelled or the purchase needs approval (Ask to Buy) — in the latter case StoreKit
-    /// delivers it later through `Transaction.updates`, handled the same way.
+    /// What a purchase attempt ended in, so the UI can say something specific.
+    enum PurchaseOutcome {
+        /// The backend confirmed the credits.
+        case redeemed(AppleIapRedeemResponse)
+        /// The viewer closed the Apple sheet.
+        case cancelled
+        /// Waiting on approval (Ask to Buy / SCA). StoreKit delivers it later through
+        /// `Transaction.updates`, which redeems it the same way.
+        case pending
+    }
+
     /// Throws `PurchaseError.redeemPending` when Apple charged but the backend didn't confirm.
-    @discardableResult
-    func purchase(_ product: Product) async throws -> AppleIapRedeemResponse? {
+    func purchase(_ product: Product) async throws -> PurchaseOutcome {
         switch try await product.purchase() {
         case .success(let verification):
             guard case .verified(let transaction) = verification else {
                 logger.error("Ignoring an unverified StoreKit transaction.")
-                return nil
+                throw PurchaseError.unverified
             }
             do {
-                return try await redeem(transaction, jws: verification.jwsRepresentation)
+                return .redeemed(try await redeem(transaction, jws: verification.jwsRepresentation))
             } catch {
                 throw PurchaseError.redeemPending(underlying: error)
             }
-        case .userCancelled, .pending:
-            return nil
+        case .userCancelled:
+            return .cancelled
+        case .pending:
+            return .pending
         @unknown default:
-            return nil
+            return .cancelled
         }
     }
 

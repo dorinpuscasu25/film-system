@@ -61,6 +61,16 @@ final class PlayerViewModel {
     private var adBreaks: [AdBreak] = []
     private var playedBreakIDs: Set<UUID> = []
     private var adsTask: Task<Void, Never>?
+    private var adsTimeoutTask: Task<Void, Never>?
+    /// The break list has come back (or timed out), so a pre-roll decision exists.
+    private var adsResolved = false
+    /// The native player is ready and waiting only on the pre-roll decision.
+    private var contentWaitingForAds = false
+    /// `false` while a pre-roll may still play. Embedded / web-fallback players
+    /// are only mounted once this flips, since an iframe cannot be paused for an ad.
+    private(set) var contentReleased = false
+    /// A slow ad server must not hold the film back for long — same as the web client.
+    private static let adsResolveTimeout: Duration = .seconds(4)
     private let ads: AdService
     private let contentID: String?
     private let accountProfileID: String?
@@ -119,6 +129,12 @@ final class PlayerViewModel {
     }
 
     func start() {
+        // Ads are resolved for every source and in parallel with FairPlay
+        // preparation. They used to be requested only once native playback had
+        // started, so the Bunny web fallback and embedded sources never showed
+        // any ad — while the web client, which requests them up front, did.
+        loadAdBreaks()
+
         switch request.source {
         case .native:
             guard let player else { return }
@@ -127,7 +143,7 @@ final class PlayerViewModel {
             break
         case .bunny(let reference):
             guard preparationTask == nil, player == nil else {
-                player?.play()
+                if contentReleased, activeAdBreak == nil { player?.play() }
                 return
             }
             loadingState = .loading
@@ -233,8 +249,10 @@ final class PlayerViewModel {
             player.seek(to: CMTime(seconds: request.startPosition, preferredTimescale: 600))
         }
         if let item = player.currentItem { loadMediaOptions(for: item) }
-        loadAdBreaks()
-        player.play()
+        // Hold the film until we know whether a pre-roll comes first, so the
+        // viewer never sees the opening seconds flash before the ad.
+        contentWaitingForAds = true
+        releaseContentIfPossible()
         guard observer == nil else { return }
         report(event: "play")
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: Self.progressTickSeconds, preferredTimescale: 1), queue: .main) { [weak self] _ in
@@ -265,10 +283,15 @@ final class PlayerViewModel {
 
     // MARK: - Ad breaks
 
-    /// Resolves the ad breaks for this playback and plays a pre-roll if one came
-    /// back. Called once the player exists so a pre-roll can pause it.
+    /// Resolves the ad breaks for this playback, then either plays the pre-roll
+    /// or releases the film. Safe to call more than once.
     private func loadAdBreaks() {
-        guard adsTask == nil, let contentID else { return }
+        guard adsTask == nil, !adsResolved else { return }
+        guard let contentID else {
+            // Trailers and untracked sources carry no ads.
+            finishAdResolution(with: [])
+            return
+        }
 
         let sessionToken = request.tracking?.sessionToken
         adsTask = Task { [weak self] in
@@ -280,8 +303,40 @@ final class PlayerViewModel {
                 authToken: KeychainStore.readToken()
             )
             guard !Task.isCancelled else { return }
-            self.adBreaks = resolved
-            self.playBreak(placement: .preRoll)
+            self.finishAdResolution(with: resolved)
+        }
+        adsTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.adsResolveTimeout)
+            guard !Task.isCancelled, let self, !self.adsResolved else { return }
+            self.logger.info("Ad breaks timed out; starting the film without a pre-roll.")
+            self.finishAdResolution(with: [])
+        }
+    }
+
+    private func finishAdResolution(with breaks: [AdBreak]) {
+        adsTimeoutTask?.cancel()
+        adsTimeoutTask = nil
+        guard !adsResolved else { return }
+        adsResolved = true
+        adBreaks = breaks
+        if !breaks.isEmpty {
+            logger.info("Resolved \(breaks.count, privacy: .public) ad break(s).")
+        }
+
+        if let preRoll = breaks.first(where: { $0.placement == .preRoll }) {
+            present(preRoll)
+        } else {
+            releaseContentIfPossible()
+        }
+    }
+
+    /// Starts the film once no pre-roll is pending.
+    private func releaseContentIfPossible() {
+        guard adsResolved, activeAdBreak == nil else { return }
+        contentReleased = true
+        if contentWaitingForAds, let player {
+            contentWaitingForAds = false
+            player.play()
         }
     }
 
@@ -317,9 +372,25 @@ final class PlayerViewModel {
 
     /// Resumes the film once the break ends, is skipped, or fails.
     func adBreakFinished() {
+        let wasPostRoll = activeAdBreak?.placement == .postRoll
         activeAdBreak = nil
+        guard !wasPostRoll else { return }
+        if !contentReleased {
+            releaseContentIfPossible()
+            return
+        }
         guard let player, player.currentItem != nil else { return }
         player.play()
+    }
+
+    /// Bunny's FairPlay path failed and the view swaps in the web player. Tear
+    /// the native player down but keep the ad state, so a pre-roll still plays
+    /// (or keeps playing) before the embedded film is mounted.
+    func fallBackToWebPlayer() {
+        preparationTask?.cancel()
+        preparationTask = nil
+        cleanupPlayer()
+        loadingState = .ready
     }
 
     // MARK: - Playback settings
@@ -406,6 +477,11 @@ final class PlayerViewModel {
         // calls this method.
         if player != nil { report(event: "stop") }
         cleanupPlayer()
+        adsTask?.cancel()
+        adsTask = nil
+        adsTimeoutTask?.cancel()
+        adsTimeoutTask = nil
+        activeAdBreak = nil
     }
 
     private func cleanupPlayer() {
@@ -424,9 +500,7 @@ final class PlayerViewModel {
         fairPlayLoader = nil
         mediaOptionsTask?.cancel()
         mediaOptionsTask = nil
-        adsTask?.cancel()
-        adsTask = nil
-        activeAdBreak = nil
+        contentWaitingForAds = false
         legibleGroup = nil
         audibleGroup = nil
         subtitleOptions = []

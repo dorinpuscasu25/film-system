@@ -24,10 +24,13 @@ class IapCreditPackService
         // Apple's cut (0.15 under the Small Business Program, 0.30 otherwise). Only used by the
         // admin pricing calculator to suggest how many credits a pack can safely grant — the
         // backend never charges or computes anything from it.
-        'commission_rate' => 0.15,
+        'commission_rate' => 0.30,
+        // Buffer for the USD→MDL conversion: Apple pays out in USD weeks later, and the bank
+        // converts at its own rate. Also calculator-only.
+        'fx_margin_rate' => 0.03,
         'packs' => [
-            ['product_id' => 'md.filmoteca.wallet.100', 'credits_mdl' => 100, 'apple_price_usd' => 6.99, 'sort_order' => 1, 'is_placeholder' => true],
-            ['product_id' => 'md.filmoteca.wallet.200', 'credits_mdl' => 200, 'apple_price_usd' => 12.99, 'sort_order' => 2, 'is_placeholder' => true],
+            ['product_id' => 'md.filmoteca.wallet.100', 'credits_mdl' => 100, 'apple_price_usd' => 8.99, 'sort_order' => 1, 'is_placeholder' => true],
+            ['product_id' => 'md.filmoteca.wallet.200', 'credits_mdl' => 200, 'apple_price_usd' => 17.99, 'sort_order' => 2, 'is_placeholder' => true],
         ],
     ];
 
@@ -60,9 +63,11 @@ class IapCreditPackService
             ? $settings['packs']
             : self::DEFAULT_SETTINGS['packs'];
         $commissionRate = (float) ($settings['commission_rate'] ?? self::DEFAULT_SETTINGS['commission_rate']);
+        $fxMarginRate = (float) ($settings['fx_margin_rate'] ?? self::DEFAULT_SETTINGS['fx_margin_rate']);
 
         return [
             'commission_rate' => min(0.99, max(0, round($commissionRate, 4))),
+            'fx_margin_rate' => min(0.5, max(0, round($fxMarginRate, 4))),
             'packs' => collect($packs)
                 ->map(function (mixed $pack): ?array {
                     $pack = is_array($pack) ? $pack : [];

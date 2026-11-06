@@ -26,6 +26,8 @@ final class LiveCatalogRepository: CatalogRepositoryProtocol {
     func reviews(slug: String) async throws -> ReviewsResponse { try await api.reviews(slug: slug) }
     func submitReview(slug: String, rating: Int, comment: String) async throws { _ = try await api.submitReview(slug: slug, rating: rating, comment: comment) }
     func deleteReview(slug: String, reviewID: String) async throws { _ = try await api.deleteReview(slug: slug, reviewID: reviewID) }
+    func reportReview(slug: String, reviewID: String, reason: String) async throws { _ = try await api.reportReview(slug: slug, reviewID: reviewID, reason: reason) }
+    func blockUser(userID: String) async throws { _ = try await api.blockUser(userID: userID) }
 }
 
 @MainActor

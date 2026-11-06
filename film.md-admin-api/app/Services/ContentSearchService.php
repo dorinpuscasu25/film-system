@@ -501,6 +501,8 @@ class ContentSearchService
                             ? $this->taxonomyLabel($taxonomy, $locale)
                             : (string) $slug,
                         'count' => (int) $count,
+                        // Set per genre in the admin; the apps tint the genre's tile with it.
+                        'color' => $taxonomy instanceof Taxonomy ? $this->taxonomyColor($taxonomy) : null,
                     ];
                 })
                 ->sortByDesc('count')
@@ -553,6 +555,7 @@ class ContentSearchService
         $typeLabels = Content::typeLabels($locale);
         $genreCounts = [];
         $genreLabels = [];
+        $genreColors = [];
         $accessCounts = ['free' => 0, 'paid' => 0];
 
         $contents->each(function (Content $content) use (&$genreCounts, &$genreLabels, &$accessCounts, $locale): void {
@@ -566,9 +569,10 @@ class ContentSearchService
             $content->taxonomies
                 ->where('type', Taxonomy::TYPE_GENRE)
                 ->unique('id')
-                ->each(function (Taxonomy $taxonomy) use (&$genreCounts, &$genreLabels, $locale): void {
+                ->each(function (Taxonomy $taxonomy) use (&$genreCounts, &$genreLabels, &$genreColors, $locale): void {
                     $genreCounts[$taxonomy->slug] = ($genreCounts[$taxonomy->slug] ?? 0) + 1;
                     $genreLabels[$taxonomy->slug] = $this->taxonomyLabel($taxonomy, $locale);
+                    $genreColors[$taxonomy->slug] = $this->taxonomyColor($taxonomy);
                 });
         });
 
@@ -578,6 +582,7 @@ class ContentSearchService
                     'value' => (string) $slug,
                     'label' => $genreLabels[$slug] ?? (string) $slug,
                     'count' => (int) $count,
+                    'color' => $genreColors[$slug] ?? null,
                 ])
                 ->sortByDesc('count')
                 ->values()
@@ -1004,6 +1009,13 @@ class ContentSearchService
         } catch (Throwable $exception) {
             report($exception);
         }
+    }
+
+    protected function taxonomyColor(Taxonomy $taxonomy): ?string
+    {
+        $color = trim((string) $taxonomy->color);
+
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $color) === 1 ? $color : null;
     }
 
     protected function taxonomyLabel(Taxonomy $taxonomy, string $locale): string

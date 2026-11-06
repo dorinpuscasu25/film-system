@@ -30,8 +30,18 @@ class ContentReviewController extends ApiController
         $status = $request->query('status');
 
         $query = ContentReview::query()
-            ->with(['content:id,slug,original_title,title,default_locale,type', 'user:id,name,email', 'profile:id,name,avatar_label'])
+            ->with([
+                'content:id,slug,original_title,title,default_locale,type',
+                'user:id,name,email',
+                'profile:id,name,avatar_label',
+                'reports' => fn ($reports) => $reports->whereNull('resolved_at')->latest('id'),
+            ])
+            ->withCount(['reports as open_reports_count' => fn ($reports) => $reports->whereNull('resolved_at')])
             ->latest('id');
+
+        if ($request->boolean('reported')) {
+            $query->whereHas('reports', fn ($reports) => $reports->whereNull('resolved_at'));
+        }
 
         if ($contentId !== null) {
             $query->where('content_id', $contentId);
@@ -62,6 +72,10 @@ class ContentReviewController extends ApiController
                     $this->contentScope->isScoped($user),
                     fn ($builder) => $builder->whereIn('content_id', $this->contentScope->assignedContentIds($user)),
                 )->where('status', ContentReview::STATUS_HIDDEN)->count(),
+                'reported' => ContentReview::query()->when($contentId !== null, fn ($builder) => $builder->where('content_id', $contentId))->when(
+                    $this->contentScope->isScoped($user),
+                    fn ($builder) => $builder->whereIn('content_id', $this->contentScope->assignedContentIds($user)),
+                )->whereHas('reports', fn ($reports) => $reports->whereNull('resolved_at'))->count(),
             ],
             'pagination' => [
                 'page' => $reviews->currentPage(),
@@ -83,6 +97,8 @@ class ContentReviewController extends ApiController
         ]);
 
         $review->update(['status' => $data['status']]);
+        // A moderator's decision, either way, answers every open report on this review.
+        $review->reports()->whereNull('resolved_at')->update(['resolved_at' => now()]);
         $this->updatePlatformRating($review->content);
         $review->load(['content:id,slug,original_title,title,default_locale,type', 'user:id,name,email', 'profile:id,name,avatar_label']);
 
@@ -123,6 +139,10 @@ class ContentReviewController extends ApiController
             'comment' => $review->comment,
             'status' => $review->status,
             'locale' => $review->locale,
+            'open_reports_count' => (int) ($review->open_reports_count ?? $review->reports()->whereNull('resolved_at')->count()),
+            'report_reasons' => $review->relationLoaded('reports')
+                ? $review->reports->pluck('reason')->countBy()->all()
+                : [],
             'created_at' => $review->created_at?->toIso8601String(),
             'updated_at' => $review->updated_at?->toIso8601String(),
         ];

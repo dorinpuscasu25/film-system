@@ -38,15 +38,16 @@ struct PlayerView: View {
             case .native:
                 if let player = viewModel.player { SystemVideoPlayer(player: player).ignoresSafeArea() }
             case .embedded(let embedURL, _):
-                EmbeddedVideoPlayer(url: embedURL).ignoresSafeArea()
+                embeddedPlayer(url: embedURL)
             case .bunny(let reference):
                 if let bunnyWebFallbackURL {
-                    EmbeddedVideoPlayer(url: bunnyWebFallbackURL).ignoresSafeArea()
+                    embeddedPlayer(url: bunnyWebFallbackURL)
                 } else {
                     bunnyPlayer
                         .onChange(of: viewModel.loadingState) { _, state in
                             guard case .failed = state else { return }
-                            viewModel.stop()
+                            // Keeps the ad state: a pre-roll still runs before the web player.
+                            viewModel.fallBackToWebPlayer()
                             withAnimation(.easeInOut(duration: 0.25)) {
                                 bunnyWebFallbackURL = reference.embedURL
                             }
@@ -102,9 +103,14 @@ struct PlayerView: View {
             .zIndex(10)
 
             if let adBreak = viewModel.activeAdBreak {
-                AdBreakOverlayView(adBreak: adBreak, ads: adService) {
-                    viewModel.adBreakFinished()
-                }
+                AdBreakOverlayView(
+                    adBreak: adBreak,
+                    ads: adService,
+                    onFinished: { viewModel.adBreakFinished() },
+                    onClose: { dismiss() }
+                )
+                .id(adBreak.id)
+                .transition(.opacity)
                 .zIndex(20)
             }
         }
@@ -114,6 +120,17 @@ struct PlayerView: View {
         .sheet(isPresented: $settingsPresented) {
             PlaybackSettingsSheet(viewModel: viewModel)
                 .presentationDetents([.medium, .large])
+        }
+    }
+
+    /// An iframe cannot be paused for an ad, so it is mounted only once any
+    /// pre-roll has finished — otherwise the film would play under the ad.
+    @ViewBuilder
+    private func embeddedPlayer(url: URL) -> some View {
+        if viewModel.contentReleased {
+            EmbeddedVideoPlayer(url: url).ignoresSafeArea()
+        } else if viewModel.activeAdBreak == nil {
+            ProgressView().tint(.white)
         }
     }
 

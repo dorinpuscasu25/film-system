@@ -84,6 +84,13 @@ export function ContentReviewsTab({ contentId }: ContentReviewsTabProps) {
   );
 }
 
+const REPORT_REASON_LABELS: Record<string, string> = {
+  offensive: "ofensator",
+  spam: "spam",
+  spoiler: "spoiler",
+  other: "alt motiv",
+};
+
 export function ReviewsTable({
   reviews,
   busyId,
@@ -142,6 +149,16 @@ export function ReviewsTable({
               </TableCell>
               <TableCell className="max-w-xl">
                 <p className="line-clamp-3 text-sm text-muted-foreground">{review.comment}</p>
+                {review.open_reports_count ? (
+                  <p className="mt-1 text-xs font-medium text-destructive">
+                    Raportat de {review.open_reports_count} {review.open_reports_count === 1 ? "utilizator" : "utilizatori"}
+                    {review.report_reasons && Object.keys(review.report_reasons).length > 0
+                      ? ` · ${Object.entries(review.report_reasons)
+                          .map(([reason, count]) => `${REPORT_REASON_LABELS[reason] ?? reason} (${count})`)
+                          .join(", ")}`
+                      : null}
+                  </p>
+                ) : null}
               </TableCell>
               <TableCell>
                 <Badge variant={review.status === "published" ? "active" : "inactive"}>

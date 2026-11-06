@@ -11,6 +11,8 @@ struct AdBreakOverlayView: View {
     let adBreak: AdBreak
     let ads: AdService
     let onFinished: () -> Void
+    /// Leaves the player entirely; the overlay covers the player's own close button.
+    var onClose: (() -> Void)? = nil
 
     @Environment(FilmotecaModel.self) private var app
 
@@ -22,6 +24,14 @@ struct AdBreakOverlayView: View {
     @State private var endObserver: NSObjectProtocol?
     @State private var firedQuartiles: Set<String> = []
     @State private var hasFinished = false
+    @State private var hasStarted = false
+    @State private var progress: Double = 0
+    @State private var statusObserver: NSKeyValueObservation?
+    @State private var failureObserver: NSObjectProtocol?
+    @State private var watchdog: Task<Void, Never>?
+
+    /// A creative that has not started rendering by then is treated as broken.
+    private static let startTimeout: Duration = .seconds(8)
 
     private var creative: AdCreative { adBreak.creative }
 
@@ -35,8 +45,25 @@ struct AdBreakOverlayView: View {
                     .ignoresSafeArea()
             }
 
+            if !hasStarted {
+                ProgressView().tint(.white)
+            }
+
             VStack {
-                HStack {
+                HStack(spacing: 10) {
+                    if let onClose {
+                        Button {
+                            finish(event: "close", notifyParent: false)
+                            onClose()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.footnote.weight(.bold))
+                                .frame(width: 36, height: 36)
+                                .background(.black.opacity(0.7), in: Circle())
+                        }
+                        .accessibilityLabel(app.t("close"))
+                    }
+
                     Text(remaining > 0 ? "\(app.t("ad_label")) · \(remaining)s" : app.t("ad_label"))
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 10)
@@ -75,18 +102,37 @@ struct AdBreakOverlayView: View {
 
                     if creative.skipOffsetSeconds != nil {
                         Button { finish(event: "skip") } label: {
-                            Text(canSkip ? app.t("ad_skip") : "\(app.t("ad_skip_in")) \(skipIn ?? 0)s")
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(.black.opacity(0.75), in: Capsule())
+                            Label {
+                                Text(canSkip ? app.t("ad_skip") : "\(app.t("ad_skip_in")) \(skipIn ?? 0)s")
+                            } icon: {
+                                if canSkip { Image(systemName: "forward.end.fill") }
+                            }
+                            .labelStyle(.titleAndIcon)
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(.black.opacity(0.75), in: Capsule())
+                            .overlay(Capsule().stroke(.white.opacity(canSkip ? 0.5 : 0.15)))
                         }
                         .disabled(!canSkip)
-                        .opacity(canSkip ? 1 : 0.6)
+                        .opacity(canSkip ? 1 : 0.7)
+                        .animation(.easeOut(duration: 0.2), value: canSkip)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                .padding(.bottom, 14)
+
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Rectangle().fill(.white.opacity(0.25))
+                        Rectangle()
+                            .fill(FilmotecaTheme.accent)
+                            .frame(width: proxy.size.width * min(1, max(0, progress)))
+                            .animation(.linear(duration: 0.5), value: progress)
+                    }
+                }
+                .frame(height: 3)
+                .accessibilityHidden(true)
             }
             .foregroundStyle(.white)
         }
@@ -99,6 +145,11 @@ struct AdBreakOverlayView: View {
     }
 
     private func start() {
+        // The embedded / web-fallback paths never configure the session, and the
+        // default category obeys the silent switch — the ad would play mute.
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        try? AVAudioSession.sharedInstance().setActive(true)
+
         let item = AVPlayerItem(url: creative.mediaURL)
         let newPlayer = AVPlayer(playerItem: item)
         newPlayer.actionAtItemEnd = .pause
@@ -106,8 +157,6 @@ struct AdBreakOverlayView: View {
 
         remaining = Int(creative.durationSeconds.rounded())
         skipIn = creative.skipOffsetSeconds.map { Int($0.rounded()) }
-
-        ads.fireTracking(creative, event: "impression")
 
         timeObserver = newPlayer.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
@@ -124,6 +173,25 @@ struct AdBreakOverlayView: View {
             finish(event: "complete")
         }
 
+        // A broken media URL, an unsupported codec or a 403 from the CDN used
+        // to leave the viewer on a black screen with no way out.
+        failureObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { _ in
+            finish(event: nil)
+        }
+        statusObserver = item.observe(\.status, options: [.new]) { item, _ in
+            guard item.status == .failed else { return }
+            Task { @MainActor in finish(event: nil) }
+        }
+        watchdog = Task { @MainActor in
+            try? await Task.sleep(for: Self.startTimeout)
+            guard !Task.isCancelled, !hasStarted else { return }
+            finish(event: nil)
+        }
+
         newPlayer.play()
     }
 
@@ -132,13 +200,22 @@ struct AdBreakOverlayView: View {
         let duration = itemDuration.isFinite && itemDuration > 0 ? itemDuration : creative.durationSeconds
         guard duration > 0 else { return }
 
+        // The impression counts only once the creative actually renders — not
+        // when a broken file is merely requested.
+        if !hasStarted, seconds > 0, player.timeControlStatus == .playing {
+            hasStarted = true
+            watchdog?.cancel()
+            ads.fireTracking(creative, event: "impression")
+        }
+
         remaining = max(0, Int((duration - seconds).rounded()))
+        progress = seconds / duration
         if let skipOffset = creative.skipOffsetSeconds {
             skipIn = max(0, Int((skipOffset - seconds).rounded()))
         }
 
         // Quartile beacons must fire exactly once per playback.
-        let progress = seconds / duration
+        guard hasStarted else { return }
         for (event, threshold) in [("start", 0.0), ("firstQuartile", 0.25), ("midpoint", 0.5), ("thirdQuartile", 0.75)] {
             if progress >= threshold, !firedQuartiles.contains(event) {
                 firedQuartiles.insert(event)
@@ -166,12 +243,12 @@ struct AdBreakOverlayView: View {
     }
 
     /// Guarded so the parent is told exactly once per break.
-    private func finish(event: String?) {
+    private func finish(event: String?, notifyParent: Bool = true) {
         guard !hasFinished else { return }
         hasFinished = true
         if let event { ads.fireTracking(creative, event: event) }
         teardown()
-        onFinished()
+        if notifyParent { onFinished() }
     }
 
     private func teardown() {
@@ -179,6 +256,12 @@ struct AdBreakOverlayView: View {
         timeObserver = nil
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil
+        if let failureObserver { NotificationCenter.default.removeObserver(failureObserver) }
+        failureObserver = nil
+        statusObserver?.invalidate()
+        statusObserver = nil
+        watchdog?.cancel()
+        watchdog = nil
         player?.pause()
         player = nil
     }

@@ -39,6 +39,8 @@ final class ContentDetailViewModel {
         } catch { state = .failed(message: error.localizedDescription) }
     }
 
+    var hiddenReviewIDs: Set<String> = []
+
     func loadReviews() async { reviews = try? await catalog.reviews(slug: seed.slug) }
 
     /// Non-critical: recommendations require auth server-side, and a failure here
@@ -106,5 +108,22 @@ final class ContentDetailViewModel {
     func deleteReview(_ review: Review) async throws {
         try await catalog.deleteReview(slug: seed.slug, reviewID: review.id)
         await loadReviews()
+    }
+
+    /// Reports go to moderation; the reporter stops seeing the review right away.
+    func reportReview(_ review: Review, reason: String) async throws {
+        try await catalog.reportReview(slug: seed.slug, reviewID: review.id, reason: reason)
+        hiddenReviewIDs.insert(review.id)
+    }
+
+    /// The server filters a blocked author out of every list from now on; reload to drop them here too.
+    func blockAuthor(of review: Review) async throws {
+        guard let userID = review.userID?.stringValue else { return }
+        try await catalog.blockUser(userID: userID)
+        await loadReviews()
+    }
+
+    var visibleReviews: [Review] {
+        (reviews?.items ?? []).filter { !hiddenReviewIDs.contains($0.id) }
     }
 }

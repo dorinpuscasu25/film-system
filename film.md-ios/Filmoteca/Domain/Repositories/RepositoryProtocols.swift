@@ -21,6 +21,8 @@ protocol CatalogRepositoryProtocol {
     func reviews(slug: String) async throws -> ReviewsResponse
     func submitReview(slug: String, rating: Int, comment: String) async throws
     func deleteReview(slug: String, reviewID: String) async throws
+    func reportReview(slug: String, reviewID: String, reason: String) async throws
+    func blockUser(userID: String) async throws
 }
 
 @MainActor

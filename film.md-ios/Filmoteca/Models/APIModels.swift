@@ -256,7 +256,7 @@ struct HomeResponse: Codable {
     enum CodingKeys: String, CodingKey { case hero, sections, featured, latest, movies, series; case heroSlides = "hero_slides"; case freeToWatch = "free_to_watch" }
 }
 
-struct FilterOption: Codable, Identifiable, Hashable { let value: String; let label: String; let count: Int; var id: String { value } }
+struct FilterOption: Codable, Identifiable, Hashable { let value: String; let label: String; let count: Int; var color: String? = nil; var id: String { value } }
 struct CatalogFilters: Codable { let genres: [FilterOption]?; let years: [FilterOption]?; let countries: [FilterOption]?; let types: [FilterOption]?; let access: [FilterOption]? }
 struct CatalogResponse: Codable { @FlexibleArray var items: [Content]; let page: Int; let pageSize: Int; let total: Int; let filters: CatalogFilters?; enum CodingKeys: String, CodingKey { case items, page, total, filters; case pageSize = "page_size" } }
 

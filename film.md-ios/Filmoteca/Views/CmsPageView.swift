@@ -136,6 +136,11 @@ private struct CmsHTMLView: UIViewRepresentable {
             background: rgba(255,255,255,0.04);
           }
           code, pre { font-family: ui-monospace, monospace; font-size: 0.92em; }
+          /* The admin's rich-text editor writes inline colours (black text, white
+             backgrounds) meant for a light page; on the app's dark page they vanish. */
+          body * { color: inherit !important; background-color: transparent !important; }
+          h1, h2, h3, h4, strong, b, th, h1 *, h2 *, h3 *, h4 * { color: #fff !important; }
+          a, a * { color: #ff4d5a !important; }
         </style>
         </head>
         <body>\(body)</body>

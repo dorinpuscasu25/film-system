@@ -11,12 +11,12 @@ struct AccountView: View {
     private enum AccountSection: String, CaseIterable, Identifiable {
         case films = "Filmele mele"
         case favorites = "Favorite"
-        case wallet = "Portofel"
         case settings = "Setări"
         var id: String { rawValue }
     }
 
     @Environment(FilmotecaModel.self) private var app
+    @Namespace private var tabNamespace
     @State private var tvPairingPresented = false
     @State private var topUpPresented = false
     @State private var inAppURL: URL?
@@ -31,22 +31,25 @@ struct AccountView: View {
     @State private var deleteAccountPresented = false
     @State private var cmsPage: CmsPageRoute?
     @State private var isDashboardLoading = false
+    @State private var transactionsPresented = false
+    @State private var legalPresented = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 22) {
-                FilmotecaWordmark().frame(maxWidth: .infinity, alignment: .leading)
+                FilmotecaWordmark().frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                 Group {
                     if app.isAuthenticated { authenticatedContent } else { guestContent }
                 }
                 .filmotecaReveal(delay: 0.04)
-                footerMenuContent
-                Text("FILMOTECA iOS • 1.0").font(.caption2).foregroundStyle(.tertiary).padding(.top, 8)
+                if !app.isAuthenticated {
+                    infoRows
+                }
             }.padding(18).padding(.bottom, 25)
         }
         .background(FilmotecaTheme.background)
-        .navigationTitle(app.t("account"))
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(isPresented: $legalPresented) { legalPage }
         .sheet(isPresented: $tvPairingPresented) { TVPairingView(container: app.container) }
         .sheet(isPresented: $topUpPresented, onDismiss: { Task { await app.refreshAccount() } }) {
             CreditPackSheet()
@@ -60,6 +63,7 @@ struct AccountView: View {
         .sheet(isPresented: $accountSettingsPresented) { AccountSettingsSheet() }
         .sheet(isPresented: $passwordSettingsPresented) { PasswordSettingsSheet() }
         .sheet(isPresented: $deleteAccountPresented) { DeleteAccountSheet() }
+        .sheet(isPresented: $transactionsPresented) { transactionsSheet }
         .sheet(item: $cmsPage) { route in CmsPageView(slug: route.slug, fallbackTitle: route.title) }
         .task(id: app.locale) { await loadFooterMenu() }
         .task(id: "\(app.activeProfile?.id ?? "guest")-\(app.locale.rawValue)") {
@@ -72,35 +76,130 @@ struct AccountView: View {
             ZStack { Circle().fill(FilmotecaTheme.surface); Image(systemName: "person.crop.circle").font(.system(size: 64)).foregroundStyle(.white.opacity(0.5)) }.frame(width: 110, height: 110)
             Text(app.tr("Intră în universul FILMOTECA")).filmotecaTitle(.title2)
             Text(app.tr("Sincronizează progresul, creează profiluri și păstrează filmele preferate.")).foregroundStyle(FilmotecaTheme.muted).multilineTextAlignment(.center)
-            Button(app.t("login")) { app.authPresented = true }.buttonStyle(GlassButtonStyle(prominent: true))
+            Button { app.authPresented = true } label: {
+                Label(app.t("login"), systemImage: "person.crop.circle.badge.checkmark")
+                    .padding(.horizontal, 22)
+                    .frame(minWidth: 220)
+            }
+            .buttonStyle(GlassButtonStyle(prominent: true))
         }.padding(.vertical, 50)
     }
 
     private var authenticatedContent: some View {
-        VStack(spacing: 20) {
-            Button { app.profilePickerPresented = true } label: {
-                HStack(spacing: 14) {
-                    ZStack { RoundedRectangle(cornerRadius: 17).fill(LinearGradient(colors: [FilmotecaTheme.accent, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)); Text(app.activeProfile?.avatarLabel ?? String(app.user?.name.prefix(1) ?? "U")).font(.title.bold()) }.frame(width: 62, height: 62)
-                    VStack(alignment: .leading, spacing: 4) { Text(app.activeProfile?.name ?? app.user?.name ?? "").filmotecaTitle(.title3); Text(app.user?.email ?? "").font(.caption).foregroundStyle(FilmotecaTheme.muted) }
-                    Spacer(); Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary)
-                }.padding(14).background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 20))
-            }.buttonStyle(.plain)
-
-            Picker(app.tr("Secțiune cont"), selection: $selectedSection) {
-                ForEach(AccountSection.allCases) { section in Text(app.tr(section.rawValue)).tag(section) }
-            }
-            .pickerStyle(.segmented)
+        VStack(spacing: 18) {
+            profileHeader
+            walletCard
+            sectionTabs
 
             Group {
                 switch selectedSection {
                 case .films: myFilmsContent
                 case .favorites: favoritesContent
-                case .wallet: walletContent
                 case .settings: settingsContent
                 }
             }
             .filmotecaReveal(delay: 0.04)
         }
+    }
+
+    private var profileHeader: some View {
+        Button { app.profilePickerPresented = true } label: {
+            HStack(spacing: 14) {
+                Text(app.activeProfile?.avatarLabel ?? String(app.user?.name.prefix(1) ?? "U"))
+                    .font(.title.bold())
+                    .foregroundStyle(.white)
+                    .frame(width: 58, height: 58)
+                    .background(FilmotecaTheme.brandGradient, in: Circle())
+                    .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 2))
+                    .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(app.activeProfile?.name ?? app.user?.name ?? "").filmotecaTitle(.title3).lineLimit(1)
+                    Text(app.user?.email ?? "").font(.caption).foregroundStyle(FilmotecaTheme.muted).lineLimit(1)
+                    Text("\(app.account?.library.count ?? 0) \(app.tr("titluri")) · \(app.favorites.count) \(app.tr("favorite")) · \(app.user?.profiles?.count ?? 0) \(app.tr("profiluri"))")
+                        .font(.caption2.weight(.medium)).foregroundStyle(FilmotecaTheme.muted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down").font(.caption.weight(.semibold)).foregroundStyle(FilmotecaTheme.muted)
+                    .accessibilityLabel(app.tr("Schimbă profilul"))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The balance is the first thing on the page: what the viewer can still spend.
+    /// Kept compact and dark — the red is an accent, not the whole card.
+    private var walletCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                IconTile(systemName: "wallet.pass.fill", color: FilmotecaTheme.accent, size: 40)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(app.tr("Sold disponibil")).font(.caption.weight(.semibold)).foregroundStyle(FilmotecaTheme.muted)
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text(app.balance, format: .number.precision(.fractionLength(0...2)))
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                            .animation(.spring, value: app.balance)
+                        Text(app.currency).font(.subheadline.weight(.semibold)).foregroundStyle(FilmotecaTheme.muted)
+                    }
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 10) {
+                Button { transactionsPresented = true } label: {
+                    Label(app.tr("Istoric"), systemImage: "clock.arrow.circlepath")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(.white.opacity(0.08), in: Capsule())
+                        .overlay(Capsule().stroke(FilmotecaTheme.hairline))
+                }
+                .buttonStyle(PressableCardStyle())
+                Button { topUpPresented = true } label: {
+                    Label(app.tr("Alimentează"), systemImage: "plus")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(FilmotecaTheme.accent, in: Capsule())
+                }
+                .buttonStyle(PressableCardStyle())
+            }
+            .lineLimit(1)
+        }
+        .padding(16)
+        .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(FilmotecaTheme.hairline))
+    }
+
+    /// A red capsule tab bar instead of the stock segmented control.
+    private var sectionTabs: some View {
+        HStack(spacing: 4) {
+            ForEach(AccountSection.allCases) { section in
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) { selectedSection = section }
+                } label: {
+                    Text(app.tr(section.rawValue))
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .foregroundStyle(selectedSection == section ? .white : FilmotecaTheme.muted)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background {
+                            if selectedSection == section {
+                                Capsule().fill(FilmotecaTheme.brandGradient).matchedGeometryEffect(id: "tab", in: tabNamespace)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(FilmotecaTheme.surface, in: Capsule())
+        .overlay(Capsule().stroke(FilmotecaTheme.hairline))
+        .sensoryFeedback(.selection, trigger: selectedSection)
     }
 
     private var myFilmsContent: some View {
@@ -164,51 +263,53 @@ struct AccountView: View {
         }
     }
 
-    private var walletContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(app.tr("SOLD DISPONIBIL")).font(.caption2.weight(.black)).tracking(1.4).foregroundStyle(FilmotecaTheme.muted)
-                HStack(alignment: .firstTextBaseline, spacing: 7) {
-                    Text(app.balance, format: .number.precision(.fractionLength(2))).font(.system(size: 38, weight: .black, design: .rounded))
-                    Text(app.currency).font(.headline).foregroundStyle(FilmotecaTheme.muted)
-                }
-                Button { topUpPresented = true } label: { Label(app.t("topup"), systemImage: "creditcard") }
-                    .buttonStyle(GlassButtonStyle(prominent: true))
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
-            .background(LinearGradient(colors: [FilmotecaTheme.elevated, FilmotecaTheme.surface], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
-            .overlay(RoundedRectangle(cornerRadius: 22).stroke(FilmotecaTheme.hairline))
-
-            accountSectionTitle(app.tr("Istoricul tranzacțiilor"), icon: "clock.arrow.circlepath")
-            if app.account?.transactions.isEmpty != false {
-                emptyAccountState(app.tr("Nu există tranzacții."), icon: "list.bullet.rectangle")
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array((app.account?.transactions ?? []).enumerated()), id: \.element.id) { index, transaction in
-                        HStack(spacing: 12) {
-                            Image(systemName: transaction.amount >= 0 ? "arrow.down.left.circle.fill" : "arrow.up.right.circle.fill")
-                                .font(.title3)
-                                .foregroundStyle(transaction.amount >= 0 ? .green : FilmotecaTheme.accent)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(transaction.description ?? transaction.type.capitalized).font(.subheadline.bold())
-                                Text([transaction.status?.uppercased(), transaction.createdAt].compactMap { $0 }.joined(separator: " • "))
-                                    .font(.caption2).foregroundStyle(FilmotecaTheme.muted).lineLimit(1)
+    private var transactionsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(app.tr("Sold")).font(.subheadline).foregroundStyle(FilmotecaTheme.muted)
+                        Text(app.balance, format: .number.precision(.fractionLength(0...2))).font(.title3.bold()).monospacedDigit()
+                        Text(app.currency).font(.subheadline).foregroundStyle(FilmotecaTheme.muted)
+                    }
+                    if app.account?.transactions.isEmpty != false {
+                        emptyAccountState(app.tr("Nu există tranzacții."), icon: "list.bullet.rectangle")
+                    } else {
+                        VStack(spacing: 0) {
+                            ForEach(Array((app.account?.transactions ?? []).enumerated()), id: \.element.id) { index, transaction in
+                                HStack(spacing: 12) {
+                                    IconTile(systemName: transaction.amount >= 0 ? "arrow.down.left" : "arrow.up.right", color: transaction.amount >= 0 ? FilmotecaTheme.mint : FilmotecaTheme.accent, size: 34)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(transactionTitle(transaction.description ?? transaction.type.capitalized)).font(.subheadline.bold()).lineLimit(2)
+                                        Text([transaction.status?.capitalized, transaction.createdAt.map(transactionDate)].compactMap { $0 }.joined(separator: " • "))
+                                            .font(.caption2).foregroundStyle(FilmotecaTheme.muted).lineLimit(1)
+                                    }
+                                    Spacer()
+                                    Text("\(transaction.amount >= 0 ? "+" : "")\(transaction.amount.formatted(.number.precision(.fractionLength(2)))) \(transaction.currency)")
+                                        .font(.subheadline.bold()).monospacedDigit()
+                                        .foregroundStyle(transaction.amount >= 0 ? FilmotecaTheme.mint : .white)
+                                }
+                                .padding(14)
+                                if index < (app.account?.transactions.count ?? 0) - 1 {
+                                    Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 60)
+                                }
                             }
-                            Spacer()
-                            Text("\(transaction.amount >= 0 ? "+" : "")\(transaction.amount.formatted(.number.precision(.fractionLength(2)))) \(transaction.currency)")
-                                .font(.subheadline.bold()).monospacedDigit()
                         }
-                        .padding(14)
-                        if index < (app.account?.transactions.count ?? 0) - 1 {
-                            Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
-                        }
+                        .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
                     }
                 }
-                .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
-                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .padding(18)
+            }
+            .background(FilmotecaTheme.background)
+            .navigationTitle(app.tr("Istoricul tranzacțiilor"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(app.t("close")) { transactionsPresented = false } }
             }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private var settingsContent: some View {
@@ -216,13 +317,13 @@ struct AccountView: View {
             accountSectionTitle(app.tr("Cont și securitate"), icon: "person.crop.circle")
             VStack(spacing: 0) {
                 accountRow(app.tr("Datele contului"), icon: "person.text.rectangle", action: { accountSettingsPresented = true })
-                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
+                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                 accountRow(app.tr("Schimbă parola"), icon: "lock.rotation", action: { passwordSettingsPresented = true })
-                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
+                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                 accountRow(app.tr("Gestionează profilurile"), icon: "person.2", action: { app.profilePickerPresented = true })
-                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
+                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                 accountRow(app.tr("Conectează televizorul"), icon: "tv", action: { tvPairingPresented = true })
-                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
+                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                 Menu {
                     ForEach(LocaleCode.allCases) { locale in
                         Button {
@@ -236,13 +337,16 @@ struct AccountView: View {
                 } label: {
                     accountRowLabel(app.tr("Limba"), icon: "globe", value: app.locale.title)
                 }
-                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 48)
+                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                 Button(role: .destructive) { app.logout() } label: {
                     accountRowLabel(app.tr("Ieși din cont"), icon: "rectangle.portrait.and.arrow.right", value: nil).foregroundStyle(.red)
                 }
             }
             .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
             .clipShape(RoundedRectangle(cornerRadius: 18))
+
+            accountSectionTitle(app.tr("Informații"), icon: "info.circle")
+            infoRows
 
             accountSectionTitle(app.tr("Zonă periculoasă"), icon: "exclamationmark.triangle")
             VStack(spacing: 0) {
@@ -253,13 +357,42 @@ struct AccountView: View {
             .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
             .clipShape(RoundedRectangle(cornerRadius: 18))
 
-            accountSectionTitle(app.tr("Rezumat"), icon: "chart.bar")
-            HStack(spacing: 10) {
-                summaryCard("\(app.user?.profiles?.count ?? 0)", label: app.tr("Profiluri"))
-                summaryCard("\(app.account?.library.count ?? 0)", label: app.tr("Titluri"))
-                summaryCard("\(app.favorites.count)", label: app.tr("Favorite"))
-            }
         }
+    }
+
+    /// Legal pages and the app version: reachable, but out of the way.
+    private var infoRows: some View {
+        VStack(spacing: 0) {
+            accountRow(app.tr("Informații legale"), icon: "doc.text", action: { legalPresented = true })
+            Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
+            HStack(spacing: 13) {
+                IconTile(systemName: "iphone", color: .gray)
+                Text(app.tr("Versiune"))
+                Spacer()
+                Text(appVersion).foregroundStyle(FilmotecaTheme.muted)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .foregroundStyle(.white)
+        }
+        .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String
+        return build.map { "\(version) (\($0))" } ?? version
+    }
+
+    private var legalPage: some View {
+        ScrollView {
+            VStack(spacing: 18) { footerMenuContent }.padding(18)
+        }
+        .background(FilmotecaTheme.background)
+        .navigationTitle(app.tr("Informații legale"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 
     @ViewBuilder private var footerMenuContent: some View {
@@ -295,9 +428,7 @@ struct AccountView: View {
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                             Button { openFooterItem(item) } label: {
                                 HStack(spacing: 13) {
-                                    Image(systemName: icon(for: item.label))
-                                        .frame(width: 24)
-                                        .foregroundStyle(FilmotecaTheme.accent)
+                                    IconTile(systemName: icon(for: item.label), color: tileColor(for: icon(for: item.label)))
                                     Text(item.label)
                                         .font(.subheadline)
                                         .multilineTextAlignment(.leading)
@@ -314,7 +445,7 @@ struct AccountView: View {
                             .buttonStyle(.plain)
 
                             if index < items.count - 1 {
-                                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 52)
+                                Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                             }
                         }
                     }
@@ -448,9 +579,12 @@ struct AccountView: View {
     }
 
     private func accountSectionTitle(_ title: String, icon: String) -> some View {
-        Label(title, systemImage: icon)
-            .font(.headline.bold())
-            .foregroundStyle(.white)
+        HStack(spacing: 8) {
+            Image(systemName: icon).foregroundStyle(FilmotecaTheme.brandGradient)
+            Text(title)
+        }
+        .font(.headline.bold())
+        .foregroundStyle(.white)
     }
 
     private func emptyAccountState(_ title: String, icon: String) -> some View {
@@ -500,18 +634,38 @@ struct AccountView: View {
         .buttonStyle(.plain)
     }
 
-    private func summaryCard(_ value: String, label: String) -> some View {
-        VStack(spacing: 5) {
-            Text(value).font(.title2.bold()).monospacedDigit()
-            Text(label).font(.caption2).foregroundStyle(FilmotecaTheme.muted)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+    /// Store top-ups carry the product id in brackets ("… (md.filmoteca.credits.200)"); viewers don't need it.
+    private func transactionTitle(_ raw: String) -> String {
+        raw.replacingOccurrences(of: #"\s*\([a-z0-9_.-]+\.[a-z0-9_.-]+\)\s*$"#, with: "", options: [.regularExpression, .caseInsensitive])
+    }
+
+    private func transactionDate(_ raw: String) -> String {
+        let parser = ISO8601DateFormatter()
+        guard let date = parser.date(from: raw) else { return raw }
+        return date.formatted(.dateTime.day().month(.abbreviated).year().hour().minute().locale(Locale(identifier: app.locale.rawValue)))
     }
 
     private func accountRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View { Button(action: action) { accountRowLabel(title, icon: icon, value: nil) }.buttonStyle(.plain) }
-    private func accountRowLabel(_ title: String, icon: String, value: String?) -> some View { HStack(spacing: 13) { Image(systemName: icon).frame(width: 24).foregroundStyle(FilmotecaTheme.accent); Text(title); Spacer(); if let value { Text(value).foregroundStyle(FilmotecaTheme.muted) }; Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }.padding(16).contentShape(Rectangle()).foregroundStyle(.white) }
+    private func accountRowLabel(_ title: String, icon: String, value: String?) -> some View { HStack(spacing: 13) { IconTile(systemName: icon, color: tileColor(for: icon)); Text(title); Spacer(); if let value { Text(value).foregroundStyle(FilmotecaTheme.muted) }; Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }.padding(.horizontal, 16).padding(.vertical, 12).contentShape(Rectangle()).foregroundStyle(.white) }
+
+    /// Each setting gets its own colour, the way iOS Settings does, so the list scans at a glance.
+    private func tileColor(for icon: String) -> Color {
+        switch icon {
+        case "person.text.rectangle": return .blue
+        case "lock.rotation": return FilmotecaTheme.crimson
+        case "person.2": return .indigo
+        case "tv": return .teal
+        case "globe": return .blue
+        case "rectangle.portrait.and.arrow.right", "trash": return .red
+        case "banknote": return .green
+        case "lock.shield": return .blue
+        case "app.badge.checkmark": return .brown
+        case "c.circle": return .gray
+        case "info.circle": return .cyan
+        case "doc.text": return .gray
+        default: return FilmotecaTheme.accent
+        }
+    }
 }
 
 private struct AccountSettingsSheet: View {

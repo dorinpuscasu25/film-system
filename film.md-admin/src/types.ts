@@ -1277,6 +1277,9 @@ export interface AdminContentReview {
   comment: string;
   status: "published" | "hidden";
   locale: string | null;
+  /** Reports from viewers that no moderator has acted on yet. */
+  open_reports_count?: number;
+  report_reasons?: Record<string, number>;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1287,6 +1290,7 @@ export interface AdminContentReviewsResponse {
     total: number;
     published: number;
     hidden: number;
+    reported?: number;
   };
   pagination: {
     page: number;

@@ -35,7 +35,7 @@ struct SearchView: View {
                             NavigationLink(value: item) {
                                 PosterCard(content: item, width: 108)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(PressableCardStyle())
                             .filmotecaReveal(delay: min(Double(index) * 0.025, 0.25))
                         }
                     }

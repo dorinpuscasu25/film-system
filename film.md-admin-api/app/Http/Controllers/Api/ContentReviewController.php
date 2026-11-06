@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Models\AccountProfile;
 use App\Models\Content;
 use App\Models\ContentReview;
+use App\Models\ContentReviewReport;
+use App\Models\PersonalAccessToken;
+use App\Models\User;
+use App\Models\UserBlock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,10 +24,14 @@ class ContentReviewController extends ApiController
             return response()->json(['message' => 'The requested content was not found.'], Response::HTTP_NOT_FOUND);
         }
 
+        // Public endpoint, but a signed-in viewer never sees reviews from people they blocked.
+        $blockedIds = UserBlock::blockedIdsFor($this->optionalViewer($request));
+
         $reviews = ContentReview::query()
             ->with(['user:id,name,email', 'profile:id,name,avatar_label'])
             ->where('content_id', $content->id)
             ->where('status', ContentReview::STATUS_PUBLISHED)
+            ->when($blockedIds !== [], fn ($query) => $query->whereNotIn('user_id', $blockedIds))
             ->latest('id')
             ->get();
 
@@ -104,6 +112,79 @@ class ContentReviewController extends ApiController
             'message' => 'Review deleted successfully.',
             'summary' => $this->summary($content->id),
         ]);
+    }
+
+    /**
+     * Flags a review for moderation. Enough distinct reports hide it straight away, so abusive
+     * content doesn't stay up waiting for a moderator.
+     */
+    public function report(Request $request, string $identifier, ContentReview $review): JsonResponse
+    {
+        $content = $this->resolvePublishedContent($identifier);
+
+        if ($content === null || $review->content_id !== $content->id) {
+            return response()->json(['message' => 'The requested review was not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $user = $request->user();
+        if ($review->user_id === $user->id) {
+            return response()->json(['message' => 'You cannot report your own review.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', Rule::in(ContentReviewReport::REASONS)],
+            'details' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        ContentReviewReport::query()->updateOrCreate(
+            ['content_review_id' => $review->id, 'reporter_id' => $user->id],
+            ['reason' => $data['reason'], 'details' => $data['details'] ?? null, 'resolved_at' => null],
+        );
+
+        $openReports = $review->reports()->whereNull('resolved_at')->count();
+        $hidden = false;
+        if ($openReports >= ContentReviewReport::AUTO_HIDE_THRESHOLD && $review->status === ContentReview::STATUS_PUBLISHED) {
+            $review->forceFill(['status' => ContentReview::STATUS_HIDDEN])->save();
+            $this->updatePlatformRating($content);
+            $hidden = true;
+        }
+
+        return response()->json([
+            'message' => 'Thank you. Our team will review this report within 24 hours.',
+            'hidden' => $hidden,
+        ]);
+    }
+
+    /** Hides every review by that user for the viewer, now and in future. */
+    public function blockUser(Request $request, User $user): JsonResponse
+    {
+        $viewer = $request->user();
+        if ($viewer->id === $user->id) {
+            return response()->json(['message' => 'You cannot block yourself.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        UserBlock::query()->firstOrCreate(['user_id' => $viewer->id, 'blocked_user_id' => $user->id]);
+
+        return response()->json(['message' => 'User blocked.', 'blocked_user_id' => $user->id]);
+    }
+
+    public function unblockUser(Request $request, User $user): JsonResponse
+    {
+        UserBlock::query()->where('user_id', $request->user()->id)->where('blocked_user_id', $user->id)->delete();
+
+        return response()->json(['message' => 'User unblocked.', 'blocked_user_id' => $user->id]);
+    }
+
+    protected function optionalViewer(Request $request): ?User
+    {
+        $token = $request->bearerToken();
+        if (! is_string($token) || trim($token) === '') {
+            return null;
+        }
+
+        $accessToken = PersonalAccessToken::findValidToken($token);
+
+        return $accessToken?->user;
     }
 
     protected function resolvePublishedContent(string $identifier): ?Content

@@ -17,7 +17,22 @@ class StorefrontCacheService
 
         $key = $this->key($scope, $parts);
 
-        return Cache::remember($key, $ttlSeconds, fn (): array => $resolver());
+        return Cache::remember($key, $ttlSeconds, fn (): array => $this->plain($resolver()));
+    }
+
+    /**
+     * The cache store refuses to unserialize objects (`cache.serializable_classes` is false),
+     * so a Collection left inside a payload comes back as `__PHP_Incomplete_Class` — the
+     * apps then received `{"__PHP_Incomplete_Class_Name": ...}` instead of a genre list.
+     * Cache exactly what the endpoint will emit: plain arrays and scalars.
+     */
+    private function plain(array $payload): array
+    {
+        return json_decode(
+            json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_UNICODE),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
     }
 
     public function clear(): int
@@ -50,7 +65,7 @@ class StorefrontCacheService
             ->all();
 
         return sprintf(
-            'storefront:v%d:%s:%s',
+            'storefront:s2:v%d:%s:%s',
             $this->version(),
             $scope,
             hash('sha256', json_encode($normalizedParts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''),

@@ -6,7 +6,10 @@ struct ContentDetailView: View {
     @Environment(\.openURL) private var openURL
     @State private var viewModel: ContentDetailViewModel
     @State private var reviewPendingDeletion: Review?
+    @State private var reviewPendingBlock: Review?
+    @State private var moderationNotice: String?
     @State private var autoplay: Bool
+    @State private var ambient: Color?
 
     init(seed: Content, container: AppContainer, autoplay: Bool = false) {
         _viewModel = State(initialValue: ContentDetailViewModel(seed: seed, container: container))
@@ -41,7 +44,13 @@ struct ContentDetailView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                }.ignoresSafeArea(edges: .top).background(FilmotecaTheme.background)
+                }
+                .ignoresSafeArea(edges: .top)
+                .background { AmbientBackdrop(color: ambient) }
+                .task(id: movie.slug) {
+                    let color = await ArtworkColorSampler.shared.color(for: URL(string: movie.heroMobileURL ?? movie.heroDesktopURL ?? movie.backdropURL))
+                    withAnimation(.easeInOut(duration: 0.8)) { ambient = color }
+                }
             } else if let error = viewModel.state.errorMessage { ErrorState(message: error) { Task { await viewModel.load(app: app) } } }
             else { LoadingScreen() }
         }
@@ -78,33 +87,76 @@ struct ContentDetailView: View {
         } message: { _ in
             Text(app.tr("Recenzia va fi eliminată definitiv."))
         }
+        .alert(
+            app.tr("Blochezi acest utilizator?"),
+            isPresented: Binding(get: { reviewPendingBlock != nil }, set: { if !$0 { reviewPendingBlock = nil } }),
+            presenting: reviewPendingBlock
+        ) { review in
+            Button(app.tr("Blochează"), role: .destructive) {
+                Task {
+                    do {
+                        try await viewModel.blockAuthor(of: review)
+                        moderationNotice = app.tr("Utilizatorul a fost blocat. Nu îi vei mai vedea recenziile.")
+                    } catch {
+                        app.globalError = error.localizedDescription
+                    }
+                    reviewPendingBlock = nil
+                }
+            }
+            Button(app.tr("Anulează"), role: .cancel) { reviewPendingBlock = nil }
+        } message: { review in
+            Text(app.tr("Nu vei mai vedea recenziile lui {0} în aplicație.", review.userName))
+        }
+        .alert(app.tr("Gata"), isPresented: Binding(get: { moderationNotice != nil }, set: { if !$0 { moderationNotice = nil } })) {
+            Button("OK") { moderationNotice = nil }
+        } message: {
+            Text(moderationNotice ?? "")
+        }
     }
 
     private func hero(_ movie: Content) -> some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottomLeading) {
-                RemoteImage(url: URL(string: movie.heroMobileURL ?? movie.heroDesktopURL ?? movie.backdropURL))
-                    .frame(width: geometry.size.width, height: 560)
-                    .clipped()
-                LinearGradient(colors: [.clear, FilmotecaTheme.background.opacity(0.2), FilmotecaTheme.background], startPoint: .top, endPoint: .bottom)
+                ZStack {
+                    RemoteImage(url: URL(string: movie.heroMobileURL ?? movie.heroDesktopURL ?? movie.backdropURL))
+                        .frame(width: geometry.size.width, height: 560)
+                        .clipped()
+                    LinearGradient(colors: [.black.opacity(0.3), .clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                }
+                .frame(width: geometry.size.width, height: 560)
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+                .visualEffect { view, proxy in
+                    let minY = proxy.frame(in: .scrollView).minY
+                    return view
+                        .scaleEffect(minY > 0 ? 1 + minY / 480 : 1, anchor: .bottom)
+                        .offset(y: minY > 0 ? 0 : -minY * 0.4)
+                }
                 VStack(alignment: .leading, spacing: 11) {
-                    if movie.isTrending == true { Text(app.tr("ÎN TREND")).font(.caption2.weight(.black)).tracking(2).foregroundStyle(FilmotecaTheme.accent) }
+                    if movie.isTrending == true { Label(app.tr("ÎN TREND"), systemImage: "flame.fill").font(.caption2.weight(.black)).tracking(1.6).foregroundStyle(.white).padding(.horizontal, 9).padding(.vertical, 5).background(FilmotecaTheme.brandGradient, in: Capsule()) }
                     Text(movie.title).font(.system(size: 39, weight: .black, design: .serif)).lineLimit(3).shadow(radius: 8)
                     if let original = movie.originalTitle, original != movie.title { Text(original).font(.subheadline).italic().foregroundStyle(FilmotecaTheme.muted) }
                     HStack(spacing: 9) {
-                        if let rating = movie.imdbRating, rating > 0 { Label("\(rating, specifier: "%.1f")", systemImage: "star.fill").foregroundStyle(FilmotecaTheme.gold) }
+                        if let rating = movie.imdbRating, rating > 0 { Label("\(rating, specifier: "%.1f")", systemImage: "star.fill").font(.caption.weight(.heavy)).foregroundStyle(.black).padding(.horizontal, 8).padding(.vertical, 4).background(FilmotecaTheme.goldGradient, in: Capsule()) }
                         Text(movie.metadata)
                     }.font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.8))
-                    ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(movie.genres, id: \.self) { Text($0).font(.caption.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 6).background(.ultraThinMaterial, in: Capsule()) } } }
+                    ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(movie.genres.filter { !$0.contains("\\") }, id: \.self) { genre in Text(genre).font(.caption.weight(.bold)).padding(.horizontal, 11).padding(.vertical, 6).background(GenreStyle.gradient(forName: genre).opacity(0.85), in: Capsule()).overlay(Capsule().stroke(.white.opacity(0.2))) } } }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 18)
                 .padding(.bottom, 24)
             }
             .frame(width: geometry.size.width, height: 560)
+            .background(alignment: .bottom) {
+                Ellipse()
+                    .fill((ambient ?? FilmotecaTheme.accent).opacity(0.45))
+                    .frame(width: 520, height: 280)
+                    .blur(radius: 90)
+                    .offset(x: -30, y: 60)
+            }
         }
         .frame(height: 560)
-        .clipped()
+        // Not clipped: the glow bleeds into the page and the artwork stretches on pull-down.
+        .zIndex(-1)
     }
 
     private func primaryActions(_ movie: Content) -> some View {
@@ -158,13 +210,58 @@ struct ContentDetailView: View {
 
     private func gallery(_ images: [String]) -> some View { VStack(alignment: .leading, spacing: 14) { Text(app.tr("Galerie")).filmotecaTitle(.title3); ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 10) { ForEach(images, id: \.self) { RemoteImage(url: URL(string: $0)).frame(width: 230, height: 135).clipShape(RoundedRectangle(cornerRadius: 12)) } } } } }
 
+    /// Guideline 1.2: anyone can report a review or block its author, straight from the review.
+    private func moderationMenu(for review: Review) -> some View {
+        Menu {
+            Menu {
+                ForEach(Self.reportReasons, id: \.value) { reason in
+                    Button(app.tr(reason.label)) { report(review, reason: reason.value) }
+                }
+            } label: {
+                Label(app.tr("Raportează recenzia"), systemImage: "flag")
+            }
+            Button(role: .destructive) {
+                guard app.isAuthenticated else { app.authPresented = true; return }
+                reviewPendingBlock = review
+            } label: {
+                Label(app.tr("Blochează utilizatorul"), systemImage: "hand.raised")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(FilmotecaTheme.muted)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(app.tr("Opțiuni recenzie"))
+    }
+
+    private static let reportReasons: [(value: String, label: String)] = [
+        ("offensive", "Conținut ofensator sau abuziv"),
+        ("spam", "Spam sau reclamă"),
+        ("spoiler", "Dezvăluie finalul (spoiler)"),
+        ("other", "Alt motiv"),
+    ]
+
+    private func report(_ review: Review, reason: String) {
+        guard app.isAuthenticated else { app.authPresented = true; return }
+        Task {
+            do {
+                try await viewModel.reportReview(review, reason: reason)
+                moderationNotice = app.tr("Mulțumim! Recenzia a fost ascunsă pentru tine, iar echipa noastră o verifică în 24 de ore.")
+            } catch {
+                app.globalError = error.localizedDescription
+            }
+        }
+    }
+
     private func reviewsSection(_ movie: Content) -> some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack { Text(app.tr("Recenzii")).filmotecaTitle(.title3); Spacer(); if let summary = viewModel.reviews?.summary { Label("\(summary.averageRating, specifier: "%.1f")", systemImage: "star.fill").foregroundStyle(FilmotecaTheme.gold); Text("(\(summary.count))").foregroundStyle(FilmotecaTheme.muted) } }
-            if viewModel.reviews?.items.isEmpty != false {
+            if viewModel.visibleReviews.isEmpty {
                 Text(app.tr("Fii primul care scrie o recenzie.")).font(.subheadline).foregroundStyle(FilmotecaTheme.muted)
             }
-            ForEach(viewModel.reviews?.items ?? []) { review in
+            ForEach(viewModel.visibleReviews) { review in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text(review.userAvatar).frame(width: 32, height: 32).background(FilmotecaTheme.elevated, in: Circle())
@@ -181,6 +278,8 @@ struct ContentDetailView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(app.tr("Șterge recenzia"))
+                        } else {
+                            moderationMenu(for: review)
                         }
                     }
                     Text(review.comment).font(.subheadline).foregroundStyle(.white.opacity(0.78))
@@ -210,6 +309,7 @@ private struct PurchaseSheet: View {
     @State private var purchasing = false
     @State private var error: String?
     @State private var topUpPresented = false
+    @State private var purchaseAfterTopUp = false
 
     var body: some View {
         NavigationStack {
@@ -246,13 +346,18 @@ private struct PurchaseSheet: View {
                     }
 
                     if let selected, app.balance < selected.priceAmount {
-                        Text(app.tr("Sold insuficient pentru opțiunea aleasă."))
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
+                        Label(
+                            app.t("topup_shortfall").replacingOccurrences(of: "%@", with: price(selected, amount: selected.priceAmount - app.balance)),
+                            systemImage: "exclamationmark.circle.fill"
+                        )
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.orange)
                         Button { topUpPresented = true } label: {
-                            Label(app.t("topup"), systemImage: "creditcard")
+                            Label(app.t("topup_and_watch"), systemImage: "creditcard.fill")
+                                .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(GlassButtonStyle(prominent: true))
+                        .disabled(purchasing)
                     } else {
                         Button { Task { await purchase() } } label: {
                             if purchasing {
@@ -280,7 +385,25 @@ private struct PurchaseSheet: View {
         }
         .presentationDetents([.large])
         .onAppear { selected = content.purchaseOffers.first }
-        .sheet(isPresented: $topUpPresented, onDismiss: { Task { await app.refreshAccount() } }) { CreditPackSheet() }
+        .sheet(isPresented: $topUpPresented, onDismiss: resumeAfterTopUp) {
+            CreditPackSheet(
+                requiredAmount: selected.map { max(0, $0.priceAmount - app.balance) },
+                onFunded: { purchaseAfterTopUp = true }
+            )
+        }
+    }
+
+    /// The viewer topped up from this sheet to buy `selected`: finish that
+    /// purchase straight away — it also starts playback — instead of making
+    /// them find and press the confirm button again.
+    private func resumeAfterTopUp() {
+        let shouldPurchase = purchaseAfterTopUp
+        purchaseAfterTopUp = false
+        Task {
+            await app.refreshAccount()
+            guard shouldPurchase, let selected, app.balance >= selected.priceAmount else { return }
+            await purchase()
+        }
     }
 
     private var offerGroups: [PurchaseOfferGroup] {
@@ -329,8 +452,8 @@ private struct PurchaseSheet: View {
         .buttonStyle(.plain)
     }
 
-    private func price(_ offer: Offer) -> String {
-        "\(offer.currency) \(offer.priceAmount.formatted(.number.precision(.fractionLength(2))))"
+    private func price(_ offer: Offer, amount: Double? = nil) -> String {
+        "\(offer.currency) \((amount ?? offer.priceAmount).formatted(.number.precision(.fractionLength(2))))"
     }
 
     private func purchase() async { guard let selected else { return }; purchasing = true; defer { purchasing = false }; do { try await performPurchase(selected) } catch { self.error = error.localizedDescription } }

@@ -60,16 +60,20 @@ export function Reviews() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <StatsCard label="Total" value={data?.stats.total ?? 0} />
         <StatsCard label="Publicate" value={data?.stats.published ?? 0} badge="active" />
         <StatsCard label="Ascunse" value={data?.stats.hidden ?? 0} badge="inactive" />
+        <StatsCard label="Raportate" value={data?.stats.reported ?? 0} badge="inactive" />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Listă review-uri</CardTitle>
-          <CardDescription>Poți ascunde, republica sau șterge review-uri.</CardDescription>
+          <CardDescription>
+            Poți ascunde, republica sau șterge review-uri. Review-urile raportate trebuie verificate în 24 de ore (cerință
+            Apple); la 3 raportări se ascund automat. Orice decizie închide raportările.
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (

@@ -63,7 +63,8 @@ final class APIClient {
         method: String = "GET",
         query: [URLQueryItem] = [],
         body: (any Encodable)? = nil,
-        authenticated: Bool = false
+        authenticated: Bool = false,
+        attachTokenIfAvailable: Bool = false
     ) async throws -> T {
         var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
         components.queryItems = query.isEmpty ? nil : query
@@ -78,6 +79,9 @@ final class APIClient {
         }
         if authenticated {
             guard let token = KeychainStore.readToken() else { throw APIError(status: 401, message: "Autentifică-te pentru a continua.") }
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else if attachTokenIfAvailable, let token = KeychainStore.readToken() {
+            // Public endpoint that tailors its answer to a signed-in viewer (e.g. hides blocked users).
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -129,7 +133,7 @@ final class APIClient {
         try await request("public/content/\(slug)", query: [.init(name: "locale", value: locale.rawValue)])
     }
 
-    func reviews(slug: String) async throws -> ReviewsResponse { try await request("public/content/\(slug)/reviews") }
+    func reviews(slug: String) async throws -> ReviewsResponse { try await request("public/content/\(slug)/reviews", attachTokenIfAvailable: true) }
 
     /// Requires auth (`content.watch`) — same requirement web enforces for this endpoint.
     func recommendations(slug: String) async throws -> RecommendationsResponse {
@@ -271,6 +275,13 @@ final class APIClient {
     func deleteReview(slug: String, reviewID: String) async throws -> ReviewDeletionResponse {
         try await request("storefront/content/\(slug)/reviews/\(reviewID)", method: "DELETE", authenticated: true)
     }
+    func reportReview(slug: String, reviewID: String, reason: String) async throws -> ModerationResponse {
+        struct Body: Encodable { let reason: String }
+        return try await request("storefront/content/\(slug)/reviews/\(reviewID)/report", method: "POST", body: Body(reason: reason), authenticated: true)
+    }
+    func blockUser(userID: String) async throws -> ModerationResponse {
+        try await request("storefront/users/\(userID)/block", method: "POST", authenticated: true)
+    }
 
     func lookupDevice(code: String) async throws -> DeviceLookup { try await request("device/\(code)", authenticated: true) }
     func authorizeDevice(code: String, approve: Bool) async throws -> MessageResponse {
@@ -288,3 +299,8 @@ private struct AnyEncodable: Encodable {
 }
 
 struct EmptyResponse: Decodable {}
+
+struct ModerationResponse: Decodable {
+    let message: String?
+    let hidden: Bool?
+}

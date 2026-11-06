@@ -158,4 +158,53 @@ class StorefrontReviewApiTest extends TestCase
 
         return $user->fresh();
     }
+
+    public function test_viewer_can_report_a_review_and_reports_hide_it_after_threshold(): void
+    {
+        $author = $this->createViewer('author@example.com');
+        [, $authorToken] = PersonalAccessToken::issue($author, 'client-test');
+
+        $reviewId = $this->postJson('/api/v1/storefront/content/carbon/reviews', [
+            'rating' => 1,
+            'comment' => 'Something offensive',
+        ], ['Authorization' => 'Bearer '.$authorToken])->assertOk()->json('review.id');
+
+        // The author cannot report their own review.
+        $this->postJson("/api/v1/storefront/content/carbon/reviews/{$reviewId}/report", ['reason' => 'offensive'], [
+            'Authorization' => 'Bearer '.$authorToken,
+        ])->assertUnprocessable();
+
+        foreach (['r1@example.com', 'r2@example.com', 'r3@example.com'] as $index => $email) {
+            [, $token] = PersonalAccessToken::issue($this->createViewer($email), 'client-test');
+            $this->postJson("/api/v1/storefront/content/carbon/reviews/{$reviewId}/report", ['reason' => 'offensive'], [
+                'Authorization' => 'Bearer '.$token,
+            ])->assertOk()->assertJsonPath('hidden', $index === 2);
+        }
+
+        $this->assertSame(ContentReview::STATUS_HIDDEN, ContentReview::query()->findOrFail($reviewId)->status);
+        $this->getJson('/api/v1/public/content/carbon/reviews')->assertOk()->assertJsonCount(0, 'items');
+    }
+
+    public function test_blocked_users_reviews_are_hidden_for_the_blocker_only(): void
+    {
+        $author = $this->createViewer('author@example.com');
+        [, $authorToken] = PersonalAccessToken::issue($author, 'client-test');
+        $this->postJson('/api/v1/storefront/content/carbon/reviews', ['rating' => 2, 'comment' => 'Rude words'], [
+            'Authorization' => 'Bearer '.$authorToken,
+        ])->assertOk();
+
+        $viewer = $this->createViewer('viewer@example.com');
+        [, $viewerToken] = PersonalAccessToken::issue($viewer, 'client-test');
+
+        $this->postJson("/api/v1/storefront/users/{$author->id}/block", [], ['Authorization' => 'Bearer '.$viewerToken])->assertOk();
+
+        $this->getJson('/api/v1/public/content/carbon/reviews', ['Authorization' => 'Bearer '.$viewerToken])
+            ->assertOk()->assertJsonCount(0, 'items');
+        // Everyone else still sees it.
+        $this->getJson('/api/v1/public/content/carbon/reviews')->assertOk()->assertJsonCount(1, 'items');
+
+        $this->deleteJson("/api/v1/storefront/users/{$author->id}/block", [], ['Authorization' => 'Bearer '.$viewerToken])->assertOk();
+        $this->getJson('/api/v1/public/content/carbon/reviews', ['Authorization' => 'Bearer '.$viewerToken])
+            ->assertOk()->assertJsonCount(1, 'items');
+    }
 }
