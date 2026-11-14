@@ -115,6 +115,7 @@ export interface StorefrontTopUpPayload {
   provider_rrn?: string | null;
   payment_url?: string | null;
   billing_address_id?: string | number | null;
+  access_location?: StorefrontAccessLocation | null;
   credited_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -583,6 +584,8 @@ export async function createStorefrontWalletTopUp(payload: {
   phone?: string;
   billing_address: StorefrontBillingAddressPayload;
   locale?: "en" | "ro" | "ru";
+  /** Place of supply (art. 111 Cod fiscal), declared before paying. */
+  access_location?: StorefrontAccessLocation | null;
 }) {
   return requestJson<StorefrontTopUpResponsePayload>("/storefront/wallet/top-ups", {
     method: "POST",

@@ -19,6 +19,18 @@ class RightsReportingController extends ApiController
         protected AuditLogService $auditLog,
     ) {}
 
+    /** Monthly commercial report per titular (contract 6.27–6.29); a titular only ever sees its own. */
+    public function commercial(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'month' => ['nullable', 'date_format:Y-m'],
+            'from' => ['nullable', 'date'], 'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'content_creator_id' => ['nullable', 'integer', 'exists:content_creators,id'],
+        ]);
+
+        return response()->json($this->reporting->commercialReport($request->user(), $filters));
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
         $filters = $request->validate([

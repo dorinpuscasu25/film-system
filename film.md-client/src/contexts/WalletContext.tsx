@@ -21,7 +21,10 @@ interface WalletContextType {
   paymentPhone: string | null;
   billingAddress: StorefrontBillingAddressPayload | null;
   isLoading: boolean;
-  addFunds: (amount: number, options: { phone?: string; billingAddress: StorefrontBillingAddressPayload }) => Promise<StorefrontTopUpPayload>;
+  addFunds: (
+    amount: number,
+    options: { phone?: string; billingAddress: StorefrontBillingAddressPayload; accessLocation?: StorefrontAccessLocation | null },
+  ) => Promise<StorefrontTopUpPayload>;
   purchaseAccess: (offerId: string, options?: { accessLocation?: StorefrontAccessLocation | null }) => Promise<void>;
   hasAccess: (movieId: string) => boolean;
   getTimeRemaining: (movieId: string) => string | null;
@@ -141,7 +144,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     void loadAccount();
   }, [currentLanguage.code, isAuthenticated, isAuthLoading, user?.id]);
 
-  const addFunds = async (amount: number, options: { phone?: string; billingAddress: StorefrontBillingAddressPayload }) => {
+  const addFunds = async (
+    amount: number,
+    options: { phone?: string; billingAddress: StorefrontBillingAddressPayload; accessLocation?: StorefrontAccessLocation | null },
+  ) => {
     if (activeProfile?.isKids) {
       throw new Error(t("wallet.kids_restricted"));
     }
@@ -153,6 +159,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       phone: options?.phone,
       billing_address: options.billingAddress,
       locale: currentLanguage.code,
+      access_location: options.accessLocation ?? null,
     });
 
     setPaymentPhone(options.phone ?? null);

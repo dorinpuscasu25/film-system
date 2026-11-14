@@ -224,12 +224,7 @@
     "discount": "Скидка",
     "total": "Итого",
     "pay": "Оплатить",
-    "coupon_invalid": "Промокод недействителен",
-    "access_location_title": "Откуда вы заходите в Filmoteca?",
-    "access_location_note": "(Место оказания услуг)",
-    "access_location_subtitle": "Выберите вариант, чтобы продолжить.",
-    "access_from_moldova": "Я захожу в Filmoteca из Республики Молдова",
-    "access_outside_moldova": "Я захожу в Filmoteca из-за пределов Республики Молдова"
+    "coupon_invalid": "Промокод недействителен"
   },
   "wallet": {
     "title": "Кошелёк",
@@ -267,7 +262,8 @@
     "billing_city": "Город",
     "billing_postal_code": "Почтовый индекс",
     "billing_region": "Регион / штат",
-    "billing_region_placeholder": "Необязательно"
+    "billing_region_placeholder": "Необязательно",
+    "continue_payment_amount": "Перейти к оплате – {{amount}}"
   },
   "player": {
     "watch_party": "Цифровая премьера",
@@ -461,5 +457,11 @@
     "tap_to_play": "Запустить рекламу",
     "mute": "Выключить звук",
     "unmute": "Включить звук"
+  },
+  "access_location": {
+    "title": "Где вы пользуетесь услугами FILMOTECA.md?",
+    "moldova": "В Республике Молдова",
+    "outside": "За пределами Республики Молдова",
+    "legal": "Согласно ст. 111 Налогового кодекса Республики Молдова, место оказания цифровых услуг определяется в зависимости от местонахождения, места жительства или места пребывания получателя услуг."
   }
 }

@@ -32,6 +32,7 @@ import {
   AdminPremiereEvent,
   AdminOffer,
   AdminOfferType,
+  PricePlan,
   AdminRightsWindow,
   AdminContentSeason,
   AdminContentOptions,
@@ -43,6 +44,7 @@ import {
   ContentPayload,
   LocalizedText,
   OfferPayload,
+  RightsHolderOption,
   TaxonomyLocale,
 } from "../types";
 
@@ -61,7 +63,12 @@ type ContentFormState = {
   meta_description: LocalizedText;
   release_year: number | "";
   country_codes: string[];
-  imdb_rating: number | "";
+  imdb_id: string;
+  /** Display only: the server fetches it from IMDb. */
+  imdb_rating: number | null;
+  imdb_rating_synced_at: string | null;
+  /** The title's single titular ("" = none). */
+  rights_holder_id: number | "";
   platform_rating: number | "";
   runtime_minutes: number | "";
   age_rating: string;
@@ -91,6 +98,7 @@ type ContentFormState = {
 type OfferFormState = {
   local_id: string;
   id?: number;
+  price_plan_id: number | null;
   name: string;
   offer_type: AdminOfferType;
   quality: string;
@@ -254,7 +262,10 @@ function createEmptyFormState(): ContentFormState {
     meta_description: createEmptyLocalizedText(),
     release_year: "",
     country_codes: [],
-    imdb_rating: "",
+    imdb_id: "",
+    imdb_rating: null,
+    imdb_rating_synced_at: null,
+    rights_holder_id: "",
     platform_rating: "",
     runtime_minutes: "",
     age_rating: "",
@@ -602,6 +613,7 @@ function mapOfferToForm(offer: AdminOffer): OfferFormState {
   return {
     local_id: `offer-${offer.id}`,
     id: offer.id,
+    price_plan_id: offer.price_plan_id ?? null,
     name: offer.name,
     offer_type: offer.offer_type,
     quality: offer.quality,
@@ -619,6 +631,7 @@ function mapOfferToForm(offer: AdminOffer): OfferFormState {
 function createEmptyOfferForm(options: AdminContentOptions): OfferFormState {
   return {
     local_id: crypto.randomUUID(),
+    price_plan_id: null,
     name: "",
     offer_type: "rental",
     quality: options.quality_options[0] ?? "HD",
@@ -631,6 +644,24 @@ function createEmptyOfferForm(options: AdminContentOptions): OfferFormState {
     ends_at: "",
     sort_order: 0,
   };
+}
+
+function pricePlanItemFor(plan: PricePlan | undefined, offerType: string, quality: string) {
+  return plan?.items.find((item) => item.offer_type === offerType && item.quality === quality);
+}
+
+/** Copies the linked plan's price and duration onto the draft so the locked fields show the real values. */
+function withPricePlan(offer: OfferFormState, plans: PricePlan[]): OfferFormState {
+  if (offer.price_plan_id === null) {
+    return offer;
+  }
+
+  const item = pricePlanItemFor(plans.find((plan) => plan.id === offer.price_plan_id), offer.offer_type, offer.quality);
+  if (!item) {
+    return { ...offer, price_plan_id: null };
+  }
+
+  return { ...offer, price_amount: item.price_amount, rental_days: item.rental_days ?? "" };
 }
 
 function slugify(value: string) {
@@ -680,7 +711,10 @@ function mapContentToForm(content: AdminContent): ContentFormState {
     meta_description: ensureLocalizedText(content.meta_description),
     release_year: content.release_year ?? "",
     country_codes: content.country_codes ?? (content.country_code ? [content.country_code] : []),
-    imdb_rating: content.imdb_rating ?? "",
+    imdb_id: content.imdb_id ?? "",
+    imdb_rating: content.imdb_rating ?? null,
+    imdb_rating_synced_at: content.imdb_rating_synced_at ?? null,
+    rights_holder_id: content.rights_holder_id ?? "",
     platform_rating: content.platform_rating ?? "",
     runtime_minutes: content.runtime_minutes ?? "",
     age_rating: content.age_rating ?? "",
@@ -830,6 +864,9 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   const [premiereEventDrafts, setPremiereEventDrafts] = useState<PremiereEventFormState[]>([]);
   const [offerValidationErrors, setOfferValidationErrors] = useState<Record<string, Record<string, string[]>>>({});
   const [offerBusyKey, setOfferBusyKey] = useState<string | null>(null);
+  const [pricePlans, setPricePlans] = useState<PricePlan[]>([]);
+  const [bulkPricePlanId, setBulkPricePlanId] = useState("");
+  const [isApplyingPricePlan, setIsApplyingPricePlan] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -935,6 +972,46 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   useEffect(() => {
     void loadEditor();
   }, [numericContentId]);
+
+  useEffect(() => {
+    if (!can("commerce.view")) {
+      return;
+    }
+
+    adminApi
+      .getPricePlans()
+      .then((response) => setPricePlans(response.items))
+      .catch(() => setPricePlans([]));
+  }, []);
+
+  async function handleApplyPricePlan() {
+    const plan = pricePlans.find((item) => String(item.id) === bulkPricePlanId);
+    if (!numericContentId || !plan) {
+      return;
+    }
+
+    setIsApplyingPricePlan(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await adminApi.applyPricePlan(plan.id, [numericContentId]);
+      const result = response.results[0];
+      const skipped = result?.skipped_qualities.length
+        ? ` Sărite (fără video în calitatea asta): ${result.skipped_qualities.join(", ")}.`
+        : "";
+      setSuccessMessage(
+        `Planul „${plan.name}” a fost aplicat: ${result?.linked ?? 0} oferte actualizate, ${result?.created ?? 0} create.${skipped}`,
+      );
+      setBulkPricePlanId("");
+      await loadEditor();
+    } catch (applyError) {
+      const apiError = applyError as ApiRequestError;
+      setError(friendlyErrorMessage(apiError.message ?? "Nu am putut aplica planul.", apiError.errors));
+    } finally {
+      setIsApplyingPricePlan(false);
+    }
+  }
 
   const pageTitle = isNew
     ? "Creează titlu nou"
@@ -1232,9 +1309,11 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
     }));
   }
 
-  function updateOfferDraft(localId: string, field: keyof OfferFormState, value: string | number | boolean) {
+  function updateOfferDraft(localId: string, field: keyof OfferFormState, value: string | number | boolean | null) {
     setOfferDrafts((current) =>
-      current.map((offer) => (offer.local_id === localId ? { ...offer, [field]: value } : offer)),
+      current.map((offer) =>
+        offer.local_id === localId ? withPricePlan({ ...offer, [field]: value }, pricePlans) : offer,
+      ),
     );
   }
 
@@ -1246,7 +1325,7 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
   function getFirstEditorTabWithErrors(errors: Record<string, string[]>) {
     const fields = Object.keys(errors);
 
-    if (fields.some((field) => ["slug", "movie_id", "release_year", "country_code", "country_codes", "imdb_rating", "platform_rating", "runtime_minutes", "age_rating"].includes(field) || field.startsWith("country_codes."))) {
+    if (fields.some((field) => ["slug", "movie_id", "release_year", "country_code", "country_codes", "imdb_id", "rights_holder_id", "platform_rating", "runtime_minutes", "age_rating"].includes(field) || field.startsWith("country_codes."))) {
       return "general";
     }
 
@@ -1293,7 +1372,7 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
 
   function fieldBelongsToTab(field: string, tab: string) {
     if (tab === "general") {
-      return ["slug", "movie_id", "release_year", "country_code", "country_codes", "imdb_rating", "platform_rating", "runtime_minutes", "age_rating"].includes(field) || field.startsWith("country_codes.");
+      return ["slug", "movie_id", "release_year", "country_code", "country_codes", "imdb_id", "rights_holder_id", "platform_rating", "runtime_minutes", "age_rating"].includes(field) || field.startsWith("country_codes.");
     }
 
     if (tab === "localization") {
@@ -1351,6 +1430,7 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
   function payloadFromOfferDraft(contentId: number, offer: OfferFormState): OfferPayload {
     return {
       content_id: contentId,
+      price_plan_id: offer.offer_type === "free" ? null : offer.price_plan_id,
       name: safeTrim(offer.name) || undefined,
       offer_type: offer.offer_type,
       quality: offer.quality,
@@ -1443,7 +1523,8 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
       release_year: formState.release_year === "" ? null : Number(formState.release_year),
       country_code: formState.country_codes[0] ?? null,
       country_codes: formState.country_codes,
-      imdb_rating: formState.imdb_rating === "" ? null : Number(formState.imdb_rating),
+      imdb_id: formState.imdb_id.trim() || null,
+      rights_holder_id: formState.rights_holder_id === "" ? null : Number(formState.rights_holder_id),
       platform_rating: formState.platform_rating === "" ? null : Number(formState.platform_rating),
       runtime_minutes: formState.runtime_minutes === "" ? null : Number(formState.runtime_minutes),
       age_rating: formState.age_rating || null,
@@ -1992,15 +2073,13 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                   className="xl:col-span-2"
                 />
                 <FormField
-                  label="IMDb rating"
-                  type="number"
-                  value={formState.imdb_rating}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      imdb_rating: event.target.value === "" ? "" : Number(event.target.value),
-                    }))
-                  }
+                  label="Link IMDb"
+                  id="content-imdb-id"
+                  placeholder="https://www.imdb.com/title/tt1234567/"
+                  value={formState.imdb_id}
+                  error={getFieldError("imdb_id")}
+                  helperText={imdbRatingHelperText(formState)}
+                  onChange={(event) => setFormState((current) => ({ ...current, imdb_id: event.target.value }))}
                 />
                 <FormField
                   label="Durată (minute)"
@@ -2024,6 +2103,29 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                   options={[
                     { label: "Selectează ratingul", value: "" },
                     ...options.age_ratings.map((value) => ({ label: ageRatingLabel(value), value })),
+                  ]}
+                />
+                <FormField
+                  label="Titular"
+                  id="content-rights-holder"
+                  type="select"
+                  value={formState.rights_holder_id === "" ? "" : String(formState.rights_holder_id)}
+                  error={getFieldError("rights_holder_id")}
+                  helperText={rightsHolderHelperText(options.rights_holders ?? [], formState.rights_holder_id)}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      rights_holder_id: event.target.value === "" ? "" : Number(event.target.value),
+                    }))
+                  }
+                  options={[
+                    { label: "Fără titular", value: "" },
+                    ...(options.rights_holders ?? []).map((holder) => ({
+                      label: [holder.name, holder.company_name && holder.company_name !== holder.name ? holder.company_name : null, holder.is_active ? null : "inactiv"]
+                        .filter(Boolean)
+                        .join(" · "),
+                      value: String(holder.id),
+                    })),
                   ]}
                 />
                 <FormField
@@ -3441,6 +3543,34 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
               </Button>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
+              {numericContentId && pricePlans.length > 0 && can("commerce.edit_offers") ? (
+                <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 md:flex-row md:items-end">
+                  <div className="flex-1">
+                    <FormField
+                      label="Aplică un plan de preț pe tot filmul"
+                      type="select"
+                      value={bulkPricePlanId}
+                      helperText="Ofertele existente primesc prețul planului, iar cele lipsă se creează pentru calitățile cu video încărcat."
+                      options={[
+                        { label: "Alege planul…", value: "" },
+                        ...pricePlans.map((plan) => ({
+                          label: `${plan.name} (${plan.items.map((item) => `${item.quality} ${item.price_amount}`).join(", ")} ${plan.currency})`,
+                          value: String(plan.id),
+                        })),
+                      ]}
+                      onChange={(event) => setBulkPricePlanId(event.target.value)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={!bulkPricePlanId || isApplyingPricePlan}
+                    onClick={() => void handleApplyPricePlan()}
+                  >
+                    {isApplyingPricePlan ? "Se aplică..." : "Aplică planul"}
+                  </Button>
+                </div>
+              ) : null}
+
               {!numericContentId ? (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
                   Salvează mai întâi filmul sau serialul, apoi poți adăuga ofertele comerciale.
@@ -3458,6 +3588,11 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                 const isRental = offer.offer_type === "rental";
                 const isFreeOffer = offer.offer_type === "free";
                 const hasLinkedBunnyFormat = activeMainFormatQualities.has(offer.quality);
+                const linkedPricePlan = pricePlans.find((plan) => plan.id === offer.price_plan_id);
+                const isPlanPriced = !isFreeOffer && linkedPricePlan !== undefined;
+                const compatiblePricePlans = pricePlans.filter((plan) =>
+                  pricePlanItemFor(plan, offer.offer_type, offer.quality),
+                );
 
                 return (
                   <Card key={offer.local_id}>
@@ -3472,6 +3607,7 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                             : offer.offer_type === "lifetime"
                               ? "Acces permanent"
                               : `${offer.rental_days || 0} zile închiriere`}
+                          {isPlanPriced ? ` · Plan „${linkedPricePlan.name}”` : ""}
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">
@@ -3514,12 +3650,15 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                           setOfferDrafts((current) =>
                             current.map((item) =>
                               item.local_id === offer.local_id
-                                ? {
-                                    ...item,
-                                    offer_type: event.target.value as AdminOfferType,
-                                    price_amount: event.target.value === "free" ? "" : item.price_amount,
-                                    rental_days: event.target.value === "rental" ? item.rental_days || 2 : "",
-                                  }
+                                ? withPricePlan(
+                                    {
+                                      ...item,
+                                      offer_type: event.target.value as AdminOfferType,
+                                      price_amount: event.target.value === "free" ? "" : item.price_amount,
+                                      rental_days: event.target.value === "rental" ? item.rental_days || 2 : "",
+                                    },
+                                    pricePlans,
+                                  )
                                 : item,
                             ),
                           )
@@ -3541,11 +3680,43 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                         error={getOfferFieldError(offer.local_id, "currency")}
                         onChange={() => updateOfferDraft(offer.local_id, "currency", "MDL")}
                       />
+                      {!isFreeOffer && pricePlans.length > 0 ? (
+                        <FormField
+                          label="Plan de preț"
+                          type="select"
+                          value={offer.price_plan_id === null ? "" : String(offer.price_plan_id)}
+                          error={getOfferFieldError(offer.local_id, "price_plan_id")}
+                          helperText={
+                            isPlanPriced
+                              ? "Prețul și durata vin din plan și se actualizează automat."
+                              : compatiblePricePlans.length === 0
+                                ? `Niciun plan nu are preț pentru ${offer.quality} · ${offer.offer_type === "rental" ? "închiriere" : "permanent"}.`
+                                : undefined
+                          }
+                          options={[
+                            { label: "Preț personalizat", value: "" },
+                            ...compatiblePricePlans.map((plan) => {
+                              const item = pricePlanItemFor(plan, offer.offer_type, offer.quality);
+                              return {
+                                label: `${plan.name} — ${item?.price_amount ?? ""} ${plan.currency}`,
+                                value: String(plan.id),
+                              };
+                            }),
+                          ]}
+                          onChange={(event) =>
+                            updateOfferDraft(
+                              offer.local_id,
+                              "price_plan_id",
+                              event.target.value === "" ? null : Number(event.target.value),
+                            )
+                          }
+                        />
+                      ) : null}
                       <FormField
                         label="Preț"
                         type="number"
                         value={offer.price_amount}
-                        disabled={isFreeOffer}
+                        disabled={isFreeOffer || isPlanPriced}
                         error={getOfferFieldError(offer.local_id, "price_amount")}
                         onChange={(event) =>
                           updateOfferDraft(
@@ -3559,7 +3730,7 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
                         label="Zile închiriere"
                         type="number"
                         value={offer.rental_days}
-                        disabled={!isRental}
+                        disabled={!isRental || isPlanPriced}
                         error={getOfferFieldError(offer.local_id, "rental_days")}
                         onChange={(event) =>
                           updateOfferDraft(
@@ -3645,4 +3816,32 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
       </Tabs>
     </div>
   );
+}
+
+/** Rating fetched from IMDb for the saved link, so editors see what the apps will show. */
+function imdbRatingHelperText(form: { imdb_id: string; imdb_rating: number | null; imdb_rating_synced_at: string | null }) {
+  if (!form.imdb_id.trim()) {
+    return form.imdb_rating !== null
+      ? `Rating actual: ${form.imdb_rating.toFixed(1)} (introdus manual). Adaugă linkul IMDb ca să se preia și actualizeze automat.`
+      : "Ratingul IMDb se preia automat din acest link și se actualizează zilnic.";
+  }
+  if (form.imdb_rating === null) {
+    return form.imdb_rating_synced_at
+      ? "IMDb nu are încă un rating pentru acest titlu."
+      : "Ratingul se preia de pe IMDb la salvare.";
+  }
+  const synced = form.imdb_rating_synced_at
+    ? ` · actualizat ${new Date(form.imdb_rating_synced_at).toLocaleString("ro-RO", { dateStyle: "short", timeStyle: "short" })}`
+    : "";
+  return `Rating IMDb: ${form.imdb_rating.toFixed(1)}${synced}`;
+}
+
+/** What the chosen titular means for reports, so the editor sees it without leaving the film. */
+function rightsHolderHelperText(holders: RightsHolderOption[], selectedId: number | "") {
+  if (selectedId === "") {
+    return "Fiecare film are un singur titular. Fără titular, vânzările nu se atribuie nimănui în rapoarte.";
+  }
+  const holder = holders.find((item) => item.id === selectedId);
+  if (!holder) return "";
+  return [holder.is_vat_payer ? "Plătitor de TVA" : "Neplătitor de TVA", holder.idno ? `IDNO ${holder.idno}` : "fără IDNO"].join(" · ");
 }

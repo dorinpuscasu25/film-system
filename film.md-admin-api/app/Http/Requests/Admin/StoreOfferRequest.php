@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\Content;
 use App\Models\Offer;
+use App\Models\PricePlan;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,10 +15,57 @@ class StoreOfferRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    /**
+     * An offer linked to a price plan takes its price, rental duration and currency from the
+     * plan, whatever the client sent — so the duplicate check and the saved row below both see
+     * the plan's values.
+     */
+    protected function prepareForValidation(): void
+    {
+        $plan = $this->linkedPricePlan();
+        if ($plan === null) {
+            return;
+        }
+
+        $item = $plan->itemFor((string) $this->input('offer_type'), (string) $this->input('quality'));
+        if ($item === null) {
+            return;
+        }
+
+        $this->merge([
+            'price_amount' => $item['price_amount'],
+            'rental_days' => $item['rental_days'] ?? null,
+            'currency' => $plan->currency,
+        ]);
+    }
+
+    /**
+     * The plan this offer ends up linked to. A client that doesn't send `price_plan_id` at all
+     * (an older screen) keeps the offer's current link instead of silently detaching it.
+     */
+    protected function linkedPricePlan(): ?PricePlan
+    {
+        if (! $this->has('price_plan_id')) {
+            /** @var Offer|null $currentOffer */
+            $currentOffer = $this->route('offer');
+
+            return $currentOffer?->price_plan_id !== null
+                ? PricePlan::query()->find($currentOffer->price_plan_id)
+                : null;
+        }
+
+        if (! is_numeric($this->input('price_plan_id'))) {
+            return null;
+        }
+
+        return PricePlan::query()->find((int) $this->input('price_plan_id'));
+    }
+
     public function rules(): array
     {
         return [
             'content_id' => ['required', 'integer', Rule::exists('contents', 'id')],
+            'price_plan_id' => ['nullable', 'integer', Rule::exists('price_plans', 'id')],
             'name' => ['nullable', 'string', 'max:255'],
             'offer_type' => ['required', Rule::in(Offer::availableTypes())],
             'quality' => ['required', Rule::in(Content::availableQualities())],
@@ -38,6 +86,15 @@ class StoreOfferRequest extends FormRequest
             $offerType = (string) $this->input('offer_type');
             $content = Content::query()->find($this->integer('content_id'));
 
+            $plan = $this->linkedPricePlan();
+            if ($plan !== null) {
+                if (! in_array($offerType, PricePlan::pricedOfferTypes(), true)) {
+                    $validator->errors()->add('price_plan_id', 'Free offers cannot be linked to a price plan.');
+                } elseif ($plan->itemFor($offerType, (string) $this->input('quality')) === null) {
+                    $validator->errors()->add('price_plan_id', 'This price plan has no price for the selected type and quality.');
+                }
+            }
+
             if ($offerType === Offer::TYPE_RENTAL && ! $this->filled('rental_days')) {
                 $validator->errors()->add('rental_days', 'Rental offers require a number of days.');
             }
@@ -55,7 +112,7 @@ class StoreOfferRequest extends FormRequest
                     ->exists();
                 $hasEnabledQuality = in_array($selectedQuality, $content->available_qualities ?? [], true);
                 $hasPlaybackOverride = $this->filled('playback_url');
-                $hasSeriesEpisodePlayback = $this->hasSeriesEpisodePlayback($content);
+                $hasSeriesEpisodePlayback = $content->hasSeriesEpisodePlayback();
 
                 if (! $hasEnabledQuality && ! $hasMatchingFormat && ! $hasPlaybackOverride && ! $hasSeriesEpisodePlayback) {
                     $validator->errors()->add('quality', 'The selected quality is not enabled for this title.');
@@ -96,9 +153,10 @@ class StoreOfferRequest extends FormRequest
 
         return [
             'content_id' => $this->integer('content_id'),
+            'price_plan_id' => $this->linkedPricePlan()?->id,
             'name' => $this->filled('name')
                 ? trim((string) $this->input('name'))
-                : $this->defaultOfferName($offerType, $quality, $rentalDays),
+                : Offer::defaultName($offerType, $quality, $rentalDays),
             'offer_type' => $offerType,
             'quality' => $quality,
             'currency' => strtoupper((string) ($this->input('currency') ?: Content::DEFAULT_CURRENCY)),
@@ -110,39 +168,5 @@ class StoreOfferRequest extends FormRequest
             'ends_at' => $this->filled('ends_at') ? (string) $this->input('ends_at') : null,
             'sort_order' => (int) $this->input('sort_order', 0),
         ];
-    }
-
-    protected function defaultOfferName(string $offerType, string $quality, ?int $rentalDays): string
-    {
-        if ($offerType === Offer::TYPE_FREE) {
-            return "Free {$quality}";
-        }
-
-        if ($offerType === Offer::TYPE_LIFETIME) {
-            return "Forever {$quality}";
-        }
-
-        return "{$rentalDays} days {$quality}";
-    }
-
-    protected function hasSeriesEpisodePlayback(Content $content): bool
-    {
-        if ($content->type !== Content::TYPE_SERIES) {
-            return false;
-        }
-
-        foreach ($content->seasons ?? [] as $season) {
-            foreach ((array) data_get($season, 'episodes', []) as $episode) {
-                $libraryId = trim((string) data_get($episode, 'bunny_library_id', ''));
-                $videoId = trim((string) data_get($episode, 'bunny_video_id', ''));
-                $videoUrl = trim((string) data_get($episode, 'video_url', ''));
-
-                if (($libraryId !== '' && $videoId !== '') || $videoUrl !== '') {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

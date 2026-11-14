@@ -323,14 +323,19 @@ private struct PurchaseSheet: View {
                         }
                     }
 
-                    ForEach(offerGroups) { group in
+                    // Most expensive first (7 days before 2 days): the bigger price anchors the
+                    // choice, and each duration gets its own colour so the blocks read at a glance.
+                    ForEach(Array(offerGroups.enumerated()), id: \.element.id) { index, group in
+                        let tint = PurchaseOfferGroup.tint(at: index)
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(group.label.uppercased())
-                                .font(.caption2.weight(.black))
-                                .tracking(1.8)
-                                .foregroundStyle(.white.opacity(0.75))
+                            Label(group.label.uppercased(), systemImage: group.isLifetime ? "infinity" : "calendar")
+                                .font(.subheadline.weight(.black))
+                                .tracking(1.4)
+                                .foregroundStyle(tint.text)
+                                .padding(.horizontal, 12).padding(.vertical, 7)
+                                .background(tint.fill, in: Capsule())
                             ForEach(group.offers) { offer in
-                                offerButton(offer)
+                                offerButton(offer, tint: tint.fill)
                             }
                         }
                     }
@@ -384,7 +389,7 @@ private struct PurchaseSheet: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.large])
-        .onAppear { selected = content.purchaseOffers.first }
+        .onAppear { selected = offerGroups.first?.offers.first }
         .sheet(isPresented: $topUpPresented, onDismiss: resumeAfterTopUp) {
             CreditPackSheet(
                 requiredAmount: selected.map { max(0, $0.priceAmount - app.balance) },
@@ -416,38 +421,40 @@ private struct PurchaseSheet: View {
             }
         }
 
+        // Highest price first, in the groups and inside each group.
         return grouped.map { key, offers in
             PurchaseOfferGroup(id: key, label: offers[0].durationLabel, offers: offers.sorted {
                 if $0.priceAmount == $1.priceAmount { return $0.qualityLabel < $1.qualityLabel }
-                return $0.priceAmount < $1.priceAmount
+                return $0.priceAmount > $1.priceAmount
             })
         }
         .sorted {
-            let lhs = $0.offers.first?.rentalDays ?? Int.max
-            let rhs = $1.offers.first?.rentalDays ?? Int.max
-            return lhs == rhs ? $0.label < $1.label : lhs < rhs
+            let lhs = $0.offers.first?.priceAmount ?? 0
+            let rhs = $1.offers.first?.priceAmount ?? 0
+            if lhs != rhs { return lhs > rhs }
+            return $0.durationRank > $1.durationRank
         }
     }
 
-    private func offerButton(_ offer: Offer) -> some View {
-        Button { selected = offer } label: {
+    private func offerButton(_ offer: Offer, tint: Color) -> some View {
+        let isSelected = selected?.id == offer.id
+        return Button { selected = offer } label: {
             HStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(offer.durationLabel.uppercased())
-                        .font(.caption2.weight(.black))
-                        .tracking(1.1)
-                        .foregroundStyle(FilmotecaTheme.muted)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(offer.qualityLabel).font(.title3.bold())
-                    Text(price(offer)).font(.headline)
+                    Text(price(offer)).font(.headline).foregroundStyle(.white.opacity(0.85))
                 }
                 Spacer()
-                Image(systemName: selected?.id == offer.id ? "checkmark.circle.fill" : "circle")
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(selected?.id == offer.id ? FilmotecaTheme.accent : .secondary)
+                    .foregroundStyle(isSelected ? tint : .secondary)
             }
             .padding(16)
-            .background(FilmotecaTheme.surface, in: RoundedRectangle(cornerRadius: 15))
-            .overlay(RoundedRectangle(cornerRadius: 15).stroke(selected?.id == offer.id ? FilmotecaTheme.accent : FilmotecaTheme.hairline, lineWidth: selected?.id == offer.id ? 2 : 1))
+            .padding(.leading, 6)
+            .background(FilmotecaTheme.surface)
+            .overlay(alignment: .leading) { tint.frame(width: 6) }
+            .clipShape(RoundedRectangle(cornerRadius: 15))
+            .overlay(RoundedRectangle(cornerRadius: 15).stroke(isSelected ? tint : FilmotecaTheme.hairline, lineWidth: isSelected ? 2 : 1))
         }
         .buttonStyle(.plain)
     }
@@ -463,6 +470,21 @@ private struct PurchaseOfferGroup: Identifiable {
     let id: String
     let label: String
     let offers: [Offer]
+
+    var isLifetime: Bool { id == "lifetime" }
+    /// Longer access ranks higher when two groups cost the same.
+    var durationRank: Int { isLifetime ? Int.max : offers.first?.rentalDays ?? 0 }
+
+    /// One colour per duration block, in display order: gold for the top (most expensive),
+    /// brand red next, then green.
+    static func tint(at index: Int) -> (fill: Color, text: Color) {
+        switch index {
+        case 0: (FilmotecaTheme.gold, .black)
+        case 1: (FilmotecaTheme.accent, .white)
+        case 2: (FilmotecaTheme.mint, .black)
+        default: (Color.white.opacity(0.85), .black)
+        }
+    }
 }
 
 private struct ReviewComposer: View {

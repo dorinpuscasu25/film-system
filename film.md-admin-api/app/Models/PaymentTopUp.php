@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'subscriber_id',
     'amount',
     'currency',
+    'access_location',
     'status',
     'provider_order_id',
     'provider_checkout_id',

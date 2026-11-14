@@ -18,6 +18,11 @@ class Wallet extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function fundingLots(): HasMany
+    {
+        return $this->hasMany(WalletFundingLot::class);
+    }
+
     public function transactions(): HasMany
     {
         return $this->hasMany(WalletTransaction::class)->latest('processed_at')->latest('id');

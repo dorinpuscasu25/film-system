@@ -1170,7 +1170,12 @@ export interface AdminContent {
   country_codes?: string[];
   country_name: string | null;
   country_names?: string[];
+  /** Fetched from IMDb (OMDb) for `imdb_id`; read-only in the admin. */
   imdb_rating: number | null;
+  imdb_id?: string | null;
+  imdb_rating_synced_at?: string | null;
+  rights_holder_id?: number | null;
+  rights_holder?: { id: number; name: string; company_name: string | null; is_vat_payer: boolean } | null;
   platform_rating: number | null;
   runtime_minutes: number | null;
   age_rating: string | null;
@@ -1234,12 +1239,47 @@ export interface AdminContentOptions {
   cast_credit_types?: SelectOption[];
   crew_credit_types?: SelectOption[];
   format_types?: SelectOption<AdminContentFormat["format_type"]>[];
+  /** Titulari to pick from; inactive ones are listed last. */
+  rights_holders?: RightsHolderOption[];
   taxonomies: Partial<Record<TaxonomyType, AdminContentTaxonomyOption[]>>;
+}
+
+export interface RightsHolderOption {
+  id: number;
+  name: string;
+  company_name: string | null;
+  idno: string | null;
+  is_vat_payer: boolean;
+  is_active: boolean;
+}
+
+/** A titular (rights holder, stored as a content creator). One per title. */
+export interface RightsHolder {
+  id: number;
+  name: string;
+  email: string | null;
+  company_name: string | null;
+  person_type: "PF" | "PJ";
+  idno: string | null;
+  legal_address: string | null;
+  iban: string | null;
+  bank_name: string | null;
+  bank_swift: string | null;
+  is_vat_payer: boolean;
+  vat_code: string | null;
+  contact_person: string | null;
+  phone: string | null;
+  platform_fee_percent: number;
+  is_active: boolean;
+  user: { id: number; name: string; email: string } | null;
+  content_count: number;
+  contents: Array<{ id: number; title: string }>;
 }
 
 export interface AdminOffer {
   id: number;
   content_id: number;
+  price_plan_id: number | null;
   content_slug: string | null;
   content_title: string | null;
   content_type: AdminContentType | null;
@@ -1301,6 +1341,7 @@ export interface AdminContentReviewsResponse {
 
 export interface OfferPayload {
   content_id: number;
+  price_plan_id?: number | null;
   name?: string;
   offer_type: AdminOfferType;
   quality: string;
@@ -1346,7 +1387,10 @@ export interface ContentPayload {
   release_year?: number | null;
   country_code?: string | null;
   country_codes?: string[];
-  imdb_rating?: number | null;
+  /** IMDb link or id (tt1234567); the rating is fetched from it on the server. */
+  imdb_id?: string | null;
+  /** The title's single titular; null removes it, leaving it out keeps the current one. */
+  rights_holder_id?: number | null;
   platform_rating?: number | null;
   runtime_minutes?: number | null;
   age_rating?: string | null;
@@ -1478,4 +1522,76 @@ export interface AuditLogItem {
 
 export interface AuditLogsResponse {
   items: AuditLogItem[];
+}
+
+export type PricePlanOfferType = "rental" | "lifetime";
+
+export interface PricePlanItem {
+  offer_type: PricePlanOfferType;
+  quality: string;
+  price_amount: number;
+  rental_days: number | null;
+}
+
+export interface PricePlan {
+  id: number;
+  name: string;
+  description: string | null;
+  currency: string;
+  sort_order: number;
+  items: PricePlanItem[];
+  offers_count: number;
+  contents_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PricePlanPayload {
+  name: string;
+  description?: string | null;
+  currency?: string;
+  sort_order?: number;
+  items: PricePlanItem[];
+}
+
+export interface PricePlanIndexResponse {
+  items: PricePlan[];
+  options: {
+    offer_types: Array<{ value: PricePlanOfferType; label: string }>;
+    qualities: string[];
+  };
+}
+
+export interface PricePlanOfferChange {
+  offer_id: number;
+  content_id: number;
+  content_title: string | null;
+  offer_type: AdminOfferType;
+  quality: string;
+  price_amount: number;
+  rental_days: number | null;
+  currency: string;
+  new_price_amount?: number;
+  new_rental_days?: number | null;
+  new_currency?: string;
+}
+
+export interface PricePlanPreview {
+  updated: PricePlanOfferChange[];
+  detached: PricePlanOfferChange[];
+  unchanged_count: number;
+}
+
+export interface PricePlanSaveResult {
+  updated_offers: number;
+  detached_offers: number;
+  affected_contents: number;
+}
+
+export interface PricePlanApplyResult {
+  content_id: number;
+  content_title: string;
+  linked: number;
+  created: number;
+  skipped_qualities: string[];
 }

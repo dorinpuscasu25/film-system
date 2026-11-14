@@ -9,6 +9,7 @@ use App\Models\Content;
 use App\Models\Offer;
 use App\Services\ContentScopeService;
 use App\Services\ContentSearchService;
+use App\Services\OfferContentSyncService;
 use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,6 +20,7 @@ class OfferController extends ApiController
         protected ContentSearchService $contentSearch,
         protected StorefrontCacheService $storefrontCache,
         protected ContentScopeService $contentScope,
+        protected OfferContentSyncService $offerContentSync,
     ) {}
 
     public function index(): JsonResponse
@@ -72,8 +74,7 @@ class OfferController extends ApiController
         $this->contentScope->assertCanAccessContent($request->user(), (int) $payload['content_id']);
         $offer = Offer::query()->create($payload);
         $content = $offer->content()->first();
-        $this->syncContentFreeFlag($content);
-        $this->syncContentAvailableQualities($content);
+        $this->offerContentSync->sync($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
         $this->storefrontCache->clear();
 
@@ -92,8 +93,7 @@ class OfferController extends ApiController
         $this->contentScope->assertCanAccessContent($request->user(), (int) $payload['content_id']);
         $offer->fill($payload)->save();
         $content = $offer->content()->first();
-        $this->syncContentFreeFlag($content);
-        $this->syncContentAvailableQualities($content);
+        $this->offerContentSync->sync($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
         $this->storefrontCache->clear();
 
@@ -110,48 +110,10 @@ class OfferController extends ApiController
         $this->contentScope->assertCanAccessContent(request()->user(), $offer->content_id);
         $content = $offer->content()->first();
         $offer->delete();
-        $this->syncContentFreeFlag($content);
-        $this->syncContentAvailableQualities($content);
+        $this->offerContentSync->sync($content);
         $this->contentSearch->syncContent($content?->fresh()->load('taxonomies', 'offers'));
         $this->storefrontCache->clear();
 
         return response()->json([], Response::HTTP_NO_CONTENT);
-    }
-
-    protected function syncContentFreeFlag(?Content $content): void
-    {
-        if ($content === null) {
-            return;
-        }
-
-        $content->forceFill([
-            'is_free' => $content->offers()->where('offer_type', Offer::TYPE_FREE)->exists(),
-        ])->save();
-    }
-
-    protected function syncContentAvailableQualities(?Content $content): void
-    {
-        if ($content === null) {
-            return;
-        }
-
-        $formatQualities = $content->formats()
-            ->where('format_type', 'main')
-            ->where('is_active', true)
-            ->pluck('quality');
-        $offerQualities = $content->offers()
-            ->where('is_active', true)
-            ->pluck('quality');
-
-        $qualities = $formatQualities
-            ->merge($offerQualities)
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        $content->forceFill([
-            'available_qualities' => $qualities,
-        ])->save();
     }
 }

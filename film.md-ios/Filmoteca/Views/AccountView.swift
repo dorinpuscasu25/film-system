@@ -733,24 +733,16 @@ private struct AccountSettingsSheet: View {
 /// Permanent account deletion, required by App Store Review Guideline 5.1.1(v).
 ///
 /// Deletion is irreversible, so the flow asks for three separate signals before
-/// enabling the button: the current password, a typed confirmation word, and an
+/// enabling the button: the current password, an "I understand" switch, and an
 /// explicit alert. The consequences that cost the user money — the wallet
 /// balance and the purchased titles — are stated before anything else.
 private struct DeleteAccountSheet: View {
     @Environment(FilmotecaModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
-    private var confirmationWord: String {
-        switch app.locale {
-        case .ro: "ȘTERGE"
-        case .ru: "УДАЛИТЬ"
-        case .en: "DELETE"
-        }
-    }
-
     @State private var password = ""
     @State private var reason = ""
-    @State private var typedConfirmation = ""
+    @State private var acknowledged = false
     @State private var isDeleting = false
     @State private var confirmAlertPresented = false
     @State private var error: String?
@@ -760,7 +752,7 @@ private struct DeleteAccountSheet: View {
     private var canSubmit: Bool {
         !isDeleting
             && !password.isEmpty
-            && typedConfirmation.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == confirmationWord
+            && acknowledged
     }
 
     var body: some View {
@@ -799,9 +791,11 @@ private struct DeleteAccountSheet: View {
                 Section(app.tr("Confirmare")) {
                     SecureField(app.tr("Parola actuală"), text: $password)
                         .textContentType(.password)
-                    TextField(app.tr("Scrie {0}", confirmationWord), text: $typedConfirmation)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
+                    Toggle(isOn: $acknowledged) {
+                        Text(app.tr("Înțeleg că pierd soldul și filmele cumpărate"))
+                            .font(.subheadline)
+                    }
+                    .tint(.red)
                 }
 
                 Section(app.tr("Motiv (opțional)")) {

@@ -4,9 +4,8 @@ import UIKit
 
 /// Finds the dominant colour of a poster or backdrop so a screen can glow with it.
 ///
-/// The image normally comes straight from `URLCache` (the screen already loaded it), it is
-/// averaged on a tiny downscaled copy, and the result is cached per URL — cheap enough to
-/// call on every hero slide change.
+/// It is averaged on a small CDN variant (a few KB, cached by `ImagePipeline`), and the result
+/// is cached per URL — cheap enough to call on every hero slide change.
 actor ArtworkColorSampler {
     static let shared = ArtworkColorSampler()
 
@@ -17,10 +16,11 @@ actor ArtworkColorSampler {
         guard let url else { return nil }
         if let cached = cache[url] { return cached }
 
-        var request = URLRequest(url: url)
-        request.cachePolicy = .returnCacheDataElseLoad
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let image = CIImage(data: data, options: [.applyOrientationProperty: true]) else { return nil }
+        // A small variant is plenty for an average and is a few KB instead of the multi-MB original.
+        let apiBaseURL = await AppConfiguration.current.apiBaseURL
+        guard let request = ImageRequest.make(source: url, size: CGSize(width: 160, height: 160), scale: 1, contentMode: .fit, apiBaseURL: apiBaseURL),
+              let cgImage = await ImagePipeline.shared.image(for: request)?.cgImage else { return nil }
+        let image = CIImage(cgImage: cgImage)
 
         // Ignore the bottom third: titles and credits there drag the average to grey.
         let extent = image.extent

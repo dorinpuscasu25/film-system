@@ -14,73 +14,134 @@ struct InAppBrowser: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
+/// Artwork sized to its frame: downloads a CDN variant at the frame's pixel size and caches it
+/// in memory and on disk (see `ImagePipeline`). Always give it a frame from outside.
 struct RemoteImage: View {
     let url: URL?
     var contentMode: ContentMode = .fill
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        AsyncImage(url: url, transaction: .init(animation: .easeInOut(duration: 0.35))) { phase in
-            switch phase {
-            case .success(let image): image.resizable().aspectRatio(contentMode: contentMode).transition(.opacity)
-            case .failure: ZStack { FilmotecaTheme.elevated; Image(systemName: "film.stack").font(.largeTitle).foregroundStyle(.white.opacity(0.18)) }
-            default: FilmotecaTheme.elevated.overlay { ProgressView().tint(.white.opacity(0.35)) }.shimmer()
-            }
+        GeometryReader { proxy in
+            RemoteImageContent(
+                url: url,
+                request: url.flatMap { ImageRequest.make(source: $0, size: proxy.size, scale: displayScale, contentMode: contentMode, apiBaseURL: AppConfiguration.current.apiBaseURL) },
+                contentMode: contentMode
+            )
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .clipped()
     }
 }
 
+private struct RemoteImageContent: View {
+    let url: URL?
+    let request: ImageRequest?
+    let contentMode: ContentMode
+    @State private var loaded: UIImage?
+    @State private var failed = false
+
+    var body: some View {
+        // A memory hit draws on the very first frame, so cached artwork never flashes a placeholder.
+        let image = loaded ?? request.flatMap { ImagePipeline.shared.cachedImage(for: $0) }
+        ZStack {
+            if let image {
+                Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode).transition(.opacity)
+            } else if failed || url == nil {
+                ZStack { FilmotecaTheme.elevated; Image(systemName: "film.stack").font(.largeTitle).foregroundStyle(.white.opacity(0.18)) }
+            } else {
+                FilmotecaTheme.elevated.shimmer()
+            }
+        }
+        .task(id: request) {
+            guard let request else { return }
+            if let cached = ImagePipeline.shared.cachedImage(for: request) { loaded = cached; failed = false; return }
+            let image = await ImagePipeline.shared.image(for: request)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                if let image { loaded = image; failed = false } else if loaded == nil { failed = true }
+            }
+        }
+    }
+}
+
 struct PosterCard: View {
-    @Environment(FilmotecaModel.self) private var app
     let content: Content
     var width: CGFloat = 142
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Nothing is drawn on the artwork: posters carry their own title and credits,
+            // so the tags and the rating live in the caption below instead.
             RemoteImage(url: content.poster)
                 .frame(width: width, height: width * 1.48)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(alignment: .topLeading) {
-                    HStack(spacing: 5) {
-                        if content.isNew { PosterBadge(title: app.tr("NOU"), fill: AnyShapeStyle(FilmotecaTheme.brandGradient)) }
-                        if content.isFree == true { PosterBadge(title: app.tr("GRATUIT"), fill: AnyShapeStyle(FilmotecaTheme.mint.gradient)) }
-                    }.padding(8)
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if let rating = content.imdbRating, rating > 0 {
-                        HStack(spacing: 3) {
-                            Image(systemName: "star.fill").font(.system(size: 8, weight: .black))
-                            Text(rating, format: .number.precision(.fractionLength(1)))
-                        }
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 7).padding(.vertical, 4)
-                        .background(FilmotecaTheme.goldGradient, in: Capsule())
-                        .padding(7)
-                    }
-                }
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom)))
                 .shadow(color: .black.opacity(0.45), radius: 14, y: 8)
             Text(content.title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-            Text([content.releaseYear.map(String.init), content.genres.first { !$0.contains("\\") }].compactMap { $0 }.joined(separator: " · "))
-                .font(.caption2.weight(.medium)).foregroundStyle(FilmotecaTheme.muted).lineLimit(1)
+            PosterMetaLine(content: content)
         }
         .frame(width: width, alignment: .leading)
         .contentShape(Rectangle())
     }
 }
 
+/// `[NOU] [GRATUIT] ★ 8,3 · 2022 · Dramă` on one line. When the card is narrow the genre
+/// goes first, then the year; the tags and the rating always stay.
+private struct PosterMetaLine: View {
+    @Environment(FilmotecaModel.self) private var app
+    let content: Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            line(showsYear: true, showsGenre: true)
+            line(showsYear: true, showsGenre: false)
+            line(showsYear: false, showsGenre: false)
+        }
+    }
+
+    private func line(showsYear: Bool, showsGenre: Bool) -> some View {
+        let details = [
+            showsYear ? content.releaseYear.map(String.init) : nil,
+            showsGenre ? content.genres.first(where: { !$0.contains("\\") }) : nil,
+        ].compactMap { $0 }
+        let rating = content.imdbRating.flatMap { $0 > 0 ? $0 : nil }
+
+        return HStack(spacing: 5) {
+            if content.isNew { PosterBadge(title: app.tr("NOU"), fill: AnyShapeStyle(FilmotecaTheme.brandGradient), compact: true) }
+            if content.isFree == true { PosterBadge(title: app.tr("GRATUIT"), fill: AnyShapeStyle(FilmotecaTheme.mint.gradient), compact: true) }
+            if let rating {
+                HStack(spacing: 2) {
+                    Image(systemName: "star.fill").font(.system(size: 8, weight: .black)).foregroundStyle(FilmotecaTheme.gold)
+                    Text(rating, format: .number.precision(.fractionLength(1)))
+                }
+                .font(.caption2.weight(.heavy))
+                .foregroundStyle(.white)
+            }
+            if !details.isEmpty {
+                Text(((rating != nil) ? "· " : "") + details.joined(separator: " · "))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(FilmotecaTheme.muted)
+            }
+        }
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
 struct PosterBadge: View {
     let title: String
     let fill: AnyShapeStyle
+    /// Smaller and flat, for a caption line rather than on top of artwork.
+    var compact = false
     var body: some View {
-        Text(title).font(.system(size: 9, weight: .black)).tracking(0.6).foregroundStyle(.white)
-            .padding(.horizontal, 7).padding(.vertical, 4)
+        Text(title).font(.system(size: compact ? 8 : 9, weight: .black)).tracking(compact ? 0.4 : 0.6).foregroundStyle(.white)
+            .padding(.horizontal, compact ? 5 : 7).padding(.vertical, compact ? 2.5 : 4)
             .background(fill, in: Capsule())
-            .shadow(color: .black.opacity(0.35), radius: 4, y: 2)
+            .shadow(color: .black.opacity(compact ? 0 : 0.35), radius: 4, y: 2)
     }
 }
 
@@ -160,7 +221,9 @@ struct TopTenRow: View {
                     Image(systemName: "crown.fill").foregroundStyle(FilmotecaTheme.gold)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 6) {
+                    // Plain HStack: ten cards don't need laziness, and a LazyHStack nested in the
+                    // home LazyVStack sometimes laid out empty after a fast scroll.
+                    HStack(spacing: 6) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                             NavigationLink(value: item) {
                                 HStack(alignment: .bottom, spacing: -22) {

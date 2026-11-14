@@ -144,4 +144,9 @@ return [
         'issuer_id' => env('APPLE_IAP_ISSUER_ID'),
     ],
 
+    // IMDb ratings (ImdbRatingService). Free key, 1,000 requests a day: https://www.omdbapi.com/apikey.aspx
+    'omdb' => [
+        'key' => env('OMDB_API_KEY'),
+    ],
+
 ];

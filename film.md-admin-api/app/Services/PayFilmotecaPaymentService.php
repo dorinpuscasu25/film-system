@@ -58,6 +58,7 @@ class PayFilmotecaPaymentService
             'status' => PaymentTopUp::STATUS_PENDING,
             'description' => $description,
             'billing_address' => $payload['billing_address'] ?? null,
+            'access_location' => $payload['access_location'] ?? null,
         ]);
 
         Log::channel('payments')->info('PayFilmoteca top-up record created', [
@@ -618,6 +619,7 @@ class PayFilmotecaPaymentService
             'provider_rrn' => $topUp->provider_rrn,
             'payment_url' => $topUp->provider_payment_url,
             'billing_address_id' => $topUp->billing_address_id,
+            'access_location' => $topUp->access_location,
             'credited_at' => $topUp->credited_at?->toIso8601String(),
             'created_at' => $topUp->created_at?->toIso8601String(),
             'updated_at' => $topUp->updated_at?->toIso8601String(),
@@ -986,7 +988,7 @@ class PayFilmotecaPaymentService
                 'provider_status' => $providerStatus,
             ]);
 
-            $this->wallets->credit(
+            $credit = $this->wallets->credit(
                 $wallet,
                 (float) $lockedTopUp->amount,
                 WalletTransaction::TYPE_TOP_UP,
@@ -1002,6 +1004,9 @@ class PayFilmotecaPaymentService
                 ],
                 $lockedTopUp,
             );
+            if ($lockedTopUp->access_location !== null) {
+                $credit->forceFill(['access_location' => $lockedTopUp->access_location])->save();
+            }
 
             $lockedTopUp->forceFill([
                 'status' => PaymentTopUp::STATUS_PAID,

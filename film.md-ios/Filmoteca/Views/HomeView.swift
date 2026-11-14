@@ -10,6 +10,8 @@ struct HomeView: View {
 
     /// Dominant colour of the hero artwork on screen; the whole page is lit with it.
     @State private var ambient: Color?
+    @State private var heroWidth: CGFloat = 0
+    @Environment(\.displayScale) private var displayScale
 
     private struct Shelf: Identifiable { let id: String; let title: String; let subtitle: String?; let items: [Content] }
 
@@ -106,6 +108,8 @@ struct HomeView: View {
                     LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing).allowsHitTesting(false)
                 }
                 .frame(height: 650)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { heroWidth = $0 }
+                .task(id: heroWidth) { prefetchHeroSlides(slides, width: heroWidth) }
                 .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.62), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
                 .visualEffect { view, proxy in
                     let minY = proxy.frame(in: .scrollView).minY
@@ -165,6 +169,14 @@ struct HomeView: View {
             }
             .sensoryFeedback(.selection, trigger: viewModel.heroIndex)
         }
+    }
+
+    /// Downloads every slide up front so swiping (or the auto-advance) never lands on a placeholder.
+    private func prefetchHeroSlides(_ slides: [HeroSlide], width: CGFloat) {
+        let base = AppConfiguration.current.apiBaseURL
+        let requests = slides.compactMap { URL(string: $0.mobileImageURL ?? $0.desktopImageURL) }
+            .compactMap { ImageRequest.make(source: $0, size: CGSize(width: width, height: 650), scale: displayScale, contentMode: .fill, apiBaseURL: base) }
+        ImagePipeline.shared.prefetch(requests)
     }
 
     private func heroImage(_ url: URL?) -> some View { RemoteImage(url: url).frame(maxWidth: .infinity).frame(height: 650) }

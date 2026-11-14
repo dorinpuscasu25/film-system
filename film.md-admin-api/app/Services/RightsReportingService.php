@@ -8,10 +8,13 @@ use App\Models\ContentEntitlement;
 use App\Models\CreatorContractVersion;
 use App\Models\CreatorFiscalProfile;
 use App\Models\Invitation;
+use App\Models\Offer;
 use App\Models\ReportingSale;
 use App\Models\ReportingSettingsVersion;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\WalletFundingAllocation;
+use App\Models\WalletFundingLot;
 use App\Models\WalletTransaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
@@ -25,9 +28,13 @@ use Carbon\CarbonInterface;
 
 class RightsReportingService
 {
-    public const CALCULATION_VERSION = 'v1';
+    /** v2: contract cap. 6 — base from money actually collected (funding lots), store commission and conversion cost deducted, promotional credit excluded. */
+    public const CALCULATION_VERSION = 'v2';
 
-    public function __construct(protected ContentScopeService $contentScope) {}
+    public function __construct(
+        protected ContentScopeService $contentScope,
+        protected WalletFundingLedger $fundingLedger,
+    ) {}
 
     public function capturePurchase(ContentEntitlement $entitlement, ?WalletTransaction $walletTransaction = null): ReportingSale
     {
@@ -38,6 +45,7 @@ class RightsReportingService
             if ($existing !== null) {
                 return $existing->load('allocations');
             }
+            $walletTransaction ??= $this->purchaseTransactionFor($entitlement);
 
             $purchasedAt = $entitlement->granted_at ?? $entitlement->created_at ?? now();
             $countryCode = $this->resolveCountryCode($entitlement);
@@ -90,10 +98,129 @@ class RightsReportingService
                 ],
             ]);
 
+            $this->recordFundings($sale, $walletTransaction, $purchasedAt);
             $this->applyAllocations($sale, $purchasedAt, $countryCode, $domesticCountry);
 
-            return $sale->fresh('allocations');
+            return $sale->fresh(['allocations', 'fundings']);
         });
+    }
+
+    /**
+     * What paid for the sale, valued in real money (contract 6.4–6.7): the funding lots its wallet
+     * debit consumed. Credit spent before the ledger existed (no lot) is valued from the debit's
+     * per-source split; a sale with no wallet debit at all is taken as card money.
+     */
+    public function recordFundings(ReportingSale $sale, ?WalletTransaction $walletTransaction, CarbonInterface $at): void
+    {
+        $sale->fundings()->delete();
+        $credits = round((float) $sale->gross_amount, 2);
+        $rows = collect();
+
+        if ($credits > 0 && $walletTransaction !== null) {
+            $allocations = WalletFundingAllocation::query()->with('lot')->where('debit_transaction_id', $walletTransaction->id)->get();
+            foreach ($allocations as $allocation) {
+                if ($allocation->lot === null) {
+                    continue;
+                }
+                $rows->push(['lot_id' => $allocation->lot_id, 'source' => $allocation->lot->source, 'credits' => (float) $allocation->amount,
+                    'value' => $allocation->lot->valueOf((float) $allocation->amount), 'status' => $allocation->lot->valuation_status]);
+            }
+
+            $meta = $walletTransaction->meta ?? [];
+            $hasSplit = array_key_exists('own_amount', $meta) || array_key_exists('platform_amount', $meta) || array_key_exists('apple_amount', $meta);
+            foreach (WalletFundingLot::SPEND_ORDER as $source) {
+                $declared = $hasSplit ? round((float) ($meta["{$source}_amount"] ?? 0), 2) : ($source === WalletFundingLot::SOURCE_OWN ? $credits : 0.0);
+                $missing = round($declared - $rows->where('source', $source)->sum('credits'), 2);
+                if ($missing > 0) {
+                    $rows->push($this->unledgeredFunding($source, $missing, $at));
+                }
+            }
+        } elseif ($credits > 0) {
+            $rows->push($this->unledgeredFunding(WalletFundingLot::SOURCE_OWN, $credits, $at));
+        }
+
+        foreach ($rows as $row) {
+            $sale->fundings()->create([
+                'lot_id' => $row['lot_id'], 'source' => $row['source'], 'credits' => $row['credits'],
+                'gross_value' => $row['value']['gross'], 'commission_value' => $row['value']['commission'],
+                'fx_cost_value' => $row['value']['fx_cost'], 'net_value' => $row['value']['net'], 'valuation_status' => $row['status'],
+            ]);
+        }
+
+        $bySource = fn (string $source): float => round((float) $rows->where('source', $source)->sum('credits'), 2);
+        $commission = $this->money((float) $rows->sum(fn ($row) => $row['value']['commission']));
+        $fxCost = $this->money((float) $rows->sum(fn ($row) => $row['value']['fx_cost']));
+        $sale->forceFill([
+            'promo_credits' => $bySource(WalletFundingLot::SOURCE_PLATFORM),
+            'own_credits' => $bySource(WalletFundingLot::SOURCE_OWN),
+            'apple_credits' => $bySource(WalletFundingLot::SOURCE_APPLE),
+            'revenue_gross_amount' => $this->money((float) $rows->sum(fn ($row) => $row['value']['gross'])),
+            'channel_commission_amount' => $commission,
+            'fx_cost_amount' => $fxCost,
+            'deductions_amount' => $this->money($commission + $fxCost + (float) $sale->refund_amount),
+            'valuation_status' => $rows->contains(fn ($row) => $row['status'] === WalletFundingLot::VALUATION_ESTIMATED)
+                ? WalletFundingLot::VALUATION_ESTIMATED : WalletFundingLot::VALUATION_FINAL,
+            'payment_method' => $this->paymentMethodLabel($rows),
+        ])->save();
+    }
+
+    /** @return array{lot_id: null, source: string, credits: float, value: array, status: string} */
+    protected function unledgeredFunding(string $source, float $credits, CarbonInterface $at): array
+    {
+        $valuation = $this->fundingLedger->valuation($source, $credits, null, $at);
+
+        return [
+            'lot_id' => null, 'source' => $source, 'credits' => $credits, 'status' => $valuation['valuation_status'],
+            'value' => ['gross' => (float) $valuation['gross_value'], 'commission' => (float) $valuation['commission_value'],
+                'fx_cost' => (float) $valuation['fx_cost_value'], 'net' => (float) $valuation['net_value']],
+        ];
+    }
+
+    protected function paymentMethodLabel(Collection $rows): string
+    {
+        $sources = $rows->where('credits', '>', 0)->pluck('source')->unique()->values();
+
+        return match (true) {
+            $sources->isEmpty() => 'free',
+            $sources->count() > 1 => 'mixed',
+            default => match ($sources->first()) {
+                WalletFundingLot::SOURCE_APPLE => 'app_store',
+                WalletFundingLot::SOURCE_PLATFORM => 'promotional',
+                default => 'card_maib',
+            },
+        };
+    }
+
+    /** Re-runs the contract calculation for a sale (after its fundings were rebuilt or revalued). */
+    public function recalculate(ReportingSale $sale): string
+    {
+        return $this->applyAllocations($sale->fresh(), Carbon::parse($sale->purchased_at), $sale->country_code);
+    }
+
+    public function purchaseTransactionForSale(ReportingSale $sale): ?WalletTransaction
+    {
+        $entitlement = $sale->entitlement()->first();
+
+        return $entitlement !== null ? $this->purchaseTransactionFor($entitlement) : null;
+    }
+
+    /** The wallet debit of a purchase captured after the fact (it isn't linked to the entitlement). */
+    protected function purchaseTransactionFor(ContentEntitlement $entitlement): ?WalletTransaction
+    {
+        if ((float) $entitlement->price_amount <= 0 || $entitlement->offer_id === null) {
+            return null;
+        }
+        $at = Carbon::parse($entitlement->granted_at ?? $entitlement->created_at ?? now());
+
+        return WalletTransaction::query()
+            ->where('user_id', $entitlement->user_id)
+            ->where('type', WalletTransaction::TYPE_PURCHASE)
+            ->where('reference_type', (new Offer)->getMorphClass())
+            ->where('reference_id', $entitlement->offer_id)
+            ->where('amount', -round((float) $entitlement->price_amount, 2))
+            ->whereBetween('processed_at', [$at->copy()->subMinutes(10), $at->copy()->addMinutes(10)])
+            ->orderBy('id')
+            ->first();
     }
 
     /**
@@ -102,17 +229,41 @@ class RightsReportingService
      * for sales not yet at calculation_status "calculated" — once calculated a sale is frozen
      * for audit purposes and this is never invoked on it again.
      */
+    /**
+     * Contract cap. 6, per sale and titular:
+     *   Venit Brut           = money actually paid for the sale (card + App Store, promo excluded)
+     *   Deduceri (6.5)       = store commission + conversion cost (+ refunds)
+     *   Bază de Repartizare  = Venit Brut − Deduceri                      (VAT-registered titular, 6.15; export, 6.19)
+     *                        = Venit Brut − TVA colectată − Deduceri      (non-registered titular, 6.17 / 6.18)
+     *   Remunerația totală   = Bază × cota; for a VAT-registered titular it includes the VAT of its invoice (6.15, 6.20)
+     *   Reținere (6.32)      = 12% (or the profile's rate) of the remuneration before VAT, persons only
+     *   Of the net, the part funded by App Store packs not yet settled is "în curs de decontare" (6.29).
+     */
     protected function applyAllocations(ReportingSale $sale, CarbonInterface $purchasedAt, ?string $countryCode, ?string $domesticCountry = null): string
     {
-        $vatAmount = (float) $sale->vat_amount;
-        $netExVat = (float) $sale->net_ex_vat_amount;
-        $domesticCountry ??= strtoupper((string) ($this->settingsFor($purchasedAt)?->domestic_country_code ?: 'MD'));
+        $settings = $this->settingsFor($purchasedAt);
+        $domesticCountry ??= strtoupper((string) ($settings?->domestic_country_code ?: 'MD'));
+        $sale->loadMissing('fundings');
+
+        $price = (float) $sale->gross_amount;
+        $paidCredits = (float) $sale->own_credits + (float) $sale->apple_credits;
+        $vatOnPaid = $price > 0 ? $this->money((float) $sale->vat_amount * min(1, $paidCredits / $price)) : 0.0;
+        $revenue = (float) $sale->revenue_gross_amount;
+        $deductions = (float) $sale->deductions_amount;
+        $netCollectable = (float) $sale->fundings->sum('net_value');
+        $pendingNet = (float) $sale->fundings
+            ->where('source', WalletFundingLot::SOURCE_APPLE)
+            ->where('valuation_status', WalletFundingLot::VALUATION_ESTIMATED)
+            ->sum('net_value');
+        $pendingRatio = $netCollectable > 0 ? min(1, $pendingNet / $netCollectable) : 0.0;
+        $defaultVatRate = (float) ($settings?->domestic_vat_rate ?? 20);
 
         $sale->allocations()->delete();
 
         $contracts = $this->contractsFor((int) $sale->content_id, $purchasedAt, $countryCode);
         $calculationStatus = $contracts->isEmpty() ? 'missing_contract' : 'calculated';
-        $totals = ['base' => 0.0, 'holder_vat' => 0.0, 'gross' => 0.0, 'withholding' => 0.0, 'net' => 0.0];
+        $totals = ['base_share' => 0.0, 'holder_vat' => 0.0, 'gross' => 0.0, 'withholding' => 0.0, 'net' => 0.0];
+        $distributionBase = $this->money(max(0, $revenue - $vatOnPaid - $deductions));
 
         foreach ($contracts as $contract) {
             $fiscal = $this->fiscalProfileFor((int) $contract->content_creator_id, $purchasedAt);
@@ -120,13 +271,18 @@ class RightsReportingService
                 $calculationStatus = 'missing_fiscal_profile';
             }
 
+            $vatHolder = (bool) $fiscal?->is_vat_registered;
+            $base = $this->money(max(0, $vatHolder ? $revenue - $deductions : $revenue - $vatOnPaid - $deductions));
+            $distributionBase = $base;
             $shareRatio = (float) $contract->share_percent / 100;
-            $baseShare = $this->money($netExVat * $shareRatio);
-            $holderVat = $fiscal?->is_vat_registered ? $this->money($vatAmount * $shareRatio) : 0.0;
-            $grossShare = $this->money($baseShare + $holderVat);
+            $holderTotal = $this->money($base * $shareRatio);
+            $holderVatRate = $vatHolder ? ((float) $fiscal->vat_rate > 0 ? (float) $fiscal->vat_rate : $defaultVatRate) : 0.0;
+            $holderVat = $holderVatRate > 0 ? $this->money($holderTotal * $holderVatRate / (100 + $holderVatRate)) : 0.0;
+            $baseShare = $this->money($holderTotal - $holderVat);
             $withholdingRate = $fiscal?->withholding_enabled ? (float) $fiscal->withholding_rate : 0.0;
             $withholding = $this->money($baseShare * $withholdingRate / 100);
-            $netPayable = $this->money($grossShare - $withholding);
+            $netPayable = $this->money($holderTotal - $withholding);
+            $pending = $this->money($netPayable * $pendingRatio);
 
             $sale->allocations()->create([
                 'content_creator_id' => $contract->content_creator_id,
@@ -136,38 +292,52 @@ class RightsReportingService
                 'share_percent' => $contract->share_percent,
                 'base_share_amount' => $baseShare,
                 'vat_amount' => $holderVat,
-                'gross_share_amount' => $grossShare,
+                'gross_share_amount' => $holderTotal,
                 'withholding_rate' => $withholdingRate,
                 'withholding_amount' => $withholding,
                 'net_payable_amount' => $netPayable,
+                'available_amount' => $this->money($netPayable - $pending),
+                'pending_settlement_amount' => $pending,
                 'person_type' => $fiscal?->person_type,
-                'is_vat_registered' => (bool) $fiscal?->is_vat_registered,
+                'is_vat_registered' => $vatHolder,
                 'contract_snapshot' => $contract->only(['id', 'content_creator_id', 'content_id', 'share_percent', 'territories', 'effective_from', 'effective_until', 'contract_reference']),
                 'fiscal_snapshot' => $fiscal?->only(['id', 'person_type', 'tax_residency', 'is_vat_registered', 'vat_rate', 'withholding_enabled', 'withholding_rate', 'tax_identifier', 'iban', 'payment_currency', 'effective_from', 'effective_until']),
             ]);
 
-            $totals['base'] += $baseShare;
+            $totals['base_share'] += $baseShare;
             $totals['holder_vat'] += $holderVat;
-            $totals['gross'] += $grossShare;
+            $totals['gross'] += $holderTotal;
             $totals['withholding'] += $withholding;
             $totals['net'] += $netPayable;
         }
 
+        $platformVat = $this->money(max(0, $vatOnPaid - $totals['holder_vat']));
+        $platformShare = $this->money(max(0, $revenue - $deductions - $vatOnPaid - $totals['base_share']));
+
         $sale->forceFill([
             'calculation_status' => $calculationStatus,
+            'calculation_version' => self::CALCULATION_VERSION,
+            'distribution_base_amount' => $distributionBase,
             'holders_gross_amount' => $this->money($totals['gross']),
             'holders_vat_amount' => $this->money($totals['holder_vat']),
             'withholding_amount' => $this->money($totals['withholding']),
             'holders_net_amount' => $this->money($totals['net']),
-            'platform_share_amount' => $this->money(max(0, $netExVat - $totals['base'])),
-            'platform_vat_amount' => $this->money(max(0, $vatAmount - $totals['holder_vat'])),
+            'platform_share_amount' => $platformShare,
+            'platform_vat_amount' => $platformVat,
             'calculation_snapshot' => [
+                ...(($sale->calculation_snapshot['version'] ?? null) !== null && ($sale->calculation_snapshot['version'] ?? null) !== self::CALCULATION_VERSION
+                    ? ['previous' => $sale->calculation_snapshot] : []),
                 'version' => self::CALCULATION_VERSION,
-                'formula' => 'gross = net_ex_vat + vat; holder_base = net_ex_vat × contract_share; holder_vat = vat × share only for VAT holder; withholding = holder_base × rate',
+                'formula' => 'revenue = card + App Store money (promo excluded); deductions = store commission + conversion cost; '
+                    .'base = revenue − deductions (VAT titular / export) or revenue − VAT on paid part − deductions (non-VAT titular); '
+                    .'holder total = base × share (incl. holder invoice VAT for VAT titular); withholding = (total − holder VAT) × rate',
                 'domestic_country_code' => $domesticCountry,
                 'vat_rate' => $sale->vat_rate,
+                'vat_on_paid_part' => $vatOnPaid,
+                'promo_credits' => (float) $sale->promo_credits,
+                'pending_settlement_ratio' => round($pendingRatio, 6),
                 'rounding' => 'half-up, 2 decimals',
-                'reconciled_amount' => $this->money(max(0, $netExVat - $totals['base']) + max(0, $vatAmount - $totals['holder_vat']) + $totals['gross']),
+                'reconciled_amount' => $this->money($deductions + $totals['gross'] + $platformShare + $platformVat),
             ],
         ])->save();
 
@@ -364,6 +534,172 @@ class RightsReportingService
                 'refund_amount' => $sale->refund_amount,
                 'calculation_status' => $sale->calculation_status,
             ])->values(),
+        ];
+    }
+
+    /** Payouts below this accumulate into the next months (contract 6.34). */
+    public const MIN_PAYOUT = 1000.0;
+
+    /**
+     * The monthly commercial report per titular (contract 6.27–6.29), a)–j): the titular's works,
+     * then one line per work × app × money source × fiscal regime with the transactions, revenue,
+     * VAT, admitted deductions, distribution base, share, remuneration (its VAT apart), withholding
+     * and net — the net split into "în curs de decontare" (App Store money not yet settled) and
+     * "disponibil pentru plată". A sale paid from several sources is split pro rata to the money
+     * each source actually brought in; promotional credit brings none (6.4).
+     *
+     * @param  array{month?: string, from?: string, to?: string, content_creator_id?: int}  $filters
+     */
+    public function commercialReport(User $user, array $filters): array
+    {
+        [$from, $to] = $this->reportPeriod($filters);
+        $visibleCreatorIds = $this->visibleCreatorIds($user);
+        $requested = isset($filters['content_creator_id']) ? [(int) $filters['content_creator_id']] : null;
+        $holderIds = $visibleCreatorIds !== null
+            ? ($requested !== null ? array_values(array_intersect($visibleCreatorIds, $requested)) : $visibleCreatorIds)
+            : $requested;
+
+        $sales = $this->filteredSalesQuery($user, ['from' => $from->toDateString(), 'to' => $to->toDateString()])
+            ->with(['allocations' => fn ($query) => $query->when($holderIds !== null, fn ($q) => $q->whereIn('content_creator_id', $holderIds)), 'fundings'])
+            ->orderBy('purchased_at')
+            ->get();
+
+        $pairs = $sales->flatMap(fn (ReportingSale $sale) => $sale->allocations->map(fn ($allocation) => [$sale, $allocation]));
+        $ids = $holderIds ?? $pairs->pluck('1.content_creator_id')->filter()->unique()->values()->all();
+        $holders = ContentCreator::query()->with('contents:id,original_title')->whereIn('id', $ids)->orderBy('name')->get();
+
+        return [
+            'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'month' => $from->format('Y-m')],
+            'generated_at' => now()->toIso8601String(),
+            'currency' => 'MDL',
+            'holders' => $holders->map(fn (ContentCreator $holder) => $this->holderStatement(
+                $holder,
+                $pairs->filter(fn (array $pair) => (int) $pair[1]->content_creator_id === $holder->id)->values(),
+            ))->values(),
+            'notes' => [
+                'App Store: valori estimate (preț × curs − comision Apple − cost conversie) până la reconcilierea decontării Apple; devin disponibile pentru plată după încasare (art. 6.29).',
+                'Credit promoțional (bonus): nu constituie venit încasat și nu intră în Baza de Repartizare (art. 6.4).',
+                'Comisioanele bancare și de procesare (MAIB, Visa, Mastercard) nu diminuează Baza de Repartizare (art. 6.7).',
+            ],
+        ];
+    }
+
+    /** @return array{0: Carbon, 1: Carbon} */
+    protected function reportPeriod(array $filters): array
+    {
+        if (! empty($filters['month'])) {
+            $start = Carbon::createFromFormat('Y-m', (string) $filters['month'])->startOfMonth();
+
+            return [$start, $start->copy()->endOfMonth()];
+        }
+        if (! empty($filters['from']) || ! empty($filters['to'])) {
+            return [
+                Carbon::parse($filters['from'] ?? '2000-01-01')->startOfDay(),
+                Carbon::parse($filters['to'] ?? now()->toDateString())->endOfDay(),
+            ];
+        }
+        $previous = now()->subMonthNoOverflow()->startOfMonth(); // 6.27: the previous calendar month
+
+        return [$previous, $previous->copy()->endOfMonth()];
+    }
+
+    /** @param  Collection<int, array{0: ReportingSale, 1: \App\Models\ReportingSaleAllocation}>  $pairs */
+    protected function holderStatement(ContentCreator $holder, Collection $pairs): array
+    {
+        $lines = [];
+        foreach ($pairs as [$sale, $allocation]) {
+            $price = (float) $sale->gross_amount;
+            $paidNet = (float) $sale->fundings->where('source', '!=', WalletFundingLot::SOURCE_PLATFORM)->sum('net_value');
+            $fundings = $sale->fundings->isNotEmpty() ? $sale->fundings : collect([null]);
+
+            foreach ($fundings as $funding) {
+                $source = $funding?->source ?? WalletFundingLot::SOURCE_OWN;
+                $isPromo = $source === WalletFundingLot::SOURCE_PLATFORM;
+                $weight = $isPromo || $funding === null ? ($funding === null ? 1.0 : 0.0) : ($paidNet > 0 ? (float) $funding->net_value / $paidNet : 0.0);
+                $credits = $funding !== null ? (float) $funding->credits : $price;
+                $pending = $source === WalletFundingLot::SOURCE_APPLE && $funding?->valuation_status === WalletFundingLot::VALUATION_ESTIMATED;
+                $key = implode('|', [$sale->content_id, $sale->sales_channel ?: 'web', $source, $sale->market]);
+
+                $line = $lines[$key] ?? [
+                    'content_id' => $sale->content_id, 'film' => $sale->content_title, 'channel' => $sale->sales_channel ?: 'web',
+                    'money_source' => $source, 'market' => $sale->market, 'sale_ids' => [],
+                    'credits' => 0.0, 'promo_credits' => 0.0, 'revenue_gross' => 0.0, 'vat_collected' => 0.0, 'commission' => 0.0,
+                    'fx_cost' => 0.0, 'refunds' => 0.0, 'deductions' => 0.0, 'base' => 0.0, 'share_percent' => (float) $allocation->share_percent,
+                    'remuneration_total' => 0.0, 'remuneration_vat' => 0.0, 'withholding' => 0.0, 'net' => 0.0,
+                    'pending_settlement' => 0.0, 'available' => 0.0, 'estimated' => false,
+                ];
+                $line['sale_ids'][$sale->id] = true;
+                $line['credits'] += $credits;
+                $line['estimated'] = $line['estimated'] || $pending;
+                if ($isPromo) {
+                    $line['promo_credits'] += $credits;
+                } else {
+                    $line['revenue_gross'] += (float) ($funding?->gross_value ?? $sale->revenue_gross_amount);
+                    $line['vat_collected'] += $price > 0 ? (float) $sale->vat_amount * $credits / $price : 0.0;
+                    $line['commission'] += (float) ($funding?->commission_value ?? $sale->channel_commission_amount);
+                    $line['fx_cost'] += (float) ($funding?->fx_cost_value ?? $sale->fx_cost_amount);
+                    $line['refunds'] += (float) $sale->refund_amount * $weight;
+                    $line['base'] += (float) $sale->distribution_base_amount * $weight;
+                    $line['remuneration_total'] += (float) $allocation->gross_share_amount * $weight;
+                    $line['remuneration_vat'] += (float) $allocation->vat_amount * $weight;
+                    $line['withholding'] += (float) $allocation->withholding_amount * $weight;
+                    $net = (float) $allocation->net_payable_amount * $weight;
+                    $line['net'] += $net;
+                    $line[$pending ? 'pending_settlement' : 'available'] += $net;
+                }
+                $lines[$key] = $line;
+            }
+        }
+
+        $lines = collect($lines)->map(function (array $line): array {
+            $line['transactions'] = count($line['sale_ids']);
+            unset($line['sale_ids']);
+            $line['deductions'] = $line['commission'] + $line['fx_cost'] + $line['refunds'];
+            foreach (['credits', 'promo_credits', 'revenue_gross', 'vat_collected', 'commission', 'fx_cost', 'refunds', 'deductions', 'base',
+                'remuneration_total', 'remuneration_vat', 'withholding', 'net', 'pending_settlement', 'available'] as $field) {
+                $line[$field] = $this->money($line[$field]);
+            }
+
+            return $line;
+        })->sortBy([['film', 'asc'], ['channel', 'asc'], ['money_source', 'asc']])->values();
+
+        $sum = fn (string $field): float => $this->money((float) $lines->sum($field));
+        $available = $sum('available');
+        $soldIds = $lines->pluck('content_id')->unique();
+
+        return [
+            'holder' => [
+                'id' => $holder->id, 'name' => $holder->name, 'company_name' => $holder->company_name,
+                'person_type' => $holder->person_type, 'idno' => $holder->idno, 'is_vat_payer' => (bool) $holder->is_vat_payer,
+                'vat_code' => $holder->vat_code, 'legal_address' => $holder->legal_address,
+            ],
+            // a) the works: everything the titular holds, sold this month or not
+            'works' => $holder->contents->map(fn ($content) => [
+                'content_id' => $content->id, 'title' => $content->original_title, 'had_sales' => $soldIds->contains($content->id),
+            ])->sortBy('title')->values(),
+            'lines' => $lines,
+            'totals' => [
+                'transactions' => $pairs->count(),                         // b)
+                'credits' => $sum('credits'),
+                'promo_credits' => $sum('promo_credits'),
+                'revenue_gross' => $sum('revenue_gross'),                  // c)
+                'vat_collected' => $sum('vat_collected'),                  // d)
+                'commission' => $sum('commission'),                        // e)
+                'fx_cost' => $sum('fx_cost'),
+                'refunds' => $sum('refunds'),
+                'deductions' => $sum('deductions'),
+                'base' => $sum('base'),                                    // f)
+                'share_percent' => $lines->pluck('share_percent')->unique()->count() === 1 ? $lines->first()['share_percent'] : null, // g)
+                'remuneration_total' => $sum('remuneration_total'),        // h)
+                'remuneration_vat' => $sum('remuneration_vat'),
+                'withholding' => $sum('withholding'),                      // i)
+                'net' => $sum('net'),
+                'pending_settlement' => $sum('pending_settlement'),        // 6.29
+                'available' => $available,
+                'carried_over' => null,                                    // j) needs the payout register (stage 2)
+                'below_minimum' => $available > 0 && $available < self::MIN_PAYOUT, // 6.34
+                'min_payout' => self::MIN_PAYOUT,
+            ],
         ];
     }
 
@@ -567,12 +903,25 @@ class RightsReportingService
                 $current->update(['effective_until' => $from->copy()->subDay()->endOfDay()]);
             }
 
-            return CreatorFiscalProfile::query()->create([
+            $profile = CreatorFiscalProfile::query()->create([
                 ...$payload, 'tax_residency' => strtoupper($payload['tax_residency']), 'payment_currency' => strtoupper($payload['payment_currency']),
                 'vat_rate' => $payload['is_vat_registered'] ? $payload['vat_rate'] : 0,
                 'withholding_rate' => $payload['withholding_enabled'] ? $payload['withholding_rate'] : 0,
                 'status' => 'active', 'created_by' => $createdBy,
             ]);
+
+            // The titular is the single source of these fields: a profile in force from today
+            // (entered here in reporting) is written back to it.
+            if ($this->isCurrentlyActive($profile)) {
+                ContentCreator::query()->whereKey($profile->content_creator_id)->update([
+                    'person_type' => $profile->person_type,
+                    'is_vat_payer' => (bool) $profile->is_vat_registered,
+                    'idno' => $profile->tax_identifier,
+                    'iban' => $profile->iban,
+                ]);
+            }
+
+            return $profile;
         });
     }
 
@@ -602,12 +951,8 @@ class RightsReportingService
             }
             $creator->save();
 
-            $creator->contents()->sync(
-                collect($payload['content_ids'])
-                    ->map(fn ($id) => (int) $id)
-                    ->mapWithKeys(fn (int $id) => [$id => ['role' => 'owner', 'is_primary' => false]])
-                    ->all(),
-            );
+            // One titular per title: these titles move to this holder.
+            $creator->assignTitles($payload['content_ids']);
 
             if ($user !== null) {
                 $this->ensureHolderAccess($user);

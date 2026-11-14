@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusIcon, XIcon, WalletIcon } from 'lucide-react';
+import { CalendarDaysIcon, InfinityIcon, PlusIcon, XIcon, WalletIcon } from 'lucide-react';
 import { Movie, Offer } from '../types';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { WalletModal } from './WalletModal';
+import { AccessLocationStep } from './AccessLocationStep';
 import { resizedImageUrl } from '../lib/images';
 import type { StorefrontAccessLocation } from '../lib/session';
 
@@ -68,10 +69,21 @@ function groupLabel(offer: Offer, t: (key: string, options?: Record<string, unkn
   return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { count: offer.rentalDays || 2 });
 }
 
-function offerDurationLabel(offer: Offer, t: (key: string, options?: Record<string, unknown>) => string) {
-  if (offer.accessType === 'free') return t('checkout.free_access');
-  return offer.accessType === 'lifetime' ? t('checkout.forever') : t('checkout.for_days', { count: offer.rentalDays || 2 });
+/** Longer access ranks higher when two groups cost the same. */
+function durationRank(offer: Offer) {
+  return offer.accessType === 'lifetime' ? Number.MAX_SAFE_INTEGER : offer.rentalDays ?? 0;
 }
+
+/**
+ * One colour per duration block, in display order: gold for the top (most expensive),
+ * brand red next, then green.
+ */
+const GROUP_TINTS = [
+  { badge: 'bg-accentGold text-black', edge: 'border-l-accentGold', selected: 'border-accentGold shadow-[0_0_30px_rgba(255,184,0,0.25)]' },
+  { badge: 'bg-accent text-white', edge: 'border-l-accent', selected: 'border-accent shadow-[0_0_30px_rgba(229,9,20,0.3)]' },
+  { badge: 'bg-accentGreen text-black', edge: 'border-l-accentGreen', selected: 'border-accentGreen shadow-[0_0_30px_rgba(0,200,83,0.25)]' },
+];
+const FALLBACK_TINT = { badge: 'bg-white/85 text-black', edge: 'border-l-white/85', selected: 'border-white shadow-[0_0_30px_rgba(255,255,255,0.2)]' };
 
 export function PurchaseModal({
   isOpen,
@@ -87,29 +99,39 @@ export function PurchaseModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const offers = useMemo(() => movie.offers && movie.offers.length > 0 ? movie.offers : buildFallbackOffers(movie), [movie]);
-  const [selectedOfferId, setSelectedOfferId] = useState<string>(offers[0]?.id ?? '');
+  // Most expensive first (7 days before 2 days, FullHD before SD): the bigger price anchors
+  // the choice, so viewers weigh the options instead of grabbing the first cheap line.
+  const offerGroups = useMemo(() => {
+    const groups = new Map<string, Offer[]>();
+    for (const offer of offers) {
+      const label = groupLabel(offer, t);
+      groups.set(label, [...(groups.get(label) ?? []), offer]);
+    }
+
+    return [...groups.entries()]
+      .map(([label, group]) => ({
+        label,
+        isLifetime: group[0].accessType === 'lifetime',
+        offers: [...group].sort((left, right) => right.price - left.price || String(left.quality).localeCompare(String(right.quality))),
+      }))
+      .sort((left, right) => right.offers[0].price - left.offers[0].price || durationRank(right.offers[0]) - durationRank(left.offers[0]));
+  }, [offers, t]);
+  const defaultOfferId = offerGroups[0]?.offers[0]?.id ?? '';
+  const [selectedOfferId, setSelectedOfferId] = useState<string>(defaultOfferId);
   const [isAccessLocationStepOpen, setIsAccessLocationStepOpen] = useState(false);
   const [accessLocation, setAccessLocation] = useState<AccessLocation | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedOfferId(offers[0]?.id ?? '');
+      setSelectedOfferId(defaultOfferId);
       setErrorMessage(null);
       setIsAccessLocationStepOpen(false);
       setAccessLocation(null);
     }
-  }, [isOpen, offers]);
+  }, [isOpen, defaultOfferId]);
 
   const selectedOffer = offers.find((offer) => offer.id === selectedOfferId) ?? offers[0];
   const canAfford = selectedOffer ? balance >= selectedOffer.price : false;
-  const groupedOffers = useMemo(() => {
-    return offers.reduce<Record<string, Offer[]>>((groups, offer) => {
-      const label = groupLabel(offer, t);
-      groups[label] = groups[label] ?? [];
-      groups[label].push(offer);
-      return groups;
-    }, {});
-  }, [offers]);
 
   const handleConfirmClick = () => {
     if (!selectedOffer || !canAfford) {
@@ -212,29 +234,29 @@ export function PurchaseModal({
               </p>
 
               <div className="mb-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:mb-10 md:grid-cols-2 md:gap-5">
-                {Object.entries(groupedOffers).map(([label, group]) =>
-                <div key={label} className="space-y-2 sm:space-y-3">
-                    {group.map((offer) =>
+                {offerGroups.map((group, index) => {
+                  const tint = GROUP_TINTS[index] ?? FALLBACK_TINT;
+                  return (
+                <div key={group.label} className="space-y-2 sm:space-y-3">
+                    <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-lg sm:px-4 sm:py-2 sm:text-sm ${tint.badge}`}>
+                      {group.isLifetime ? <InfinityIcon className="h-4 w-4" /> : <CalendarDaysIcon className="h-4 w-4" />}
+                      {group.label}
+                    </div>
+                    {group.offers.map((offer) =>
                   <button
                     key={offer.id}
                     onClick={() => setSelectedOfferId(offer.id)}
-                    className={`w-full rounded-xl border-2 p-3 text-left backdrop-blur-md transition-all sm:p-5 ${selectedOffer?.id === offer.id ? 'bg-white/20 border-white shadow-[0_0_30px_rgba(255,255,255,0.2)]' : 'bg-black/40 border-white/10 hover:bg-black/60'}`}>
+                    className={`w-full rounded-xl border-2 border-l-[6px] p-3 text-left backdrop-blur-md transition-all sm:p-5 ${tint.edge} ${selectedOffer?.id === offer.id ? `bg-white/20 ${tint.selected}` : 'bg-black/40 border-white/10 hover:bg-black/60'}`}>
 
-                        <div className="mb-2 flex items-start justify-between gap-3 sm:mb-4">
-                          <div>
-                            <span className="inline-flex items-center rounded-md bg-accent/15 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-accent sm:text-xs">
-                              {offerDurationLabel(offer, t)}
-                            </span>
-                            <div className="mt-2 text-2xl font-bold leading-tight text-white sm:text-3xl">{offer.quality}</div>
-                          </div>
-                        </div>
-                        <div className="text-xl font-semibold text-white sm:text-2xl">
+                        <div className="text-2xl font-bold leading-tight text-white sm:text-3xl">{offer.quality}</div>
+                        <div className="mt-1 text-xl font-semibold text-white/90 sm:mt-2 sm:text-2xl">
                           {formatCurrency(offer.price, offer.currency)}
                         </div>
                       </button>
                   )}
                   </div>
-                )}
+                  );
+                })}
               </div>
 
               <div className="flex w-full max-w-md flex-col items-center">
@@ -290,81 +312,17 @@ export function PurchaseModal({
             </div>
           </motion.div>
 
-          <AnimatePresence>
-            {isAccessLocationStepOpen && !isKidsProfile &&
-          <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-                <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={() => setIsAccessLocationStepOpen(false)} />
-
-                <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-surface p-5 shadow-2xl sm:p-6">
-
-                  <h3 className="text-lg font-bold text-white sm:text-xl">
-                    {t('checkout.access_location_title')}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-400">
-                    {t('checkout.access_location_note')}
-                  </p>
-                  <p className="mb-5 mt-2 text-sm text-gray-400">
-                    {t('checkout.access_location_subtitle')}
-                  </p>
-
-                  <div className="mb-5 space-y-3">
-                    {([
-                { value: 'moldova' as const, label: t('checkout.access_from_moldova') },
-                { value: 'outside_moldova' as const, label: t('checkout.access_outside_moldova') }]).
-                map((option) =>
-                <button
-                  key={option.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={accessLocation === option.value}
-                  onClick={() => setAccessLocation(option.value)}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors sm:p-4 ${accessLocation === option.value ? 'border-white bg-white/10' : 'border-white/10 bg-black/30 hover:bg-white/5'}`}>
-
-                        <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${accessLocation === option.value ? 'border-white' : 'border-white/30'}`}>
-
-                          {accessLocation === option.value &&
-                    <span className="h-2.5 w-2.5 rounded-full bg-white" />
-                    }
-                        </span>
-                        <span className="text-sm text-gray-100">{option.label}</span>
-                      </button>
-                )}
-                  </div>
-
-                  <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                    <button
-                  type="button"
-                  onClick={() => setIsAccessLocationStepOpen(false)}
-                  className="w-full rounded-xl border border-white/10 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto sm:px-5">
-
-                      {t('common.back')}
-                    </button>
-                    <button
-                  type="button"
-                  onClick={handlePurchase}
-                  disabled={!accessLocation}
-                  className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${accessLocation ? 'bg-white text-background hover:bg-gray-200' : 'cursor-not-allowed bg-white/10 text-gray-500'}`}>
-
-                      {selectedOffer ?
-                  t('checkout.confirm_purchase', { price: formatCurrency(selectedOffer.price, selectedOffer.currency) }) :
-                  t('checkout.no_offer')
-                  }
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-          }
-          </AnimatePresence>
+          <AccessLocationStep
+            isOpen={isAccessLocationStepOpen && !isKidsProfile}
+            value={accessLocation}
+            onChange={setAccessLocation}
+            onBack={() => setIsAccessLocationStepOpen(false)}
+            onConfirm={() => void handlePurchase()}
+            isProcessing={isProcessing}
+            confirmLabel={selectedOffer ?
+            t('checkout.confirm_purchase', { price: formatCurrency(selectedOffer.price, selectedOffer.currency) }) :
+            t('checkout.no_offer')}
+          />
 
           <WalletModal
             isOpen={isWalletModalOpen && !isKidsProfile}

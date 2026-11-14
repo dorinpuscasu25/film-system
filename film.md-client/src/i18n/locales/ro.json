@@ -223,12 +223,7 @@
     "discount": "Reducere",
     "total": "Total",
     "pay": "Plătește",
-    "coupon_invalid": "Cuponul nu este valid",
-    "access_location_title": "De unde accesezi Filmoteca?",
-    "access_location_note": "(Locul livrării serviciilor)",
-    "access_location_subtitle": "Alege o opțiune pentru a continua.",
-    "access_from_moldova": "Accesez Filmoteca din Republica Moldova",
-    "access_outside_moldova": "Accesez Filmoteca din afara Republicii Moldova"
+    "coupon_invalid": "Cuponul nu este valid"
   },
   "wallet": {
     "title": "Portofel",
@@ -266,7 +261,8 @@
     "billing_city": "Oraș",
     "billing_postal_code": "Cod poștal",
     "billing_region": "Regiune / stat",
-    "billing_region_placeholder": "Opțional"
+    "billing_region_placeholder": "Opțional",
+    "continue_payment_amount": "Continuă spre plată – {{amount}}"
   },
   "player": {
     "watch_party": "Premieră digitală",
@@ -460,5 +456,11 @@
     "tap_to_play": "Pornește reclama",
     "mute": "Oprește sonorul",
     "unmute": "Pornește sonorul"
+  },
+  "access_location": {
+    "title": "Unde beneficiezi de serviciile FILMOTECA.md?",
+    "moldova": "În Republica Moldova",
+    "outside": "În afara Republicii Moldova",
+    "legal": "Conform art. 111 din Codul fiscal al Republicii Moldova, locul prestării serviciilor digitale se determină în funcție de sediul, domiciliul sau reședința beneficiarului."
   }
 }

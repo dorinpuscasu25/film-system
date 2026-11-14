@@ -437,6 +437,8 @@ class ApiController extends Controller
             'country_name' => $countryNames->first(),
             'country_names' => $countryNames->all(),
             'imdb_rating' => $content->imdb_rating,
+            'imdb_id' => $content->imdb_id,
+            'imdb_rating_synced_at' => $content->imdb_rating_synced_at?->toIso8601String(),
             'platform_rating' => $content->platform_rating,
             'runtime_minutes' => $content->runtime_minutes,
             'age_rating' => $content->age_rating,
@@ -641,6 +643,14 @@ class ApiController extends Controller
                 ])
                 ->values(),
             'creator_ids' => $creators->pluck('id')->map(fn ($id) => (int) $id)->values(),
+            // One titular per title (unique in content_creator_assignments).
+            'rights_holder_id' => $creators->first()?->id,
+            'rights_holder' => ($holder = $creators->first()) ? [
+                'id' => $holder->id,
+                'name' => $holder->name,
+                'company_name' => $holder->company_name,
+                'is_vat_payer' => (bool) $holder->is_vat_payer,
+            ] : null,
             'created_at' => $content->created_at?->toIso8601String(),
             'updated_at' => $content->updated_at?->toIso8601String(),
         ];
@@ -1004,6 +1014,7 @@ class ApiController extends Controller
         return [
             'id' => $offer->id,
             'content_id' => $offer->content_id,
+            'price_plan_id' => $offer->price_plan_id,
             'content_slug' => $content?->slug,
             'content_title' => $contentTitle,
             'content_type' => $content?->type,

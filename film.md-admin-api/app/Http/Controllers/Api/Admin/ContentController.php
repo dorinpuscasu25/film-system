@@ -6,12 +6,14 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Requests\Admin\StoreContentRequest;
 use App\Http\Requests\Admin\UpdateContentRequest;
 use App\Models\Content;
+use App\Models\ContentCreator;
 use App\Models\ContentFormat;
 use App\Models\Offer;
 use App\Models\Taxonomy;
 use App\Services\AuditLogService;
 use App\Services\ContentScopeService;
 use App\Services\ContentSearchService;
+use App\Services\ImdbRatingService;
 use App\Services\StorefrontCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
@@ -24,6 +26,7 @@ class ContentController extends ApiController
         protected ContentScopeService $contentScope,
         protected AuditLogService $auditLog,
         protected StorefrontCacheService $storefrontCache,
+        protected ImdbRatingService $imdbRatings,
     ) {}
 
     public function index(): JsonResponse
@@ -83,6 +86,7 @@ class ContentController extends ApiController
     public function store(StoreContentRequest $request): JsonResponse
     {
         $content = Content::query()->create($request->normalizedPayload());
+        $this->imdbRatings->sync($content);
         $content->syncTaxonomyIds($request->taxonomyIds());
         $this->syncContentExtensions($content, collect($request->normalizedPayload()));
         Content::recalculateTaxonomyCounts();
@@ -110,6 +114,10 @@ class ContentController extends ApiController
     {
         $this->contentScope->assertCanAccessContent($request->user(), $content);
         $content->fill($request->normalizedPayload())->save();
+        // A new or removed IMDb title: fetch (or drop) its rating now rather than at the nightly sync.
+        if ($content->wasChanged('imdb_id')) {
+            $this->imdbRatings->sync($content);
+        }
         $content->syncTaxonomyIds($request->taxonomyIds());
         $this->syncContentExtensions($content, collect($request->normalizedPayload()));
         Content::recalculateTaxonomyCounts();
@@ -224,6 +232,14 @@ class ContentController extends ApiController
                 ['value' => 'main', 'label' => 'Main'],
                 ['value' => 'trailer', 'label' => 'Trailer'],
             ],
+            // Titulari to pick from in the film editor (inactive ones stay listed so a title
+            // keeps showing the holder it already has).
+            'rights_holders' => ContentCreator::query()
+                ->orderByDesc('is_active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'company_name', 'idno', 'is_vat_payer', 'is_active'])
+                ->map(fn (ContentCreator $holder) => $holder->only(['id', 'name', 'company_name', 'idno', 'is_vat_payer', 'is_active']))
+                ->values(),
         ];
     }
 
@@ -278,9 +294,8 @@ class ContentController extends ApiController
                 ]);
             });
 
-        $creatorIds = collect($payload->get('creator_ids', []))
-            ->mapWithKeys(fn (int $creatorId) => [$creatorId => ['role' => 'owner', 'is_primary' => false]])
-            ->all();
-        $content->creators()->sync($creatorIds);
+        if (($holder = $payload->get('rights_holder')) !== null) {
+            ContentCreator::assignTitle($content->id, $holder['id']);
+        }
     }
 }

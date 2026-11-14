@@ -9,6 +9,7 @@ import {
   GlobeIcon,
   HomeIcon,
   KeyIcon,
+  LayersIcon,
   MegaphoneIcon,
   MessageSquareTextIcon,
   PlayCircleIcon,
@@ -94,6 +95,12 @@ export function Sidebar() {
           label: "Setări prețuri",
           icon: DollarSignIcon,
           show: can("commerce.view_billing"),
+        },
+        {
+          id: "price-plans",
+          label: "Planuri de preț",
+          icon: LayersIcon,
+          show: can("commerce.view"),
         },
         {
           id: "coupons",

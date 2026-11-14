@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\ContentEntitlement;
 use App\Models\PaymentTopUp;
 use App\Services\BillingAddressService;
 use App\Services\PayFilmotecaPaymentService;
@@ -67,6 +68,8 @@ class StorefrontWalletTopUpController extends ApiController
                 'billing_address.address_line1' => ['required', 'string', 'min:3', 'max:255'],
                 'billing_address.address_line2' => ['nullable', 'string', 'max:255'],
                 'locale' => ['nullable', 'string', Rule::in(['ro', 'en', 'ru'])],
+                // Place of supply (art. 111 Cod fiscal). The web always asks; other clients may not yet.
+                'access_location' => ['nullable', 'string', Rule::in(ContentEntitlement::ACCESS_LOCATIONS)],
             ]);
         } catch (ValidationException $exception) {
             Log::channel('payments')->warning('PayFilmoteca wallet top-up request validation failed', [

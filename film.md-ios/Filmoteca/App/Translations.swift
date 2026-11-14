@@ -61,6 +61,7 @@ enum Translations {
         "Confirmare": ("Подтверждение", "Confirmation"),
         "Parola actuală": ("Текущий пароль", "Current password"),
         "Scrie {0}": ("Введите {0}", "Type {0}"),
+        "Înțeleg că pierd soldul și filmele cumpărate": ("Я понимаю, что потеряю баланс и купленные фильмы", "I understand I'll lose my balance and purchased films"),
         "Motiv (opțional)": ("Причина (необязательно)", "Reason (optional)"),
         "Ne ajută să ne îmbunătățim": ("Помогает нам стать лучше", "Helps us improve"),
         "Se șterge…": ("Удаление…", "Deleting…"),

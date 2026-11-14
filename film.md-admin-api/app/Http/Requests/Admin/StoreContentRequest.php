@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\Content;
 use App\Models\Taxonomy;
+use App\Services\ImdbRatingService;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
@@ -30,7 +31,12 @@ class StoreContentRequest extends FormRequest
             'country_code' => ['nullable', Rule::in(array_keys(Content::countryOptions()))],
             'country_codes' => ['nullable', 'array'],
             'country_codes.*' => ['nullable', Rule::in(array_keys(Content::countryOptions()))],
-            'imdb_rating' => ['nullable', 'numeric', 'between:0,10'],
+            // The rating is fetched from IMDb (ImdbRatingService); the editor only gives the title.
+            'imdb_id' => ['nullable', 'string', 'max:255', function (string $attribute, mixed $value, Closure $fail): void {
+                if (ImdbRatingService::parseImdbId((string) $value) === null) {
+                    $fail('Introdu linkul IMDb al titlului (ex. https://www.imdb.com/title/tt1234567/) sau doar ID-ul tt1234567.');
+                }
+            }],
             'platform_rating' => ['nullable', 'numeric', 'between:0,5'],
             'runtime_minutes' => ['nullable', 'integer', 'min:1', 'max:1200'],
             'age_rating' => ['nullable', Rule::in(Content::availableAgeRatings())],
@@ -122,6 +128,8 @@ class StoreContentRequest extends FormRequest
             'premiere_events.*.is_active' => ['sometimes', 'boolean'],
             'premiere_events.*.is_public' => ['sometimes', 'boolean'],
             'premiere_events.*.meta' => ['nullable', 'array'],
+            // The title's single rights holder ("titular"). creator_ids is the older list form.
+            'rights_holder_id' => ['nullable', 'integer', Rule::exists('content_creators', 'id')],
             'creator_ids' => ['nullable', 'array'],
             'creator_ids.*' => ['integer', Rule::exists('content_creators', 'id')],
             'is_featured' => ['sometimes', 'boolean'],
@@ -261,7 +269,7 @@ class StoreContentRequest extends FormRequest
             'release_year' => $this->filled('release_year') ? (int) $this->input('release_year') : null,
             'country_code' => $this->normalizedCountryCodes()->first(),
             'country_codes' => $this->normalizedCountryCodes()->all(),
-            'imdb_rating' => $this->filled('imdb_rating') ? (float) $this->input('imdb_rating') : null,
+            'imdb_id' => ImdbRatingService::parseImdbId($this->input('imdb_id')),
             'platform_rating' => $this->filled('platform_rating') ? (float) $this->input('platform_rating') : null,
             'runtime_minutes' => $this->filled('runtime_minutes') ? (int) $this->input('runtime_minutes') : null,
             'age_rating' => $this->filled('age_rating') ? (string) $this->input('age_rating') : null,
@@ -289,11 +297,8 @@ class StoreContentRequest extends FormRequest
             'rights_windows' => $this->normalizeRightsWindows(),
             'subtitle_tracks' => $this->normalizeSubtitleTracks(),
             'premiere_events' => $this->normalizePremiereEvents(),
-            'creator_ids' => collect($this->input('creator_ids', []))
-                ->map(fn (mixed $value): int => (int) $value)
-                ->unique()
-                ->values()
-                ->all(),
+            // Null = leave the titular as it is (a client that doesn't send it must not clear it).
+            'rights_holder' => $this->rightsHolderChange(),
             'is_featured' => $this->boolean('is_featured', false),
             'is_trending' => $this->boolean('is_trending', false),
             'is_free' => $this->boolean('is_free', false),
@@ -756,5 +761,23 @@ class StoreContentRequest extends FormRequest
         $value = trim((string) data_get($source, $path));
 
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * @return array{id: int|null}|null The titular to set (id null = none), or null when the
+     *                                  request says nothing about it.
+     */
+    protected function rightsHolderChange(): ?array
+    {
+        if ($this->exists('rights_holder_id')) {
+            return ['id' => $this->filled('rights_holder_id') ? (int) $this->input('rights_holder_id') : null];
+        }
+        if ($this->exists('creator_ids')) {
+            $first = collect($this->input('creator_ids', []))->first();
+
+            return ['id' => $first !== null ? (int) $first : null];
+        }
+
+        return null;
     }
 }

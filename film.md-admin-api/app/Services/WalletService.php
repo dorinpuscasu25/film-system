@@ -14,6 +14,7 @@ class WalletService
 {
     public function __construct(
         protected RegistrationCreditService $registrationCredit,
+        protected WalletFundingLedger $fundingLedger,
     ) {}
 
     public function ensureWallet(User $user, bool $grantRegistrationCredit = true): Wallet
@@ -53,7 +54,7 @@ class WalletService
                 ]);
 
                 if ($welcomeCredit > 0) {
-                    $this->recordTransaction(
+                    $bonus = $this->recordTransaction(
                         $wallet,
                         WalletTransaction::TYPE_WELCOME_BONUS,
                         $welcomeCredit,
@@ -66,6 +67,7 @@ class WalletService
                             'campaign' => $registrationCredit['campaign'],
                         ],
                     );
+                    $this->fundingLedger->openLot($bonus, 'platform');
                 }
 
                 return $wallet;
@@ -112,7 +114,7 @@ class WalletService
             ],
         ])->save();
 
-        return $this->recordTransaction(
+        $transaction = $this->recordTransaction(
             $wallet,
             $type,
             -$normalizedAmount,
@@ -130,6 +132,13 @@ class WalletService
             $reference,
             $newBalance,
         );
+        $this->fundingLedger->consume($transaction, [
+            'platform' => $funding['platform_amount'],
+            'apple' => $funding['apple_amount'],
+            'own' => $funding['own_amount'],
+        ]);
+
+        return $transaction;
     }
 
     public function credit(
@@ -165,7 +174,7 @@ class WalletService
             ],
         ])->save();
 
-        return $this->recordTransaction(
+        $transaction = $this->recordTransaction(
             $wallet,
             $type,
             $normalizedAmount,
@@ -180,6 +189,9 @@ class WalletService
             $reference,
             $newBalance,
         );
+        $this->fundingLedger->openLot($transaction, $fundingSource, $reference);
+
+        return $transaction;
     }
 
     public function debitOwnCredit(
@@ -240,7 +252,7 @@ class WalletService
             ],
         ])->save();
 
-        return $this->recordTransaction(
+        $transaction = $this->recordTransaction(
             $wallet,
             $type,
             -$normalizedAmount,
@@ -258,6 +270,20 @@ class WalletService
             $reference,
             $newBalance,
         );
+        // A refund/clawback takes back that very top-up or pack first, when it is still unspent.
+        $this->fundingLedger->consume($transaction, [$fundingSource => $normalizedAmount], $this->fundingReference($reference));
+
+        return $transaction;
+    }
+
+    /** The top-up or pack a refund/clawback refers to (a card refund references its PaymentRefund). */
+    private function fundingReference(?Model $reference): ?Model
+    {
+        if ($reference instanceof \App\Models\PaymentRefund) {
+            return $reference->topUp ?? null;
+        }
+
+        return $reference;
     }
 
     public function recordTransaction(

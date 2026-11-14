@@ -3,6 +3,7 @@
 use App\Models\AdCreative;
 use App\Models\AdEvent;
 use App\Models\BackupRun;
+use App\Models\Content;
 use App\Services\Backups\BackupManager;
 use App\Services\Backups\BackupRestorer;
 use App\Services\Backups\BackupRunner;
@@ -12,10 +13,13 @@ use App\Services\AnalyticsBufferService;
 use App\Services\BunnyStatsService;
 use App\Services\ContentSearchService;
 use App\Services\FormatCleanupService;
+use App\Services\FundingLedgerBackfill;
+use App\Services\ImdbRatingService;
 use App\Services\MediaUploadService;
 use App\Services\MediaUrlMigrationService;
 use App\Services\PayFilmotecaPaymentService;
 use App\Services\RightsReportingService;
+use App\Services\StorefrontCacheService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -83,6 +87,46 @@ Artisan::command('bunny:pull-stats {date? : YYYY-MM-DD, defaults to yesterday}',
 
     return self::SUCCESS;
 })->purpose('Pull daily Bunny stats (Stream + CDN + Storage) and store snapshots');
+
+Artisan::command('imdb:sync-ratings {--slug= : Only this title}', function (ImdbRatingService $imdb, ContentSearchService $search, StorefrontCacheService $storefrontCache) {
+    if (! $imdb->isConfigured()) {
+        $this->warn('OMDB_API_KEY is not set; IMDb ratings were not synced.');
+
+        return 1;
+    }
+
+    $query = Content::query()->whereNotNull('imdb_id')->orderBy('id');
+    if ($slug = $this->option('slug')) {
+        $query->where('slug', $slug);
+    }
+
+    $changed = [];
+    $checked = 0;
+    foreach ($query->cursor() as $content) {
+        $checked++;
+        if ($imdb->sync($content)) {
+            $changed[] = $content->id;
+            $this->line(sprintf('%s: %s', $content->slug, $content->imdb_rating ?? '—'));
+        }
+    }
+
+    if ($changed !== []) {
+        $search->syncContentIds($changed);
+        $storefrontCache->clear();
+    }
+
+    $this->info(sprintf('IMDb ratings: %d checked, %d changed.', $checked, count($changed)));
+
+    return 0;
+})->purpose('Refresh IMDb ratings (from OMDb) for every title with an IMDb id');
+
+Artisan::command('reporting:rebuild-funding {--all-sales : Recalculate every sale, not only those from before v2}', function (FundingLedgerBackfill $backfill) {
+    $lots = $backfill->rebuildLots();
+    $this->info(sprintf('Funding ledger: %d wallets replayed, %d lots, %d allocations.', $lots['wallets'], $lots['lots'], $lots['allocations']));
+
+    $sales = $backfill->recalculateSales((bool) $this->option('all-sales'));
+    $this->info(sprintf('Reporting: %d sales recalculated with the contract formula (%s).', $sales['recalculated'], RightsReportingService::CALCULATION_VERSION));
+})->purpose('Rebuild wallet funding lots from history and recalculate reporting sales (contract cap. 6)');
 
 Artisan::command('content:cleanup-unused-formats {--days=30} {--delete-remote}', function (FormatCleanupService $cleanup) {
     $result = $cleanup->run((int) $this->option('days'), (bool) $this->option('delete-remote'));
@@ -309,6 +353,7 @@ Schedule::command('payments:poll-topups --limit=50')->everyMinute()->withoutOver
 Schedule::command('analytics:recalculate-costs')->hourly();
 Schedule::command('bunny:pull-stats')->dailyAt('01:30');
 Schedule::command('content:cleanup-unused-formats --days=30')->weekly()->sundays()->at('02:00');
+Schedule::command('imdb:sync-ratings')->dailyAt('05:15')->withoutOverlapping();
 Schedule::command('backups:schedule')->everyMinute()->withoutOverlapping();
 Schedule::command('backups:monitor')->hourly();
 Schedule::command('backups:prune')->dailyAt('04:30');

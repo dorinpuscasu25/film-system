@@ -23,7 +23,7 @@ class StorefrontPurchaseService
     /**
      * @return array{wallet: Wallet, transaction: WalletTransaction|null, entitlement: ContentEntitlement, already_owned: bool}
      */
-    public function purchase(User $user, Offer $offer, ?string $accessLocation = null): array
+    public function purchase(User $user, Offer $offer, ?string $accessLocation = null, string $salesChannel = 'web'): array
     {
         $accessLocation = in_array($accessLocation, ContentEntitlement::ACCESS_LOCATIONS, true)
             ? $accessLocation
@@ -46,7 +46,7 @@ class StorefrontPurchaseService
 
         $this->wallets->ensureWallet($user);
 
-        return DB::transaction(function () use ($user, $offer, $content, $accessLocation): array {
+        return DB::transaction(function () use ($user, $offer, $content, $accessLocation, $salesChannel): array {
             $wallet = $this->wallets->lockWallet($user);
             $lockedOffer = Offer::query()
                 ->with('content')
@@ -134,6 +134,7 @@ class StorefrontPurchaseService
                     'content_slug' => $content->slug,
                     'offer_name' => $lockedOffer->name,
                     'playback_url' => $lockedOffer->playback_url,
+                    'sales_channel' => $salesChannel,
                 ],
             ]);
 

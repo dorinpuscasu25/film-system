@@ -7,7 +7,8 @@ import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPublicPlatformSettings } from '../lib/session';
-import type { StorefrontBillingAddressPayload } from '../lib/session';
+import type { StorefrontAccessLocation, StorefrontBillingAddressPayload } from '../lib/session';
+import { AccessLocationStep } from './AccessLocationStep';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
 const TOP_UP_RETURN_CONTEXT_STORAGE_KEY = 'film_topup_return_context';
@@ -52,6 +53,8 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
   const [termsUrl, setTermsUrl] = useState('/page/termeni-si-conditii');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAccessLocationStepOpen, setIsAccessLocationStepOpen] = useState(false);
+  const [accessLocation, setAccessLocation] = useState<StorefrontAccessLocation | null>(null);
 
   const quickAmounts = [200, 300, 400, 500];
   const amountValue = Number(amount);
@@ -108,6 +111,8 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
     setIsEditingBillingAddress(!billingAddress);
     setBillingTouched(false);
     setErrorMessage(null);
+    setIsAccessLocationStepOpen(false);
+    setAccessLocation(null);
 
     fetchPublicPlatformSettings(currentLanguage.code)
       .then((settings) => {
@@ -138,6 +143,16 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       return;
     }
 
+    // Last step before the payment page: where the services are used (art. 111 Cod fiscal).
+    setErrorMessage(null);
+    setIsAccessLocationStepOpen(true);
+  };
+
+  const startPayment = async () => {
+    if (!accessLocation || !normalizedPhone) {
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -145,6 +160,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       const topUp = await addFunds(amountValue, {
         phone: normalizedPhone,
         billingAddress: normalizeBillingAddress(billingDraft),
+        accessLocation,
       });
 
       if (!topUp.payment_url) {
@@ -160,6 +176,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       window.location.href = topUp.payment_url;
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t('wallet.payment_start_failed'));
+      setIsAccessLocationStepOpen(false);
       setIsSubmitting(false);
     }
   };
@@ -511,6 +528,16 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
               </>
             )}
           </motion.div>
+
+          <AccessLocationStep
+            isOpen={isAccessLocationStepOpen && !isKidsProfile}
+            value={accessLocation}
+            onChange={setAccessLocation}
+            onBack={() => setIsAccessLocationStepOpen(false)}
+            onConfirm={() => void startPayment()}
+            isProcessing={isSubmitting}
+            confirmLabel={t('wallet.continue_payment_amount', { amount: `${currency} ${amountValue.toFixed(2)}` })}
+          />
         </div>
       }
     </AnimatePresence>);

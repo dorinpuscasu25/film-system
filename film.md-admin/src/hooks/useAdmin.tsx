@@ -16,6 +16,7 @@ export type AdminPage =
   | 'billing'
   | 'reporting'
   | 'price-settings'
+  | 'price-plans'
   | 'coupons'
   | 'geo-stats'
   | 'ads'
@@ -51,6 +52,7 @@ export function adminPathForPage(page: AdminPage, contentId: string | null = nul
     billing: '/billing',
     reporting: '/reporting',
     'price-settings': '/prices',
+    'price-plans': '/price-plans',
     coupons: '/coupons',
     'geo-stats': '/geo-stats',
     ads: '/ads',
@@ -87,11 +89,12 @@ function defaultBreadcrumb(page: AdminPage): string[] {
     billing: 'Costuri & venituri',
     reporting: 'Raportare',
     'price-settings': 'Setări prețuri',
+    'price-plans': 'Planuri de preț',
     coupons: 'Cupoane',
     'geo-stats': 'Distribuție geografică',
     ads: 'Reclame',
     'watch-parties': 'Watch Parties',
-    'content-creators': 'Creatori',
+    'content-creators': 'Titulari',
     settings: 'Setări',
     'home-curation': 'Pagina principală',
     seo: 'SEO',
@@ -144,6 +147,7 @@ export function canAccessAdminPage(page: AdminPage, user: AdminUser | null): boo
     billing: 'commerce.view_billing',
     reporting: 'content.view_financials',
     'price-settings': 'commerce.view_billing',
+    'price-plans': 'commerce.view',
     coupons: 'commerce.view',
     'geo-stats': 'commerce.view_billing',
     ads: 'advertising.view',

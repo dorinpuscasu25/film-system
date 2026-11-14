@@ -20,6 +20,7 @@ use App\Services\PayFilmotecaPaymentService;
 use App\Services\PlaybackAccessService;
 use App\Services\StorefrontPurchaseService;
 use App\Services\WalletService;
+use App\Support\SalesChannel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -110,7 +111,7 @@ class StorefrontController extends ApiController
             }
         }
 
-        $purchase = $this->purchases->purchase($user, $offer, $validated['access_location'] ?? null);
+        $purchase = $this->purchases->purchase($user, $offer, $validated['access_location'] ?? null, SalesChannel::fromRequest($request));
         $libraryItem = $this->libraryItemData($purchase['entitlement'], $locale);
 
         return response()->json([

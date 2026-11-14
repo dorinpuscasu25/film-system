@@ -33,10 +33,17 @@ import {
   HomeCurationSection,
   OfferIndexResponse,
   OfferPayload,
+  PricePlan,
+  PricePlanApplyResult,
+  PricePlanIndexResponse,
+  PricePlanPayload,
+  PricePlanPreview,
+  PricePlanSaveResult,
   PaymentRefundPayload,
   PaymentRefundResponse,
   PaymentTopUpsResponse,
   PlaybackOpsResponse,
+  RightsHolder,
   TaxonomyIndexResponse,
   TaxonomyPayload,
 } from "../types";
@@ -742,6 +749,34 @@ export const adminApi = {
     return request<void>("DELETE", `/admin/offers/${offerId}`);
   },
 
+  getPricePlans() {
+    return request<PricePlanIndexResponse>("GET", "/admin/price-plans");
+  },
+
+  createPricePlan(payload: PricePlanPayload) {
+    return request<{ plan: PricePlan }>("POST", "/admin/price-plans", { data: payload });
+  },
+
+  updatePricePlan(planId: number, payload: PricePlanPayload) {
+    return request<{ plan: PricePlan; result: PricePlanSaveResult }>("PATCH", `/admin/price-plans/${planId}`, {
+      data: payload,
+    });
+  },
+
+  previewPricePlan(planId: number, payload: PricePlanPayload) {
+    return request<PricePlanPreview>("POST", `/admin/price-plans/${planId}/preview`, { data: payload });
+  },
+
+  applyPricePlan(planId: number, contentIds: number[]) {
+    return request<{ plan: PricePlan; results: PricePlanApplyResult[] }>("POST", `/admin/price-plans/${planId}/apply`, {
+      data: { content_ids: contentIds },
+    });
+  },
+
+  deletePricePlan(planId: number) {
+    return request<void>("DELETE", `/admin/price-plans/${planId}`);
+  },
+
   getUsers() {
     return request<{ users: AdminUser[]; invitations: AdminInvitation[]; content_options: AdminUserContentOption[] }>(
       "GET",
@@ -912,21 +947,9 @@ export const adminApi = {
     return request<void>("DELETE", `/admin/coupons/${id}`);
   },
 
-  // === Content creators ===
+  // === Titulari (rights holders; stored as content creators) ===
   getContentCreators() {
-    return request<{
-      items: Array<{
-        id: number;
-        name: string;
-        email: string | null;
-        company_name: string | null;
-        platform_fee_percent: number;
-        is_active: boolean;
-        user: { id: number; name: string; email: string } | null;
-        content_count: number;
-        contents: Array<{ id: number; title: string }>;
-      }>;
-    }>("GET", "/admin/content-creators");
+    return request<{ items: RightsHolder[] }>("GET", "/admin/content-creators");
   },
   createContentCreator(payload: Record<string, unknown>) {
     return request<{ creator: unknown }>("POST", "/admin/content-creators", { data: payload });

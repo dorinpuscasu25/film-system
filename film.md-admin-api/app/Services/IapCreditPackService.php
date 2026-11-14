@@ -39,9 +39,15 @@ class IapCreditPackService
      */
     public function packs(): array
     {
+        return $this->settings()['packs'];
+    }
+
+    /** The full normalized catalog: packs plus the commission and conversion-cost rates. */
+    public function settings(): array
+    {
         $settings = PlatformSetting::getValue(self::SETTINGS_KEY, []);
 
-        return $this->normalizeSettings(is_array($settings) ? $settings : [])['packs'];
+        return $this->normalizeSettings(is_array($settings) ? $settings : []);
     }
 
     public function creditsForProduct(string $productId): ?float

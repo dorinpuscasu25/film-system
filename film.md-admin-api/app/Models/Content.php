@@ -26,6 +26,8 @@ use Spatie\Translatable\HasTranslations;
     'country_code',
     'country_codes',
     'imdb_rating',
+    'imdb_id',
+    'imdb_rating_synced_at',
     'platform_rating',
     'runtime_minutes',
     'age_rating',
@@ -57,14 +59,21 @@ class Content extends Model
     use HasTranslations;
 
     public const TYPE_MOVIE = 'movie';
+
     public const TYPE_DOCUMENTARY = 'documentary';
+
     public const TYPE_SHORT = 'short';
+
     public const TYPE_ANIMATION = 'animation';
+
     public const TYPE_SERIES = 'series';
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_READY = 'ready';
+
     public const STATUS_PUBLISHED = 'published';
+
     public const STATUS_ARCHIVED = 'archived';
 
     public const DEFAULT_CURRENCY = 'MDL';
@@ -338,6 +347,28 @@ class Content extends Model
             });
     }
 
+    /** True when at least one episode of a series has playable video attached. */
+    public function hasSeriesEpisodePlayback(): bool
+    {
+        if ($this->type !== self::TYPE_SERIES) {
+            return false;
+        }
+
+        foreach ($this->seasons ?? [] as $season) {
+            foreach ((array) data_get($season, 'episodes', []) as $episode) {
+                $libraryId = trim((string) data_get($episode, 'bunny_library_id', ''));
+                $videoId = trim((string) data_get($episode, 'bunny_video_id', ''));
+                $videoUrl = trim((string) data_get($episode, 'video_url', ''));
+
+                if (($libraryId !== '' && $videoId !== '') || $videoUrl !== '') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public function scopePublished($query)
     {
         return $query->where('status', self::STATUS_PUBLISHED);
@@ -349,6 +380,7 @@ class Content extends Model
             'release_year' => 'integer',
             'country_codes' => 'array',
             'imdb_rating' => 'float',
+            'imdb_rating_synced_at' => 'datetime',
             'platform_rating' => 'float',
             'runtime_minutes' => 'integer',
             'preview_images' => 'array',

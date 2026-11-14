@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 
 #[Fillable([
     'content_id',
+    'price_plan_id',
     'name',
     'offer_type',
     'quality',
@@ -25,12 +26,19 @@ use Illuminate\Support\Carbon;
 class Offer extends Model
 {
     public const TYPE_FREE = 'free';
+
     public const TYPE_RENTAL = 'rental';
+
     public const TYPE_LIFETIME = 'lifetime';
 
     public function content(): BelongsTo
     {
         return $this->belongsTo(Content::class);
+    }
+
+    public function pricePlan(): BelongsTo
+    {
+        return $this->belongsTo(PricePlan::class);
     }
 
     public function entitlements(): HasMany
@@ -56,6 +64,19 @@ class Offer extends Model
         ];
     }
 
+    public static function defaultName(string $offerType, string $quality, ?int $rentalDays): string
+    {
+        if ($offerType === self::TYPE_FREE) {
+            return "Free {$quality}";
+        }
+
+        if ($offerType === self::TYPE_LIFETIME) {
+            return "Forever {$quality}";
+        }
+
+        return "{$rentalDays} days {$quality}";
+    }
+
     public function isCurrentlyAvailable(?Carbon $now = null): bool
     {
         $now ??= now();
@@ -78,6 +99,7 @@ class Offer extends Model
     protected function casts(): array
     {
         return [
+            'price_plan_id' => 'integer',
             'price_amount' => 'float',
             'rental_days' => 'integer',
             'is_active' => 'boolean',
