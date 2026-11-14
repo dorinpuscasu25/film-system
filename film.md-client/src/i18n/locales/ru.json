@@ -263,6 +263,10 @@
     "billing_postal_code": "Почтовый индекс",
     "billing_region": "Регион / штат",
     "billing_region_placeholder": "Необязательно",
+    "add_billing_address": "Добавить адрес",
+    "billing_address_empty": "Вы ещё не сохранили платёжный адрес.",
+    "billing_address_saved": "Платёжный адрес сохранён.",
+    "billing_address_save_failed": "Не удалось сохранить платёжный адрес.",
     "continue_payment_amount": "Перейти к оплате – {{amount}}"
   },
   "player": {

@@ -282,7 +282,7 @@ private fun metaLine(content: ContentDetailDto): String {
         content.releaseYear?.let { add(it.toString()) }
         content.runtimeMinutes?.let { add("$it min") }
         content.ageRating?.let { add(it) }
-        content.imdbRating?.let { add("IMDb $it") }
+        content.imdbRating?.takeIf { it > 0 }?.let { add("IMDb %.1f".format(java.util.Locale.US, it)) }
         if (content.genres.isNotEmpty()) add(content.genres.take(3).joinToString(", "))
     }
     return parts.joinToString("  ·  ")

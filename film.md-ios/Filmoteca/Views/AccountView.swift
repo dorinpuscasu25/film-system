@@ -28,6 +28,7 @@ struct AccountView: View {
     @State private var selectedContent: Content?
     @State private var accountSettingsPresented = false
     @State private var passwordSettingsPresented = false
+    @State private var billingAddressPresented = false
     @State private var deleteAccountPresented = false
     @State private var cmsPage: CmsPageRoute?
     @State private var isDashboardLoading = false
@@ -62,6 +63,7 @@ struct AccountView: View {
         }
         .sheet(isPresented: $accountSettingsPresented) { AccountSettingsSheet() }
         .sheet(isPresented: $passwordSettingsPresented) { PasswordSettingsSheet() }
+        .sheet(isPresented: $billingAddressPresented) { BillingAddressSheet() }
         .sheet(isPresented: $deleteAccountPresented) { DeleteAccountSheet() }
         .sheet(isPresented: $transactionsPresented) { transactionsSheet }
         .sheet(item: $cmsPage) { route in CmsPageView(slug: route.slug, fallbackTitle: route.title) }
@@ -320,6 +322,10 @@ struct AccountView: View {
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                 accountRow(app.tr("Schimbă parola"), icon: "lock.rotation", action: { passwordSettingsPresented = true })
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
+                if !app.isKidsProfile {
+                    accountRow(app.tr("Adresă de facturare"), icon: "mappin.and.ellipse", action: { billingAddressPresented = true })
+                    Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
+                }
                 accountRow(app.tr("Gestionează profilurile"), icon: "person.2", action: { app.profilePickerPresented = true })
                 Divider().overlay(FilmotecaTheme.hairline).padding(.leading, 59)
                 accountRow(app.tr("Conectează televizorul"), icon: "tv", action: { tvPairingPresented = true })
@@ -653,6 +659,7 @@ struct AccountView: View {
         switch icon {
         case "person.text.rectangle": return .blue
         case "lock.rotation": return FilmotecaTheme.crimson
+        case "mappin.and.ellipse": return .orange
         case "person.2": return .indigo
         case "tv": return .teal
         case "globe": return .blue
@@ -924,7 +931,110 @@ private struct PasswordSettingsSheet: View {
 }
 
 
+/// The billing address ("locul livrării serviciilor"), the same one the web asks for before a payment.
+private struct BillingAddressSheet: View {
+    @Environment(FilmotecaModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var fullName = ""
+    @State private var countryCode = "MD"
+    @State private var addressLine1 = ""
+    @State private var addressLine2 = ""
+    @State private var city = ""
+    @State private var postalCode = ""
+    @State private var region = ""
+    @State private var isSaving = false
+    @State private var error: String?
+
+    private var countries: [(code: String, name: String)] {
+        let locale = Locale(identifier: app.locale.rawValue)
+        return Locale.Region.isoRegions
+            .map(\.identifier)
+            .filter { $0.count == 2 && $0.allSatisfy(\.isLetter) }
+            .map { (code: $0, name: locale.localizedString(forRegionCode: $0) ?? $0) }
+            .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+    }
+
+    private var isValid: Bool {
+        fullName.trimmed.count >= 2 && city.trimmed.count >= 2 && postalCode.trimmed.count >= 2
+            && addressLine1.trimmed.count >= 3 && countryCode.count == 2
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(app.tr("Nume pentru facturare"), text: $fullName).textContentType(.name)
+                    Picker(app.tr("Țară"), selection: $countryCode) {
+                        ForEach(countries, id: \.code) { country in Text(country.name).tag(country.code) }
+                    }
+                } footer: {
+                    Text(app.tr("Locul livrării serviciilor. Folosită pentru facturile plăților tale."))
+                }
+                Section(app.tr("Adresă")) {
+                    TextField(app.tr("Stradă și număr"), text: $addressLine1).textContentType(.streetAddressLine1)
+                    TextField(app.tr("Apartament, bloc, scară (opțional)"), text: $addressLine2).textContentType(.streetAddressLine2)
+                    TextField(app.tr("Oraș"), text: $city).textContentType(.addressCity)
+                    TextField(app.tr("Cod poștal"), text: $postalCode)
+                        .textContentType(.postalCode)
+                        .textInputAutocapitalization(.characters)
+                    TextField(app.tr("Regiune / stat (opțional)"), text: $region).textContentType(.addressState)
+                }
+                if let error { Section { Text(error).font(.footnote).foregroundStyle(.red) } }
+            }
+            .scrollContentBackground(.hidden)
+            .background(FilmotecaTheme.background)
+            .navigationTitle(app.tr("Adresă de facturare"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(app.tr("Anulează")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isSaving ? app.tr("Se salvează…") : app.tr("Salvează")) { Task { await save() } }
+                        .disabled(isSaving || !isValid)
+                }
+            }
+            .onAppear(perform: fill)
+        }
+    }
+
+    private func fill() {
+        guard let address = app.account?.billingAddress else {
+            fullName = app.user?.name ?? ""
+            return
+        }
+        fullName = address.fullName
+        countryCode = address.countryCode.uppercased()
+        addressLine1 = address.addressLine1
+        addressLine2 = address.addressLine2 ?? ""
+        city = address.city
+        postalCode = address.postalCode
+        region = address.administrativeArea ?? ""
+    }
+
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+        error = nil
+        do {
+            _ = try await app.container.sessionRepository.updateBillingAddress(BillingAddress(
+                id: app.account?.billingAddress?.id,
+                fullName: fullName.trimmed,
+                countryCode: countryCode.uppercased(),
+                administrativeArea: region.nilIfBlank,
+                city: city.trimmed,
+                postalCode: postalCode.trimmed.uppercased(),
+                addressLine1: addressLine1.trimmed,
+                addressLine2: addressLine2.nilIfBlank
+            ))
+            await app.refreshAccount()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
 private extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
     var nilIfBlank: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed

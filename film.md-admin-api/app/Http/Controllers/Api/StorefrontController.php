@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\WatchProgress;
 use App\Services\AccountProfileService;
+use App\Services\BillingAddressService;
 use App\Services\BunnyPlaylistResolver;
 use App\Services\BunnyTokenService;
 use App\Services\IpGeoLocationService;
@@ -75,6 +76,17 @@ class StorefrontController extends ApiController
             'transactions' => $transactionHistory,
             'library' => $library,
             'favorites_by_profile' => $this->favoriteMapData($user->profiles),
+        ]);
+    }
+
+    /** The account's billing address, edited from the profile (web and app). */
+    public function updateBillingAddress(Request $request, BillingAddressService $billingAddresses): JsonResponse
+    {
+        $validated = $request->validate(BillingAddressService::rules());
+        $address = $billingAddresses->upsertDefault($request->user(), $validated);
+
+        return response()->json([
+            'billing_address' => $this->billingAddressData($address),
         ]);
     }
 

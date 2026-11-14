@@ -829,11 +829,13 @@ export function MovieDetailPage() {
             ) : null}
 
             <div className="mb-5 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-              <div className="flex items-center space-x-1 rounded-full bg-surfaceHover px-3 py-1 text-sm">
-                <StarIcon className="h-4 w-4 fill-current text-accentGold" />
-                <span className="font-bold text-white">{movie.rating.toFixed(1)}</span>
-                <span className="text-gray-400">IMDb</span>
-              </div>
+              {movie.rating > 0 ? (
+                <div className="flex items-center space-x-1 rounded-full bg-surfaceHover px-3 py-1 text-sm">
+                  <StarIcon className="h-4 w-4 fill-current text-accentGold" />
+                  <span className="font-bold text-white">{movie.rating.toFixed(1)}</span>
+                  <span className="text-gray-400">IMDb</span>
+                </div>
+              ) : null}
               <span className="text-gray-300">{movie.year}</span>
               <span className="text-gray-500">•</span>
               <span className="text-gray-300">{typeLabel}</span>

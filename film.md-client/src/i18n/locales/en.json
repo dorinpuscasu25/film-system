@@ -261,6 +261,10 @@
     "billing_postal_code": "Postal code",
     "billing_region": "Region / state",
     "billing_region_placeholder": "Optional",
+    "add_billing_address": "Add address",
+    "billing_address_empty": "You have not saved a billing address yet.",
+    "billing_address_saved": "Billing address saved.",
+    "billing_address_save_failed": "We could not save the billing address.",
     "continue_payment_amount": "Continue to payment – {{amount}}"
   },
   "player": {

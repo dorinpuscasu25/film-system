@@ -351,8 +351,7 @@ struct AuthResponse: Codable { let token: String; let user: User }
 struct UserResponse: Codable { let user: User }
 struct RegistrationResponse: Codable { let message: String; let email: String; let expiresAt: String?; enum CodingKeys: String, CodingKey { case message, email; case expiresAt = "expires_at" } }
 
-/// Still used by `AccountResponse.billingAddress` (general account data) even though the
-/// web-checkout top-up flow that used to collect it on iOS is gone.
+/// The account's billing address (`AccountResponse.billingAddress`), editable from Setări.
 struct BillingAddress: Codable, Hashable {
     let id: StringOrInt?
     var fullName: String
@@ -374,6 +373,10 @@ struct BillingAddress: Codable, Hashable {
     }
 }
 
+struct BillingAddressResponse: Codable {
+    let billingAddress: BillingAddress
+    enum CodingKeys: String, CodingKey { case billingAddress = "billing_address" }
+}
 
 struct LibraryItem: Codable, Identifiable {
     let idValue: StringOrInt; let contentSlug: String; let contentTitle: String; let contentType: String; let posterURL: String?; let backdropURL: String?; let ageRating: String?; let accessType: String; let quality: String?; let isActive: Bool; let currency: String; let priceAmount: Double; let grantedAt: String?; let expiresAt: String?

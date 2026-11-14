@@ -38,6 +38,7 @@ protocol SessionRepositoryProtocol {
     func account(locale: LocaleCode) async throws -> AccountResponse
     func updateAccount(name: String, email: String, locale: LocaleCode) async throws -> User
     func updatePassword(currentPassword: String, password: String) async throws
+    func updateBillingAddress(_ address: BillingAddress) async throws -> BillingAddress
     func deleteAccount(currentPassword: String, reason: String?) async throws -> AccountDeletionResponse
     /// Redeems a StoreKit 2 signed transaction's `jwsRepresentation` for wallet credit.
     func appleIapPacks() async throws -> [AppleIapPack]

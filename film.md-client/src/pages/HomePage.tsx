@@ -294,7 +294,9 @@ export function HomePage() {
             ) : null}
 
             <div className="mb-6 flex flex-wrap items-center gap-4 text-sm font-medium text-gray-300 md:text-base min-[2200px]:text-lg">
-              <span className="font-bold text-accentGold drop-shadow">★ {featuredMovie.rating.toFixed(1)}</span>
+              {featuredMovie.rating > 0 ? (
+                <span className="font-bold text-accentGold drop-shadow">★ {featuredMovie.rating.toFixed(1)}</span>
+              ) : null}
               <span>{featuredMovie.year}</span>
               {featuredGenres.length > 0 ? <span>{featuredGenres.join(" • ")}</span> : null}
               {featuredMovie.offers?.[0]?.quality ? (

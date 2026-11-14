@@ -593,6 +593,13 @@ export async function createStorefrontWalletTopUp(payload: {
   }, undefined, true);
 }
 
+export async function updateStorefrontBillingAddress(payload: StorefrontBillingAddressPayload) {
+  return requestJson<{ billing_address: StorefrontBillingAddressPayload }>("/storefront/billing-address", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  }, undefined, true);
+}
+
 interface TopUpLookupOptions {
   orderId?: string | null;
   checkoutId?: string | null;

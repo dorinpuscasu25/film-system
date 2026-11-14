@@ -128,9 +128,11 @@ export function MovieCard({ movie, fluid = false }: MovieCardProps) {
               </>
             ) : null}
           </div>
-          <div className="mb-3">
-            <StarRating rating={movie.rating} size="sm" />
-          </div>
+          {movie.rating > 0 ? (
+            <div className="mb-3">
+              <StarRating rating={movie.rating} size="sm" />
+            </div>
+          ) : null}
           <button className="w-full bg-accent hover:bg-red-700 text-white py-1.5 rounded flex items-center justify-center space-x-1 transition-colors">
             <PlayIcon className="w-4 h-4 fill-current" />
             <span className="text-xs font-semibold uppercase tracking-wider">

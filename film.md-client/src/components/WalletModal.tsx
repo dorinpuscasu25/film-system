@@ -9,17 +9,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchPublicPlatformSettings } from '../lib/session';
 import type { StorefrontAccessLocation, StorefrontBillingAddressPayload } from '../lib/session';
 import { AccessLocationStep } from './AccessLocationStep';
+import {
+  BillingAddressFields,
+  emptyBillingAddress,
+  formatBillingAddress,
+  hasCompleteBillingAddress,
+  normalizeBillingAddress,
+} from './BillingAddressForm';
 
 const PENDING_TOP_UP_STORAGE_KEY = 'film_pending_topup_id';
 const TOP_UP_RETURN_CONTEXT_STORAGE_KEY = 'film_topup_return_context';
 const DEFAULT_COUNTRY: CountryCode = 'MD';
-const REQUIRED_BILLING_FIELDS: Array<keyof StorefrontBillingAddressPayload> = [
-  'full_name',
-  'country_code',
-  'city',
-  'postal_code',
-  'address_line1',
-];
 
 function countryFlag(country: CountryCode): string {
   return String.fromCodePoint(
@@ -380,96 +380,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                     <p>{formatBillingAddress(billingAddress)}</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-medium text-gray-400">{t('wallet.billing_full_name')}</span>
-                      <input
-                        type="text"
-                        value={billingDraft.full_name}
-                        onChange={(event) => updateBillingAddress('full_name', event.target.value)}
-                        className={`w-full rounded-lg border bg-surface px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-accent ${
-                          isBillingFieldInvalid(billingDraft, 'full_name', billingTouched) ? 'border-red-500/50' : 'border-white/10'
-                        }`}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-medium text-gray-400">{t('wallet.billing_country')}</span>
-                      <select
-                        value={billingDraft.country_code}
-                        onChange={(event) => updateBillingAddress('country_code', event.target.value)}
-                        className={`w-full rounded-lg border bg-surface px-3 py-2.5 text-sm text-white outline-none transition focus:border-accent ${
-                          isBillingFieldInvalid(billingDraft, 'country_code', billingTouched) ? 'border-red-500/50' : 'border-white/10'
-                        }`}
-                      >
-                        {countryOptions.map(({ country, name }) => (
-                          <option key={country} value={country} className="bg-surface text-white">
-                            {name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-medium text-gray-400">{t('wallet.billing_address_line1')}</span>
-                      <input
-                        type="text"
-                        value={billingDraft.address_line1}
-                        onChange={(event) => updateBillingAddress('address_line1', event.target.value)}
-                        placeholder={t('wallet.billing_address_line1_placeholder')}
-                        className={`w-full rounded-lg border bg-surface px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-accent ${
-                          isBillingFieldInvalid(billingDraft, 'address_line1', billingTouched) ? 'border-red-500/50' : 'border-white/10'
-                        }`}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-medium text-gray-400">{t('wallet.billing_address_line2')}</span>
-                      <input
-                        type="text"
-                        value={billingDraft.address_line2 ?? ''}
-                        onChange={(event) => updateBillingAddress('address_line2', event.target.value)}
-                        placeholder={t('wallet.billing_address_line2_placeholder')}
-                        className="w-full rounded-lg border border-white/10 bg-surface px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-accent"
-                      />
-                    </label>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-medium text-gray-400">{t('wallet.billing_city')}</span>
-                        <input
-                          type="text"
-                          value={billingDraft.city}
-                          onChange={(event) => updateBillingAddress('city', event.target.value)}
-                          className={`w-full rounded-lg border bg-surface px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-accent ${
-                            isBillingFieldInvalid(billingDraft, 'city', billingTouched) ? 'border-red-500/50' : 'border-white/10'
-                          }`}
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-medium text-gray-400">{t('wallet.billing_postal_code')}</span>
-                        <input
-                          type="text"
-                          value={billingDraft.postal_code}
-                          onChange={(event) => updateBillingAddress('postal_code', event.target.value)}
-                          className={`w-full rounded-lg border bg-surface px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-accent ${
-                            isBillingFieldInvalid(billingDraft, 'postal_code', billingTouched) ? 'border-red-500/50' : 'border-white/10'
-                          }`}
-                        />
-                      </label>
-                    </div>
-
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-medium text-gray-400">{t('wallet.billing_region')}</span>
-                      <input
-                        type="text"
-                        value={billingDraft.administrative_area ?? ''}
-                        onChange={(event) => updateBillingAddress('administrative_area', event.target.value)}
-                        placeholder={t('wallet.billing_region_placeholder')}
-                        className="w-full rounded-lg border border-white/10 bg-surface px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-accent"
-                      />
-                    </label>
-                  </div>
+                  <BillingAddressFields value={billingDraft} onChange={updateBillingAddress} touched={billingTouched} />
                 )}
               </div>
 
@@ -542,68 +453,6 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       }
     </AnimatePresence>);
 
-}
-
-function emptyBillingAddress(fullName = ''): StorefrontBillingAddressPayload {
-  return {
-    full_name: fullName,
-    country_code: DEFAULT_COUNTRY,
-    administrative_area: '',
-    city: '',
-    postal_code: '',
-    address_line1: '',
-    address_line2: '',
-  };
-}
-
-function hasCompleteBillingAddress(address: StorefrontBillingAddressPayload): boolean {
-  return REQUIRED_BILLING_FIELDS.every((field) => String(address[field] ?? '').trim().length >= 2)
-    && String(address.address_line1 ?? '').trim().length >= 3
-    && /^[A-Za-z]{2}$/.test(String(address.country_code ?? ''));
-}
-
-function isBillingFieldInvalid(
-  address: StorefrontBillingAddressPayload,
-  field: keyof StorefrontBillingAddressPayload,
-  touched: boolean,
-): boolean {
-  if (!touched || !REQUIRED_BILLING_FIELDS.includes(field)) {
-    return false;
-  }
-
-  const value = String(address[field] ?? '').trim();
-
-  return field === 'address_line1' ? value.length < 3 : value.length < 2;
-}
-
-function normalizeBillingAddress(address: StorefrontBillingAddressPayload): StorefrontBillingAddressPayload {
-  return {
-    id: address.id,
-    full_name: String(address.full_name ?? '').trim().replace(/\s+/g, ' '),
-    country_code: String(address.country_code ?? '').trim().toUpperCase(),
-    administrative_area: optionalBillingValue(address.administrative_area),
-    city: String(address.city ?? '').trim().replace(/\s+/g, ' '),
-    postal_code: String(address.postal_code ?? '').trim().toUpperCase(),
-    address_line1: String(address.address_line1 ?? '').trim().replace(/\s+/g, ' '),
-    address_line2: optionalBillingValue(address.address_line2),
-  };
-}
-
-function optionalBillingValue(value: unknown): string | null {
-  const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
-
-  return normalized.length > 0 ? normalized : null;
-}
-
-function formatBillingAddress(address: StorefrontBillingAddressPayload): string {
-  return [
-    address.address_line1,
-    address.address_line2,
-    [address.city, address.administrative_area, address.postal_code].filter(Boolean).join(', '),
-    address.country_code,
-  ]
-    .filter(Boolean)
-    .join(' · ');
 }
 
 function normalizePhoneNumber(value: string, country: CountryCode): string | null {

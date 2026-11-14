@@ -48,6 +48,7 @@ final class LiveSessionRepository: SessionRepositoryProtocol {
     func account(locale: LocaleCode) async throws -> AccountResponse { try await api.account(locale: locale) }
     func updateAccount(name: String, email: String, locale: LocaleCode) async throws -> User { try await api.updateAccount(name: name, email: email, locale: locale) }
     func updatePassword(currentPassword: String, password: String) async throws { _ = try await api.updatePassword(currentPassword: currentPassword, password: password) }
+    func updateBillingAddress(_ address: BillingAddress) async throws -> BillingAddress { try await api.updateBillingAddress(address) }
     func deleteAccount(currentPassword: String, reason: String?) async throws -> AccountDeletionResponse {
         let response = try await api.deleteAccount(currentPassword: currentPassword, reason: reason)
         KeychainStore.deleteToken()

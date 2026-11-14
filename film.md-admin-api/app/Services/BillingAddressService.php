@@ -8,6 +8,25 @@ use Illuminate\Support\Facades\DB;
 
 class BillingAddressService
 {
+    /**
+     * Validation rules for a billing address, shared by the top-up form and the profile editor.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function rules(string $prefix = ''): array
+    {
+        return [
+            $prefix.'id' => ['nullable', 'integer'],
+            $prefix.'full_name' => ['required', 'string', 'min:2', 'max:255'],
+            $prefix.'country_code' => ['required', 'string', 'size:2', 'regex:/^[A-Za-z]{2}$/'],
+            $prefix.'administrative_area' => ['nullable', 'string', 'max:255'],
+            $prefix.'city' => ['required', 'string', 'min:2', 'max:255'],
+            $prefix.'postal_code' => ['required', 'string', 'min:2', 'max:32', 'regex:/^[A-Za-z0-9][A-Za-z0-9\\-\\s]{1,31}$/'],
+            $prefix.'address_line1' => ['required', 'string', 'min:3', 'max:255'],
+            $prefix.'address_line2' => ['nullable', 'string', 'max:255'],
+        ];
+    }
+
     public function upsertDefault(User $user, array $payload): BillingAddress
     {
         $data = $this->normalize($payload);

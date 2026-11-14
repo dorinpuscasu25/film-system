@@ -262,6 +262,10 @@
     "billing_postal_code": "Cod poștal",
     "billing_region": "Regiune / stat",
     "billing_region_placeholder": "Opțional",
+    "add_billing_address": "Adaugă adresa",
+    "billing_address_empty": "Nu ai salvat încă o adresă de facturare.",
+    "billing_address_saved": "Adresa de facturare a fost salvată.",
+    "billing_address_save_failed": "Nu am putut salva adresa de facturare.",
     "continue_payment_amount": "Continuă spre plată – {{amount}}"
   },
   "player": {

@@ -186,6 +186,29 @@ final class APIClient {
         )
         return response.user
     }
+    func updateBillingAddress(_ address: BillingAddress) async throws -> BillingAddress {
+        struct Body: Encodable {
+            let id: Int?
+            let full_name, country_code, city, postal_code, address_line1: String
+            let administrative_area, address_line2: String?
+        }
+        let response: BillingAddressResponse = try await request(
+            "storefront/billing-address",
+            method: "PUT",
+            body: Body(
+                id: address.id.flatMap { Int($0.stringValue) },
+                full_name: address.fullName,
+                country_code: address.countryCode,
+                city: address.city,
+                postal_code: address.postalCode,
+                address_line1: address.addressLine1,
+                administrative_area: address.administrativeArea,
+                address_line2: address.addressLine2
+            ),
+            authenticated: true
+        )
+        return response.billingAddress
+    }
     func updatePassword(currentPassword: String, password: String) async throws -> String {
         struct Body: Encodable { let current_password, password, password_confirmation: String }
         let response: MessageResponse = try await request(

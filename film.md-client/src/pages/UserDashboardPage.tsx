@@ -7,6 +7,7 @@ import { useWallet } from "../contexts/WalletContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Tabs } from "../components/Tabs";
 import { WalletModal } from "../components/WalletModal";
+import { BillingAddressCard } from "../components/BillingAddressForm";
 import { getFullCatalog } from "../lib/storefront";
 import { deleteCurrentAccount, fetchContinueWatching } from "../lib/session";
 import { resizedImageUrl } from "../lib/images";
@@ -431,7 +432,7 @@ export function UserDashboardPage() {
                         <div className="absolute inset-0 flex flex-col justify-end p-4">
                           <h3 className="mb-1 font-bold text-white">{movie.title}</h3>
                           <div className="flex items-center space-x-2 text-sm text-gray-300">
-                            <span className="text-accentGold">★ {movie.rating}</span>
+                            {movie.rating > 0 ? <span className="text-accentGold">★ {movie.rating.toFixed(1)}</span> : null}
                             <span>{movie.year}</span>
                           </div>
                         </div>
@@ -457,7 +458,7 @@ export function UserDashboardPage() {
 
           {activeTab === "wallet" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-8 md:grid-cols-3">
-              <div className="md:col-span-1">
+              <div className="space-y-6 md:col-span-1">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
                   <WalletIcon className="mx-auto mb-4 h-12 w-12 text-accentGreen" />
                   <p className="mb-2 text-gray-400">{t("wallet.current_balance")}</p>
@@ -474,6 +475,7 @@ export function UserDashboardPage() {
                     {activeProfile.isKids ? t("wallet.kids_restricted_short") : t("dashboard.wallet_details")}
                   </button>
                 </div>
+                <BillingAddressCard />
               </div>
 
               <div className="md:col-span-2">

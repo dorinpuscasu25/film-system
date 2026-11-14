@@ -153,6 +153,7 @@ Route::prefix('v1')->group(function (): void {
 
         Route::prefix('storefront')->middleware('permission:storefront.access')->group(function (): void {
             Route::get('account', [StorefrontController::class, 'account']);
+            Route::put('billing-address', [StorefrontController::class, 'updateBillingAddress'])->middleware('throttle:20,1');
             Route::post('profiles', [StorefrontProfileController::class, 'store'])->middleware('permission:profile.manage');
             Route::patch('profiles/{profile}', [StorefrontProfileController::class, 'update'])->middleware('permission:profile.manage');
             Route::delete('profiles/{profile}', [StorefrontProfileController::class, 'destroy'])->middleware('permission:profile.manage');

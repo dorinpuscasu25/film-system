@@ -8,6 +8,7 @@ import {
   fetchStorefrontAccount,
   purchaseStorefrontOffer,
   unfavoriteStorefrontContent,
+  updateStorefrontBillingAddress,
 } from "../lib/session";
 import type { StorefrontAccessLocation, StorefrontBillingAddressPayload, StorefrontTopUpPayload } from "../lib/session";
 import { formatCompactDuration } from "../lib/time";
@@ -25,6 +26,7 @@ interface WalletContextType {
     amount: number,
     options: { phone?: string; billingAddress: StorefrontBillingAddressPayload; accessLocation?: StorefrontAccessLocation | null },
   ) => Promise<StorefrontTopUpPayload>;
+  saveBillingAddress: (address: StorefrontBillingAddressPayload) => Promise<StorefrontBillingAddressPayload>;
   purchaseAccess: (offerId: string, options?: { accessLocation?: StorefrontAccessLocation | null }) => Promise<void>;
   hasAccess: (movieId: string) => boolean;
   getTimeRemaining: (movieId: string) => string | null;
@@ -177,6 +179,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return response.top_up;
   };
 
+  const saveBillingAddress = async (address: StorefrontBillingAddressPayload) => {
+    const response = await updateStorefrontBillingAddress({ ...address, id: address.id ?? billingAddress?.id });
+    setBillingAddress(response.billing_address);
+
+    return response.billing_address;
+  };
+
   const purchaseAccess = async (offerId: string, options?: { accessLocation?: StorefrontAccessLocation | null }) => {
     if (activeProfile?.isKids) {
       throw new Error(t("checkout.kids_restricted"));
@@ -260,6 +269,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         billingAddress,
         isLoading,
         addFunds,
+        saveBillingAddress,
         purchaseAccess,
         hasAccess,
         getTimeRemaining,
