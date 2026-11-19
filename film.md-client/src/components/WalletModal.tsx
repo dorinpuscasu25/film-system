@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCardIcon, Edit3Icon, HistoryIcon, Loader2Icon, MapPinIcon, QrCodeIcon, XIcon } from 'lucide-react';
@@ -111,19 +111,26 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
     setAmount(normalized);
   }
 
+  // Reset the form only when the modal OPENS. addFunds() saves the billing address (and
+  // refreshWallet() reloads it) while a card form / MIA QR is on screen; re-running the full
+  // reset on those changes would wipe the payment in progress.
+  const wasOpenRef = useRef(false);
+  const paymentInProgress = cardTopUp !== null || miaTopUp !== null;
+
   useEffect(() => {
     if (!isOpen) {
+      wasOpenRef.current = false;
       return;
     }
 
+    if (wasOpenRef.current) {
+      return;
+    }
+    wasOpenRef.current = true;
+
     setAcceptedTerms(false);
     setAmount('');
-    const savedPhone = paymentPhoneDraft(paymentPhone);
-    setPhone(savedPhone.nationalNumber);
     setPhoneTouched(false);
-    setSelectedCountry(savedPhone.country);
-    setBillingDraft(billingAddress ?? emptyBillingAddress(user?.name));
-    setIsEditingBillingAddress(!billingAddress);
     setBillingTouched(false);
     setErrorMessage(null);
     setIsAccessLocationStepOpen(false);
@@ -155,7 +162,26 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       .catch(() => {
         setTermsUrl('/page/termeni-si-conditii');
       });
-  }, [billingAddress, currentLanguage.code, isOpen, paymentPhone, user?.name]);
+  }, [currentLanguage.code, isOpen]);
+
+  // Saved phone / billing address can arrive after the modal opened: copy them into the form
+  // while the customer is still filling it in, never once a payment has started.
+  useEffect(() => {
+    if (!isOpen || paymentInProgress || phoneTouched) {
+      return;
+    }
+    const savedPhone = paymentPhoneDraft(paymentPhone);
+    setPhone(savedPhone.nationalNumber);
+    setSelectedCountry(savedPhone.country);
+  }, [isOpen, paymentPhone, paymentInProgress, phoneTouched]);
+
+  useEffect(() => {
+    if (!isOpen || paymentInProgress || billingTouched) {
+      return;
+    }
+    setBillingDraft(billingAddress ?? emptyBillingAddress(user?.name));
+    setIsEditingBillingAddress(!billingAddress);
+  }, [isOpen, billingAddress, user?.name, paymentInProgress, billingTouched]);
 
   const handleSubmit = async () => {
     if (!acceptedTerms) {
