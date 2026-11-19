@@ -182,6 +182,43 @@ class CyberSourceTopUpTest extends TestCase
         $this->assertNull($this->transport->lastRequest('POST', '/pts/v2/payments/'.self::PAYMENT_ID.'/captures'));
     }
 
+    public function test_a_real_sandbox_answer_is_understood(): void
+    {
+        // Shape of GET /tss/v2/transactions/{id} on apitest.cybersource.com (2026-11-19): no
+        // applicationInformation.status, ECI "5", amount "200"; the UC result JWT is not "AUTHORIZED".
+        config(['services.cybersource.capture' => false]);
+        $topUp = $this->createdTopUp(200);
+        $this->transport->transactions[self::PAYMENT_ID] = $this->realTransaction($topUp, authRCode: '1', eci: '5', cavv: 'AJkBBkhgQQAAAE4gSEJydQAAAAA=');
+
+        $this->submitResult($topUp, status: 'COMPLETED')->assertOk()->assertJsonPath('top_up.status', 'paid');
+
+        $this->assertSame('05', $topUp->fresh()->raw_details['eci']);
+        $this->assertNotNull($this->transport->lastRequest('POST', '/pts/v2/payments/'.self::PAYMENT_ID.'/captures'));
+        $this->assertNull($this->transport->lastRequest('POST', '/pts/v2/payments/'.self::PAYMENT_ID.'/reversals'));
+    }
+
+    public function test_a_real_sandbox_decline_fails_without_release(): void
+    {
+        config(['services.cybersource.capture' => false]);
+        $topUp = $this->createdTopUp(200);
+        $this->transport->transactions[self::PAYMENT_ID] = $this->realTransaction($topUp, authRCode: '0', eci: '5', cavv: 'AJkBBkhgQQAAAE4gSEJydQAAAAA=');
+
+        $this->submitResult($topUp, status: 'COMPLETED')->assertOk()->assertJsonPath('top_up.status', 'failed');
+
+        $this->assertNull($this->transport->lastRequest('POST', '/pts/v2/payments/'.self::PAYMENT_ID.'/reversals'));
+    }
+
+    public function test_a_real_sandbox_answer_without_3ds_is_reversed(): void
+    {
+        config(['services.cybersource.capture' => false]);
+        $topUp = $this->createdTopUp(200);
+        $this->transport->transactions[self::PAYMENT_ID] = $this->realTransaction($topUp, authRCode: '1', eci: '7', cavv: null);
+
+        $this->submitResult($topUp, status: 'COMPLETED')->assertOk()->assertJsonPath('top_up.status', 'failed');
+
+        $this->assertNotNull($this->transport->lastRequest('POST', '/pts/v2/payments/'.self::PAYMENT_ID.'/reversals'));
+    }
+
     public function test_a_payment_without_full_3ds_is_voided_not_credited(): void
     {
         $topUp = $this->createdTopUp(150);
@@ -371,6 +408,26 @@ class CyberSourceTopUpTest extends TestCase
             'consumerAuthenticationInformation' => array_filter(['eciRaw' => $eci, 'cavv' => $cavv]),
             'paymentAccountInformation' => ['card' => ['type' => $type]],
             'processorInformation' => ['retrievalReferenceNumber' => '602115262637', 'networkTransactionId' => '016153570198200'],
+        ];
+    }
+
+    private function realTransaction(PaymentTopUp $topUp, string $authRCode, string $eci, ?string $cavv): array
+    {
+        return [
+            'id' => self::PAYMENT_ID,
+            'applicationInformation' => [
+                'reasonCode' => $authRCode === '1' ? 100 : 203,
+                'applications' => [
+                    ['name' => 'ics_auth', 'reasonCode' => $authRCode === '1' ? '100' : '203', 'rCode' => $authRCode, 'rFlag' => $authRCode === '1' ? 'SOK' : 'DCARDREFUSED'],
+                    ['name' => 'ics_pa_enroll', 'reasonCode' => '100', 'rCode' => '1', 'rFlag' => 'SOK'],
+                ],
+            ],
+            'clientReferenceInformation' => ['code' => $topUp->provider_reference, 'applicationName' => 'unifiedCheckout'],
+            'consumerAuthenticationInformation' => array_filter(['eciRaw' => $eci, 'cavv' => $cavv, 'paSpecificationVersion' => '2.2.0']),
+            'orderInformation' => ['amountDetails' => ['totalAmount' => '200', 'currency' => 'MDL', 'authorizedAmount' => '200']],
+            'paymentInformation' => ['card' => ['type' => '001', 'suffix' => '2701']],
+            'processingInformation' => ['commerceIndicator' => '5', 'commerceIndicatorLabel' => 'vbv'],
+            'processorInformation' => ['networkTransactionId' => '016153570198200', 'retrievalReferenceNumber' => '632312658331', 'responseCode' => '00'],
         ];
     }
 

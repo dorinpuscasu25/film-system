@@ -184,6 +184,18 @@ class CyberSourcePaymentService implements TopUpPaymentProvider
             throw ValidationException::withMessages(['result_jwt' => ['Rezultatul plății nu a putut fi verificat.']]);
         }
 
+        // The SDK verified the signature and fetched the transaction. The decision itself is taken
+        // from the transaction (the source of truth, R9) with our normalisation: real result JWTs
+        // carry a UC status (not AUTHORIZED) and real TSS answers have no applicationInformation.status.
+        if (($confirmation['state'] ?? null) !== 'PENDING' && is_array($confirmation['transaction'] ?? null)) {
+            $confirmation = $this->confirmationFromTransaction(
+                $this->vb($topUp->currency),
+                $topUp,
+                (string) $confirmation['id'],
+                $confirmation['transaction'],
+            );
+        }
+
         return $this->applyConfirmation($topUp, $confirmation, 'browser');
     }
 
@@ -651,9 +663,26 @@ class CyberSourcePaymentService implements TopUpPaymentProvider
             && $normalize($amounts['totalAmount'] ?? $amounts['authorizedAmount'] ?? null) === number_format((float) $topUp->amount, 2, '.', '')
             && strtoupper((string) ($amounts['currency'] ?? '')) === strtoupper((string) $topUp->currency);
 
-        $status = $tx['applicationInformation']['status'] ?? null;
+        $status = $this->transactionStatus($tx);
+
+        if (in_array($status, ['REVERSED', 'VOIDED'], true)) {
+            // Already released (by us, or by CyberSource's own timeout protection).
+            return [
+                'state' => $matched ? 'MATCHED' : 'MISMATCH',
+                'id' => $paymentId,
+                'status' => $status,
+                'outcome' => ['next' => 'DECLINED', 'reason' => strtolower($status)],
+                'evidence' => $vb->evidence($this->withPaddedEci($tx)),
+                'mustReverse' => false,
+                'mustRelease' => false,
+                'paid' => false,
+                'authorizedAmount' => $amounts['authorizedAmount'] ?? $amounts['totalAmount'] ?? null,
+                'transaction' => $tx,
+            ];
+        }
+
         $outcome = Requests::interpretPayment(201, ['status' => $status, 'errorInformation' => $tx['errorInformation'] ?? null]);
-        $evidence = $vb->evidence($tx);
+        $evidence = $vb->evidence($this->withPaddedEci($tx));
         $mustReverse = in_array($outcome['next'], ['APPROVED', 'REVIEW'], true) && ! $evidence['full3ds'];
 
         return [
@@ -668,6 +697,59 @@ class CyberSourcePaymentService implements TopUpPaymentProvider
             'authorizedAmount' => $amounts['authorizedAmount'] ?? $amounts['totalAmount'] ?? null,
             'transaction' => $tx,
         ];
+    }
+
+    /**
+     * Payment status of a GET /tss/v2/transactions/{id} answer. The real API has no
+     * applicationInformation.status; the result is in applicationInformation.applications
+     * (ics_auth rCode "1" = authorized). Seen on apitest.cybersource.com, 2026-11-19.
+     */
+    protected function transactionStatus(array $tx): ?string
+    {
+        $info = (array) ($tx['applicationInformation'] ?? []);
+        if (is_string($info['status'] ?? null) && $info['status'] !== '') {
+            return $info['status'];
+        }
+
+        $apps = collect($info['applications'] ?? [])->filter(fn ($app): bool => is_array($app))->keyBy(fn (array $app): string => (string) ($app['name'] ?? ''));
+        $ok = fn (string $name): bool => (string) ($apps[$name]['rCode'] ?? '') === '1';
+        $failed = fn (string $name): bool => isset($apps[$name]) && (string) ($apps[$name]['rCode'] ?? '') === '0';
+        $reason = (string) ($info['reasonCode'] ?? ($apps['ics_auth']['reasonCode'] ?? ''));
+
+        if ($ok('ics_void')) {
+            return 'VOIDED';
+        }
+        if ($ok('ics_auth_reversal')) {
+            return 'REVERSED';
+        }
+        if ($ok('ics_auth')) {
+            // 480 = accepted but flagged for review by Decision Manager.
+            return $reason === '480' ? 'AUTHORIZED_PENDING_REVIEW' : 'AUTHORIZED';
+        }
+        if ($failed('ics_pa_enroll') || $failed('ics_pa_validate')) {
+            return 'AUTHENTICATION_FAILED';
+        }
+        if ($reason === '475') {
+            return 'PENDING_AUTHENTICATION';
+        }
+        if ($failed('ics_auth')) {
+            return 'DECLINED';
+        }
+
+        return null;
+    }
+
+    /** ECI comes back as "5" / "2" from the real API; the bank's rule table expects "05" / "02". */
+    protected function withPaddedEci(array $tx): array
+    {
+        foreach (['eciRaw', 'eci'] as $key) {
+            $value = $tx['consumerAuthenticationInformation'][$key] ?? null;
+            if ((is_string($value) || is_int($value)) && preg_match('/^\d$/', (string) $value) === 1) {
+                $tx['consumerAuthenticationInformation'][$key] = '0'.$value;
+            }
+        }
+
+        return $tx;
     }
 
     /** First authorization (ics_auth) carrying our reference, from POST /tss/v2/searches. */
