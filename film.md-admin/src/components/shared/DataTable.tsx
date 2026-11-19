@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
+  ArrowDownIcon,
   ArrowUpDownIcon,
+  ArrowUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   SearchIcon,
@@ -15,6 +17,16 @@ export interface Column<T> {
   header: string;
   render?: (item: T) => React.ReactNode;
   sortable?: boolean;
+  /** Makes the header clickable and sorts rows by this value (empty values always last). */
+  sortValue?: (item: T) => string | number | null | undefined;
+}
+
+type SortState = { key: string; direction: "asc" | "desc" } | null;
+
+const sortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+function isEmptySortValue(value: string | number | null | undefined) {
+  return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
 }
 
 interface DataTableProps<T> {
@@ -43,6 +55,7 @@ export function DataTable<T>({
   const [internalSearchTerm, setInternalSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<SortState>(null);
   const itemsPerPage = 10;
   const resolvedSearchTerm = searchTerm ?? internalSearchTerm;
 
@@ -56,8 +69,39 @@ export function DataTable<T>({
     );
   });
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const paginatedData = filteredData.slice(
+  const sortColumn = sort ? columns.find((col) => col.key === sort.key && col.sortValue) : undefined;
+  const sortedData = sortColumn?.sortValue && sort
+    ? [...filteredData].sort((left, right) => {
+        const leftValue = sortColumn.sortValue!(left);
+        const rightValue = sortColumn.sortValue!(right);
+        const leftEmpty = isEmptySortValue(leftValue);
+        const rightEmpty = isEmptySortValue(rightValue);
+
+        if (leftEmpty || rightEmpty) {
+          return leftEmpty === rightEmpty ? 0 : leftEmpty ? 1 : -1;
+        }
+
+        const result = typeof leftValue === "number" && typeof rightValue === "number"
+          ? leftValue - rightValue
+          : sortCollator.compare(String(leftValue), String(rightValue));
+
+        return sort.direction === "asc" ? result : -result;
+      })
+    : filteredData;
+
+  function toggleSort(key: string) {
+    setSort((current) => {
+      if (!current || current.key !== key) {
+        return { key, direction: "asc" };
+      }
+
+      return current.direction === "asc" ? { key, direction: "desc" } : null;
+    });
+    setCurrentPage(1);
+  }
+
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  const paginatedData = sortedData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
@@ -130,10 +174,26 @@ export function DataTable<T>({
               </TableHead>
               {columns.map((col) => (
                 <TableHead key={col.key}>
-                  <div className="flex items-center gap-2">
-                    {col.header}
-                    {col.sortable ? <ArrowUpDownIcon className="h-3 w-3" /> : null}
-                  </div>
+                  {col.sortValue ? (
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 hover:text-foreground"
+                      onClick={() => toggleSort(col.key)}
+                      title="Sortează"
+                    >
+                      {col.header}
+                      {sort?.key === col.key ? (
+                        sort.direction === "asc" ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />
+                      ) : (
+                        <ArrowUpDownIcon className="h-3 w-3" />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      {col.header}
+                      {col.sortable ? <ArrowUpDownIcon className="h-3 w-3" /> : null}
+                    </div>
+                  )}
                 </TableHead>
               ))}
             </TableRow>

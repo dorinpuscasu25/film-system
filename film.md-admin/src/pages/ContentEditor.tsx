@@ -695,6 +695,13 @@ function contentUploadDirectory(baseDirectory: string, slug: string, fallbackNam
   return `${baseDirectory}/${normalizedSlug}`;
 }
 
+/** Header label for a saved title: the accounting MovieID when set, the internal id otherwise. */
+function contentHeaderLabel(content: Pick<AdminContent, "id" | "movie_id">): string {
+  const movieId = content.movie_id?.trim();
+
+  return movieId ? `Film ${movieId}` : `Film #${content.id}`;
+}
+
 function mapContentToForm(content: AdminContent): ContentFormState {
   return {
     type: content.type,
@@ -846,7 +853,7 @@ function TaxonomyPicker({
 }
 
 export function ContentEditor({ contentId }: { contentId?: string | null } = {}) {
-  const { currentUser, selectedContentId: contextSelectedContentId, navigate, can } = useAdmin();
+  const { currentUser, selectedContentId: contextSelectedContentId, navigate, can, setRouteState } = useAdmin();
   const selectedContentId = contentId ?? contextSelectedContentId;
   const isNew = selectedContentId === "new" || !selectedContentId;
   const numericContentId = !isNew && selectedContentId ? Number(selectedContentId) : null;
@@ -874,6 +881,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
+  const [savedHeaderLabel, setSavedHeaderLabel] = useState<string | null>(null);
+  const [savedMovieId, setSavedMovieId] = useState<string | null>(null);
   const [openEpisodeIds, setOpenEpisodeIds] = useState<string[]>([]);
 
   const contentMediaDirectories = useMemo(() => {
@@ -940,6 +949,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
         const response = await adminApi.getContent(numericContentId);
         setOptions(response.options);
         setFormState(mapContentToForm(response.content));
+        setSavedHeaderLabel(contentHeaderLabel(response.content));
+        setSavedMovieId(response.content.movie_id?.trim() || null);
         setOfferDrafts((response.content.offers ?? []).map((offer) => mapOfferToForm(offer)));
         setContentFormatDrafts((response.content.content_formats ?? []).map((item) => mapContentFormatToForm(item)));
         setRightsWindowDrafts((response.content.rights_windows ?? []).map((item) => mapRightsWindowToForm(item)));
@@ -954,6 +965,8 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
           ...createEmptyFormState(),
           default_locale: currentUser?.preferred_locale ?? "ro",
         }));
+        setSavedHeaderLabel(null);
+        setSavedMovieId(null);
         setOfferDrafts([]);
         setContentFormatDrafts([]);
         setRightsWindowDrafts([]);
@@ -972,6 +985,14 @@ export function ContentEditor({ contentId }: { contentId?: string | null } = {})
   useEffect(() => {
     void loadEditor();
   }, [numericContentId]);
+
+  // The route sets "Film #<internal id>" before the title loads; once loaded,
+  // show the accounting MovieID the client knows the film by.
+  useEffect(() => {
+    if (!isNew && savedHeaderLabel) {
+      setRouteState("editor", selectedContentId, ["Filme", savedHeaderLabel]);
+    }
+  }, [isNew, savedHeaderLabel, selectedContentId]);
 
   useEffect(() => {
     if (!can("commerce.view")) {
@@ -1807,9 +1828,11 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
       const freshResponse = await adminApi.getContent(savedContentId);
 
       setSuccessMessage(offerDrafts.length > 0 ? "Titlul și ofertele au fost salvate." : "Titlul a fost salvat.");
-      navigate("editor", String(freshResponse.content.id), ["Catalog", freshResponse.content.localized_title]);
+      navigate("editor", String(freshResponse.content.id), ["Filme", contentHeaderLabel(freshResponse.content)]);
       setOptions(freshResponse.options);
       setFormState(mapContentToForm(freshResponse.content));
+      setSavedHeaderLabel(contentHeaderLabel(freshResponse.content));
+      setSavedMovieId(freshResponse.content.movie_id?.trim() || null);
       setOfferDrafts((freshResponse.content.offers ?? []).map((offer) => mapOfferToForm(offer)));
       setContentFormatDrafts((freshResponse.content.content_formats ?? []).map((item) => mapContentFormatToForm(item)));
       setRightsWindowDrafts((freshResponse.content.rights_windows ?? []).map((item) => mapRightsWindowToForm(item)));
@@ -1890,6 +1913,11 @@ function appendSortable<T extends { sort_order?: number | "" }>(items: T[], item
 
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={statusVariant(formState.status)}>{formState.status}</Badge>
+              {savedMovieId ? (
+                <span className="rounded-md border px-2 py-0.5 font-mono text-sm" title="MovieID (numerotarea din contabilitate)">
+                  MovieID: {savedMovieId}
+                </span>
+              ) : null}
               <span className="text-sm text-muted-foreground">
                 {selectedTaxonomyCount} taxonomii atașate
               </span>

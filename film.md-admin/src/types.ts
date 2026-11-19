@@ -508,10 +508,19 @@ export interface PaymentTopUpItem {
   amount: number;
   currency: string;
   status: "pending" | "redirect_created" | "processing" | "paid" | "failed" | "canceled" | "refunded";
+  provider?: "pay_filmoteca" | "mia" | string;
+  payment_method?: "card" | "mia" | string;
+  provider_reference?: string | null;
   provider_status: string | null;
   provider_order_id: string | null;
   provider_checkout_id: string | null;
   provider_rrn: string | null;
+  /** MIA allows a single refund per payment. */
+  refund_policy?: {
+    single_refund_only: boolean;
+    locked: boolean;
+    minimum_amount: number;
+  };
   billing_address: {
     full_name?: string | null;
     country_code?: string | null;

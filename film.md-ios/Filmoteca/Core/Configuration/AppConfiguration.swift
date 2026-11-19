@@ -14,6 +14,16 @@ struct AppConfiguration: Sendable {
     /// Needed to test purchases with the local `Filmoteca.storekit` file end to end: the
     /// production backend deliberately refuses Xcode/LocalTesting transactions because they
     /// aren't signed by Apple. Release builds always use production.
+    /// App Store screenshots only: a Debug build launched with `-FilmotecaHideRatings YES`
+    /// hides the IMDb rating on posters and in the hero. Release builds always show it.
+    static var hidesRatingsForScreenshots: Bool {
+        #if DEBUG
+        return UserDefaults.standard.bool(forKey: "FilmotecaHideRatings")
+        #else
+        return false
+        #endif
+    }
+
     static var current: AppConfiguration {
         #if DEBUG
         if let override = ProcessInfo.processInfo.environment["FILMOTECA_API_BASE_URL"],

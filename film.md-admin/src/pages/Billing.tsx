@@ -618,7 +618,13 @@ export function Billing() {
       <Modal
         isOpen={selectedTopUp !== null}
         onClose={closeRefund}
-        title="Refund Pay.Filmoteca"
+        title={
+          selectedTopUp?.provider === "mia"
+            ? "Refund MIA (Victoriabank)"
+            : selectedTopUp?.provider === "cybersource"
+              ? "Refund card (Victoriabank)"
+              : "Refund Pay.Filmoteca"
+        }
         footer={
           <>
             <Button variant="outline" onClick={closeRefund} disabled={isRefunding}>
@@ -671,7 +677,7 @@ export function Billing() {
               <span className="text-muted-foreground">Suma refund</span>
               <Input
                 type="number"
-                min="20"
+                min={String(selectedTopUp.refund_policy?.minimum_amount ?? 20)}
                 step="0.01"
                 value={refundForm.amount}
                 onChange={(event) => setRefundForm((current) => ({ ...current, amount: event.target.value }))}
@@ -687,6 +693,13 @@ export function Billing() {
                 placeholder="Ex: plată dublă, eroare tehnică confirmată..."
               />
             </label>
+
+            {selectedTopUp.refund_policy?.single_refund_only ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+                MIA permite o singură rambursare per plată. După un refund parțial, restul sumei nu mai poate fi
+                returnat prin bancă — verifică suma înainte de a trimite.
+              </div>
+            ) : null}
 
             {refundError ? (
               <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
@@ -1366,7 +1379,7 @@ function PaymentsSection({
     <Card>
       <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <CardTitle>Plăți și refunduri Pay.Filmoteca</CardTitle>
+          <CardTitle>Plăți și refunduri</CardTitle>
           <CardDescription>
             Monitor tehnic per checkout: include plăți în așteptare, în procesare, eșuate și plătite și permite
             inițierea refundului. Totalurile contabile finale sunt în tabul Contabilitate.
@@ -1378,7 +1391,7 @@ function PaymentsSection({
             className="pl-9"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Checkout, RRN, utilizator, țară..."
+            placeholder="Checkout, referință MIA, RRN, utilizator..."
           />
         </div>
       </CardHeader>
@@ -1400,11 +1413,15 @@ function PaymentsSection({
             </TableHeader>
             <TableBody>
               {items.map((topUp) => {
+                const isMia = topUp.provider === "mia";
+                const minimumRefund = topUp.refund_policy?.minimum_amount ?? 20;
                 const canRefund =
                   canProcessRefunds &&
                   topUp.status === "paid" &&
-                  Boolean(topUp.provider_checkout_id) &&
-                  topUp.refundable_amount >= 20;
+                  Boolean(isMia ? topUp.provider_rrn : topUp.provider_checkout_id) &&
+                  !topUp.refund_policy?.locked &&
+                  topUp.refundable_amount >= minimumRefund;
+                const providerIdentifier = isMia ? topUp.provider_reference : topUp.provider_checkout_id;
 
                 return (
                   <TableRow key={topUp.id}>
@@ -1419,17 +1436,20 @@ function PaymentsSection({
                       </p>
                     </TableCell>
                     <TableCell>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {isMia ? "MIA · QR" : topUp.provider === "cybersource" ? "Card · Victoriabank" : "Card · Pay.Filmoteca"}
+                      </p>
                       <div className="flex max-w-[220px] items-center gap-2">
-                        <p className="truncate font-mono text-xs">{topUp.provider_checkout_id ?? "Fără checkout"}</p>
-                        {topUp.provider_checkout_id ? (
+                        <p className="truncate font-mono text-xs">{providerIdentifier ?? "Fără checkout"}</p>
+                        {providerIdentifier ? (
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7 shrink-0"
-                            onClick={() => void onCopyCheckoutId(topUp.provider_checkout_id as string)}
+                            onClick={() => void onCopyCheckoutId(providerIdentifier)}
                           >
-                            {copiedCheckoutId === topUp.provider_checkout_id ? (
+                            {copiedCheckoutId === providerIdentifier ? (
                               <CheckIcon className="h-3.5 w-3.5 text-emerald-600" />
                             ) : (
                               <ClipboardIcon className="h-3.5 w-3.5" />

@@ -206,3 +206,5 @@ Platformele **macOS App** și **tvOS App** din stânga pot rămâne în „Prepa
 ---
 
 Screenshot-urile se regenerează cu `screenshots/compose.swift`: capturi din Simulator + titlu deasupra.
+Pentru capturi fără rating IMDb, pornește build-ul Debug cu argumentul `-FilmotecaHideRatings YES`
+(ex. `xcrun simctl launch <device> md.filmoteca.ios -FilmotecaHideRatings YES`). În Release flag-ul nu există.

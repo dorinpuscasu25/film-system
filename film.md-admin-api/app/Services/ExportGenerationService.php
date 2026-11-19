@@ -382,6 +382,7 @@ class ExportGenerationService
             $rows->push([
                 'section' => 'monthly_costs',
                 'month' => $row->month,
+                'content_movie_id' => $row->content?->movie_id,
                 'content_title' => $row->content?->original_title,
                 'content_slug' => $row->content?->slug,
                 'quality' => $row->format?->quality,
@@ -489,6 +490,7 @@ class ExportGenerationService
                 ->map(fn (Content $content) => [
                     'id' => $content->id,
                     'slug' => $content->slug,
+                    'movie_id' => $content->movie_id,
                     'type' => $content->type,
                     'status' => $content->status,
                     'original_title' => $content->original_title,

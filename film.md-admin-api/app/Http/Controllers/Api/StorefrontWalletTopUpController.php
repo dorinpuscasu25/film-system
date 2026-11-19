@@ -6,6 +6,9 @@ use App\Models\ContentEntitlement;
 use App\Models\PaymentTopUp;
 use App\Services\BillingAddressService;
 use App\Services\PayFilmotecaPaymentService;
+use App\Services\Payments\CyberSource\CyberSourcePaymentService;
+use App\Services\Payments\Mia\MiaPaymentService;
+use App\Services\Payments\TopUpPaymentGateway;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +26,62 @@ class StorefrontWalletTopUpController extends ApiController
         protected WalletService $wallets,
         protected PayFilmotecaPaymentService $payments,
         protected BillingAddressService $billingAddresses,
+        protected TopUpPaymentGateway $gateway,
+        protected MiaPaymentService $mia,
+        protected CyberSourcePaymentService $cyberSource,
     ) {}
+
+    /** Which top-up methods the web should offer right now. */
+    public function methods(): JsonResponse
+    {
+        $methods = $this->gateway->availableMethods();
+
+        return response()->json([
+            'methods' => collect($methods)
+                ->map(fn (bool $enabled, string $method): array => [
+                    'id' => $method,
+                    'enabled' => $enabled,
+                    'provider' => $method === PaymentTopUp::METHOD_CARD ? $this->gateway->cardProvider() : PaymentTopUp::PROVIDER_MIA,
+                    'requires_phone' => $method === PaymentTopUp::METHOD_CARD && $this->gateway->cardRequiresPhone(),
+                ])
+                ->values(),
+            'default' => collect($methods)->filter()->keys()->first(),
+        ]);
+    }
+
+    /** Unified Checkout finished in the browser: the server confirms the signed result (R9). */
+    public function cardResult(Request $request, PaymentTopUp $topUp): JsonResponse
+    {
+        if ((int) $topUp->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $data = $request->validate([
+            'result_jwt' => ['required', 'string', 'max:20000'],
+        ]);
+
+        $topUp = $this->cyberSource->submitResult($topUp, (string) $data['result_jwt']);
+
+        return response()->json([
+            'top_up' => $this->gateway->topUpData($topUp),
+        ]);
+    }
+
+    /** The customer closed the MIA QR without paying: cancel it at the bank. */
+    public function cancel(Request $request, PaymentTopUp $topUp): JsonResponse
+    {
+        if ((int) $topUp->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($topUp->provider === PaymentTopUp::PROVIDER_MIA) {
+            $topUp = $this->mia->cancelTopUp($topUp);
+        }
+
+        return response()->json([
+            'top_up' => $this->gateway->topUpData($topUp),
+        ]);
+    }
 
     public function store(Request $request): JsonResponse
     {
@@ -45,11 +103,14 @@ class StorefrontWalletTopUpController extends ApiController
 
         try {
             $data = $request->validate([
+                'method' => ['nullable', 'string', Rule::in([PaymentTopUp::METHOD_CARD, PaymentTopUp::METHOD_MIA])],
                 'amount' => ['required', 'numeric', 'min:20', 'max:20000'],
                 'currency' => ['nullable', 'string', Rule::in(['MDL', 'EUR', 'USD'])],
                 'account_profile_id' => ['nullable', 'integer'],
+                // pay.filmoteca.md needs a phone for the card checkout; MIA and CyberSource do not.
                 'phone' => [
-                    'required',
+                    $this->gateway->cardRequiresPhone() ? 'required_unless:method,'.PaymentTopUp::METHOD_MIA : 'nullable',
+                    'nullable',
                     'string',
                     'max:32',
                     function (string $attribute, mixed $value, \Closure $fail): void {
@@ -97,7 +158,17 @@ class StorefrontWalletTopUpController extends ApiController
         }
 
         $data['currency'] = strtoupper((string) ($data['currency'] ?? $wallet->currency));
-        $data['phone'] = $this->normalizePhoneNumber((string) $data['phone']);
+        $data['phone'] = filled($data['phone'] ?? null) ? $this->normalizePhoneNumber((string) $data['phone']) : null;
+        $method = (string) ($data['method'] ?? PaymentTopUp::METHOD_CARD);
+
+        if (! ($this->gateway->availableMethods()[$method] ?? false)) {
+            return response()->json([
+                'message' => $method === PaymentTopUp::METHOD_MIA
+                    ? 'Plata prin MIA nu este disponibilă momentan.'
+                    : 'Plata cu cardul este temporar indisponibilă. Folosește plata prin MIA.',
+                'errors' => ['method' => ['Metoda de plată nu este disponibilă.']],
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         Log::channel('payments')->info('PayFilmoteca wallet top-up request validated', [
             'user_id' => $user?->id,
@@ -126,7 +197,7 @@ class StorefrontWalletTopUpController extends ApiController
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if ($user->payment_phone !== $data['phone']) {
+        if ($data['phone'] !== null && $user->payment_phone !== $data['phone']) {
             $user->update(['payment_phone' => $data['phone']]);
         }
 
@@ -134,7 +205,11 @@ class StorefrontWalletTopUpController extends ApiController
         $data['billing_address_id'] = $billingAddress->id;
         $data['billing_address'] = $this->billingAddresses->snapshot($billingAddress);
 
-        $topUp = $this->payments->initiateTopUp($user, $wallet, $data, $request);
+        $topUp = match (true) {
+            $method === PaymentTopUp::METHOD_MIA => $this->mia->initiateTopUp($user, $wallet, $data),
+            $this->gateway->cardProvider() === PaymentTopUp::PROVIDER_CYBERSOURCE => $this->cyberSource->initiateTopUp($user, $wallet, $data, $request),
+            default => $this->payments->initiateTopUp($user, $wallet, $data, $request),
+        };
 
         Log::channel('payments')->info('PayFilmoteca wallet top-up endpoint returning response', [
             'top_up_uuid' => $topUp->uuid,
@@ -147,7 +222,7 @@ class StorefrontWalletTopUpController extends ApiController
         ]);
 
         return response()->json([
-            'top_up' => $this->payments->topUpData($topUp),
+            'top_up' => $this->gateway->topUpData($topUp),
         ], Response::HTTP_CREATED);
     }
 
@@ -175,16 +250,18 @@ class StorefrontWalletTopUpController extends ApiController
             return response()->json(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
         }
 
-        $topUp = $this->payments->rememberProviderIdentifiers(
-            $topUp,
-            $this->providerCheckoutIdFromRequest($request),
-            $this->providerOrderIdFromRequest($request),
-            $this->providerRrnFromRequest($request),
-            $this->providerCheckoutStatusFromRequest($request),
-        );
+        if ($topUp->provider === PaymentTopUp::PROVIDER_PAY_FILMOTECA) {
+            $topUp = $this->payments->rememberProviderIdentifiers(
+                $topUp,
+                $this->providerCheckoutIdFromRequest($request),
+                $this->providerOrderIdFromRequest($request),
+                $this->providerRrnFromRequest($request),
+                $this->providerCheckoutStatusFromRequest($request),
+            );
+        }
 
         if (! $topUp->isTerminal()) {
-            $topUp = $this->payments->refreshStatus($topUp);
+            $topUp = $this->gateway->refreshStatus($topUp);
         }
 
         Log::channel('payments')->info('PayFilmoteca wallet top-up show endpoint returning response', [
@@ -198,7 +275,7 @@ class StorefrontWalletTopUpController extends ApiController
         ]);
 
         return response()->json([
-            'top_up' => $this->payments->topUpData($topUp),
+            'top_up' => $this->gateway->topUpData($topUp),
         ]);
     }
 
@@ -247,16 +324,18 @@ class StorefrontWalletTopUpController extends ApiController
             return response()->json(['message' => 'No top-up found.'], Response::HTTP_NOT_FOUND);
         }
 
-        $topUp = $this->payments->rememberProviderIdentifiers(
-            $topUp,
-            $this->providerCheckoutIdFromRequest($request),
-            $this->providerOrderIdFromRequest($request),
-            $this->providerRrnFromRequest($request),
-            $this->providerCheckoutStatusFromRequest($request),
-        );
+        if ($topUp->provider === PaymentTopUp::PROVIDER_PAY_FILMOTECA) {
+            $topUp = $this->payments->rememberProviderIdentifiers(
+                $topUp,
+                $this->providerCheckoutIdFromRequest($request),
+                $this->providerOrderIdFromRequest($request),
+                $this->providerRrnFromRequest($request),
+                $this->providerCheckoutStatusFromRequest($request),
+            );
+        }
 
         if (! $topUp->isTerminal()) {
-            $topUp = $this->payments->refreshStatus($topUp);
+            $topUp = $this->gateway->refreshStatus($topUp);
         }
 
         Log::channel('payments')->info('PayFilmoteca latest wallet top-up endpoint returning response', [
@@ -270,7 +349,7 @@ class StorefrontWalletTopUpController extends ApiController
         ]);
 
         return response()->json([
-            'top_up' => $this->payments->topUpData($topUp),
+            'top_up' => $this->gateway->topUpData($topUp),
         ]);
     }
 

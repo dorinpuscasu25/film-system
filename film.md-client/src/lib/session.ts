@@ -114,12 +114,34 @@ export interface StorefrontTopUpPayload {
   provider_checkout_id?: string | null;
   provider_rrn?: string | null;
   payment_url?: string | null;
+  provider?: "pay_filmoteca" | "mia" | "cybersource" | string | null;
+  payment_method?: StorefrontTopUpMethod | null;
+  provider_reference?: string | null;
+  /** Victoriabank card (CyberSource Unified Checkout), while the session can still be used. */
+  card_session?: {
+    session_jwt: string;
+    client_library: string | null;
+    client_library_integrity: string | null;
+  } | null;
+  /** MIA only, while the QR can still be paid. */
+  qr?: {
+    image: string | null;
+    text: string | null;
+    expires_at: string | null;
+  } | null;
   billing_address_id?: string | number | null;
   access_location?: StorefrontAccessLocation | null;
   credited_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   billing_address?: Omit<StorefrontBillingAddressPayload, "id" | "is_default" | "created_at" | "updated_at"> | null;
+}
+
+export type StorefrontTopUpMethod = "card" | "mia";
+
+export interface StorefrontTopUpMethodsPayload {
+  methods: Array<{ id: StorefrontTopUpMethod; enabled: boolean; provider?: string; requires_phone?: boolean }>;
+  default: StorefrontTopUpMethod | null;
 }
 
 export interface StorefrontTopUpResponsePayload {
@@ -577,7 +599,25 @@ export async function purchaseStorefrontOffer(
   }, true);
 }
 
+export async function fetchStorefrontTopUpMethods() {
+  return requestJson<StorefrontTopUpMethodsPayload>("/storefront/wallet/top-up-methods", {}, undefined, true);
+}
+
+export async function submitStorefrontCardResult(topUpId: string, resultJwt: string) {
+  return requestJson<StorefrontTopUpResponsePayload>(`/storefront/wallet/top-ups/${topUpId}/card-result`, {
+    method: "POST",
+    body: JSON.stringify({ result_jwt: resultJwt }),
+  }, undefined, true);
+}
+
+export async function cancelStorefrontWalletTopUp(topUpId: string) {
+  return requestJson<StorefrontTopUpResponsePayload>(`/storefront/wallet/top-ups/${topUpId}/cancel`, {
+    method: "POST",
+  }, undefined, true);
+}
+
 export async function createStorefrontWalletTopUp(payload: {
+  method?: StorefrontTopUpMethod;
   amount: number;
   currency: string;
   account_profile_id?: string | number | null;

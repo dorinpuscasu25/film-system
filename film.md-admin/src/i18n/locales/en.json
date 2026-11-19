@@ -55,6 +55,7 @@
       "all_genres": "All genres"
     },
     "table": {
+      "movie_id": "MovieID",
       "title": "Title",
       "type": "Type",
       "flags": "Labels",
@@ -94,7 +95,7 @@
       "preview": "Preview movie",
       "delete": "Delete movie"
     },
-    "search_placeholder": "Search by title, slug, genre, or country..."
+    "search_placeholder": "Search by MovieID, title, slug, genre, or country..."
   },
   "ads": {
     "title": "Ad campaigns",

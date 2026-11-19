@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1cf3f3b7a33b4e352fa42fd71f39954f",
+    "content-hash": "c21cb18123ad7834ca16d21d0f06c08d",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -7774,6 +7774,38 @@
             "time": "2025-12-02T11:56:42+00:00"
         },
         {
+            "name": "victoriabank/cybersource-sdk",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/victoriabank-cybersource-sdk",
+                "reference": "fa668531aaa75b3ed3ce6a98597111e4d285ee9a"
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-openssl": "*",
+                "php": ">=8.2"
+            },
+            "suggest": {
+                "cybersource/rest-client-php": "production transport with Message-Level Encryption (tested: 0.0.77; use ~0.0.77)",
+                "ext-intl": "exact transliteration of non-ASCII billing data"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Victoriabank\\CyberSource\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Victoriabank CyberSource SDK: Account Verification + TMS tokens, 3-D Secure, CIT/MIT, Unified Checkout, Microform - requests validated against the Victoriabank rules R1-R13 before they are sent.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
             "name": "vlucas/phpdotenv",
             "version": "v5.6.3",
             "source": {
@@ -10223,5 +10255,5 @@
         "php": "^8.3"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }

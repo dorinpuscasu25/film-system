@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\PaymentRefund;
 use App\Models\PaymentTopUp;
 use App\Services\AuditLogService;
-use App\Services\PayFilmotecaPaymentService;
+use App\Services\Payments\TopUpPaymentGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 class PaymentTopUpController extends ApiController
 {
     public function __construct(
-        protected PayFilmotecaPaymentService $payments,
+        protected TopUpPaymentGateway $payments,
         protected AuditLogService $auditLog,
     ) {}
 
@@ -34,6 +34,7 @@ class PaymentTopUpController extends ApiController
                         ->orWhere('provider_order_id', 'like', "%{$search}%")
                         ->orWhere('provider_checkout_id', 'like', "%{$search}%")
                         ->orWhere('provider_rrn', 'like', "%{$search}%")
+                        ->orWhere('provider_reference', 'like', "%{$search}%")
                         ->orWhereHas('user', function ($userQuery) use ($search): void {
                             $userQuery
                                 ->where('name', 'like', "%{$search}%")
@@ -55,7 +56,8 @@ class PaymentTopUpController extends ApiController
     public function refund(Request $request, PaymentTopUp $topUp): JsonResponse
     {
         $data = $request->validate([
-            'amount' => ['required', 'numeric', 'min:20'],
+            // Provider minimums (pay.filmoteca.md: 20.00) are enforced by each provider.
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
@@ -103,10 +105,14 @@ class PaymentTopUpController extends ApiController
             'amount' => round((float) $topUp->amount, 2),
             'currency' => $topUp->currency,
             'status' => $topUp->status,
+            'provider' => $topUp->provider,
+            'payment_method' => $topUp->payment_method,
+            'provider_reference' => $topUp->provider_reference,
             'provider_status' => $topUp->provider_status,
             'provider_order_id' => $topUp->provider_order_id,
             'provider_checkout_id' => $topUp->provider_checkout_id,
             'provider_rrn' => $topUp->provider_rrn,
+            'refund_policy' => $this->payments->refundPolicy($topUp),
             'billing_address' => $topUp->billing_address,
             'refunded_amount' => $this->payments->refundedAmount($topUp),
             'refundable_amount' => $this->payments->refundableAmount($topUp),
@@ -133,6 +139,7 @@ class PaymentTopUpController extends ApiController
             'currency' => $refund->currency,
             'reason' => $refund->reason,
             'status' => $refund->status,
+            'provider' => $refund->provider,
             'provider_status' => $refund->provider_status,
             'provider_order_id' => $refund->provider_order_id,
             'provider_checkout_id' => $refund->provider_checkout_id,

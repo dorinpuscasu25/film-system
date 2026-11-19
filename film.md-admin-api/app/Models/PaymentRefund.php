@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
     'user_id',
     'wallet_id',
     'wallet_transaction_id',
+    'provider',
     'requested_by_admin_id',
     'provider_order_id',
     'provider_checkout_id',

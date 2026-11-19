@@ -1,0 +1,2511 @@
+{
+  "version": "1.3.0",
+  "engine": 2,
+  "date": "2026-11-10",
+  "description": "Victoriabank x CyberSource request rules in machine-checkable form. Paths are dot-separated; [] means 'array contains'. Checker: ai-kit/check-request.js Engine 2: a rule may carry \"when\"/\"whenNot\" (a dot path in \"policy\"); it then applies only when that policy value is true / false. policy.storedCredentials = the single CIT/MIT value table (kind x network), read by the SDKs and the checker classifier.",
+  "compatibility": "Semantic versioning of the rule content: MINOR = new scenarios or new optional checks, MAJOR = a stricter rule that can reject a request accepted before. \"engine\" = rule-file format; every engine (SDK Node, SDK PHP, check-request.js / simulator) refuses a file with a higher engine than it supports. Reports and VbRuleError carry the version and the sha256 (first 12 hex) of this file.",
+  "policy": {
+    "accountVerification3dsCombined": {
+      "status": "confirmed by CyberSource support on a bank-certified sandbox test (merchant test_498000049807145, 2026-11-04/05, package IN/microform/bank-logs-2026-11-04-05) - Visa only so far",
+      "why": "an alternate Account Verification flow: 3-D Secure runs first via POST /risk/v1/authentication-setups + POST /risk/v1/authentications, then the result (cavv, eciRaw, xid, directoryServerTransactionId, paSpecificationVersion) is attached to the 0.00 + TOKEN_CREATE authorization itself, with commerceIndicator \"vbv\" instead of \"internet\". This does NOT use processingInformation.actionList CONSUMER_AUTHENTICATION/VALIDATE_CONSUMER_AUTHENTICATION (that remains forbidden on a 0.00 authorization, scenario cit_3ds_combined is unrelated). The standard flow (3-D Secure on the first paid CIT, scenario account_verification) is still the default and is unaffected.",
+      "mastercardCommerceIndicator": "not confirmed yet - do not assume \"spa\"; keep using the standard flow (account_verification) for Mastercard until confirmed"
+    },
+    "threeDs": {
+      "acceptAttempted": true,
+      "status": "provisional - to be confirmed by Victoriabank",
+      "why": "true: an attempted authentication (Visa ECI 06, Mastercard ECI 01) with a cryptogram counts as full 3-D Secure (R4); false: it must be reversed",
+      "eci": {
+        "visa": {
+          "authenticated": [
+            "05"
+          ],
+          "attempted": [
+            "06"
+          ],
+          "none": [
+            "07"
+          ]
+        },
+        "mastercard": {
+          "authenticated": [
+            "02"
+          ],
+          "attempted": [
+            "01"
+          ],
+          "none": [
+            "00",
+            "06",
+            "07"
+          ]
+        }
+      },
+      "mastercardDowngradedUcafCollectionIndicator": "0"
+    },
+    "storedCredentials": {
+      "status": "provisional - values from review_final/08 (Credentialed Transactions guide, VPC); cells with pendingConfirmation must be confirmed in writing by CyberSource / Victoriabank (08 §5)",
+      "why": "single source of the stored-credential values: SDK chargeStoredCard() / agreement options (Node, PHP), check-request.js classifier, simulator and guide read this table; the scenarios below enforce it",
+      "ntidPattern": "^\\d{15}$",
+      "ntidSource": "processorInformation.networkTransactionId ?? processorInformation.transactionId of the transaction that ESTABLISHED THE AGREEMENT (equal on VPC); stored per agreement, not per card (cred:250, 263)",
+      "networks": {
+        "001": "visa",
+        "002": "mastercard"
+      },
+      "mitCommon": {
+        "required": {
+          "processingInformation.authorizationOptions.initiator.type": "merchant",
+          "processingInformation.authorizationOptions.initiator.storedCredentialUsed": true,
+          "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId": "NTID of the agreement, 15 digits",
+          "paymentInformation.tokenizedCard.transactionType": "3",
+          "paymentInformation.customer.id | paymentInformation.paymentInstrument.id": "TMS token (R3)"
+        },
+        "forbidden": [
+          "consumerAuthenticationInformation",
+          "paymentInformation.card.securityCode",
+          "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "processingInformation.recurringOptions.firstRecurringPayment",
+          "processingInformation.actionList[] CONSUMER_AUTHENTICATION | VALIDATE_CONSUMER_AUTHENTICATION | TOKEN_CREATE"
+        ],
+        "forbiddenCommerceIndicators": [
+          "vbv",
+          "vbv_attempted",
+          "vbv_failure",
+          "spa",
+          "spa_failure"
+        ],
+        "consequenceIfMissing": "a MIT missing the whole initiator block (not just one field) is read by the issuer as an unauthenticated CIT and SCA re-authentication is forced - confirmed in writing by CyberSource support 2026-10-26 (separate correspondence); this is the exact failure mode N04 is built to catch",
+        "sources": "cred:259-275; af:24414-24447, 21508-21520; pa:188-192"
+      },
+      "mit": {
+        "recurring": {
+          "label": "recurring / subscription, fixed amount (standing instruction)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "recurring",
+            "reason": null,
+            "scenario": "mit_recurring_visa",
+            "confirmed": "C1 closed - CyberSource support, in writing, 2026-11-05: no reason code for Visa recurring/UCOF MIT; previousTransactionId alone is sufficient, and must match a prior successful VISA transaction. Raised after a live Visa MIT with reason=7 was declined (reason_code 211, auth_response 82, 'Negative CAM, dCVV, iCVV, or CVV results'). No enforced value changed - the kit already omitted reason for Visa. Live retest result (does the corrected authorization succeed) to be appended once known.",
+            "source": "cred:6589-6669"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "recurring",
+            "reason": "7",
+            "scenario": "mit_subscription_mastercard",
+            "source": "cred:8834-8918"
+          }
+        },
+        "recurring_variable": {
+          "label": "recurring, variable amount (Mastercard standing order: utilities, telecom)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "recurring",
+            "reason": null,
+            "scenario": "mit_recurring_visa",
+            "confirmed": "C1 closed - see mit.recurring.visa.confirmed (same scenario, same correspondence 2026-11-05)",
+            "source": "cred:6589-6669"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "recurring",
+            "reason": "8",
+            "scenario": "mit_standingorder_mastercard",
+            "source": "cred:7752-7836; sdkm:...MerchantInitiatedTransaction:84"
+          }
+        },
+        "installment": {
+          "label": "installment payment (standing instruction)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "install",
+            "reason": null,
+            "scenario": "mit_installment_visa",
+            "pendingConfirmation": [
+              "C8"
+            ],
+            "source": "cred:5204-5262"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "install",
+            "reason": "9",
+            "scenario": "mit_installment_mastercard",
+            "pendingConfirmation": [
+              "C8"
+            ],
+            "source": "af:24377; cred:5446-5454"
+          }
+        },
+        "unscheduled": {
+          "label": "unscheduled credential on file (UCOF)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": null,
+            "scenario": "mit_unscheduled_visa",
+            "confirmed": "C1 closed - CyberSource support, in writing, 2026-11-05, explicitly covers Visa unscheduled COF too (see mit.recurring.visa.confirmed)",
+            "source": "cred:10167-10230"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": "10",
+            "scenario": "mit_unscheduled_mastercard",
+            "confirmed": "C7 closed - CyberSource support, in writing, 2026-11-05: reason=10 required for Mastercard Unscheduled COF (also Amex/Discover, not yet in this kit's network matrix - logged in NOTA-INTERNA). Matches the value already live-tested and enforced; no change.",
+            "source": "cred:10214-10218; af:24378"
+          }
+        },
+        "topup": {
+          "label": "account top-up (treated as UCOF)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": null,
+            "scenario": "mit_unscheduled_visa",
+            "pendingConfirmation": [
+              "C10"
+            ],
+            "source": "cred:128, 175-179"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": "10",
+            "scenario": "mit_unscheduled_mastercard",
+            "pendingConfirmation": [
+              "C10"
+            ],
+            "source": "cred:128, 175-179"
+          }
+        },
+        "resubmission": {
+          "label": "resubmission after a decline (goods already delivered) - only after a DECLINED answer, respecting merchantAdvice.code",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": "1",
+            "scenario": "mit_resubmission_visa",
+            "pendingConfirmation": [
+              "C17"
+            ],
+            "source": "cred:2979-3081; af:24369"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": "1",
+            "scenario": "mit_resubmission_mastercard",
+            "pendingConfirmation": [
+              "C17"
+            ],
+            "source": "cred:2979-3081; af:24369"
+          }
+        },
+        "delayed": {
+          "label": "delayed charge (minibar, damage, after the service)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": "2",
+            "scenario": "mit_delayed_visa",
+            "pendingConfirmation": [
+              "C17"
+            ],
+            "source": "cred:899-1052; af:24370"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": "2",
+            "scenario": "mit_delayed_mastercard",
+            "pendingConfirmation": [
+              "C17"
+            ],
+            "source": "cred:899-1052; af:24370"
+          }
+        },
+        "reauthorization": {
+          "label": "reauthorization (the authorization expires before delivery; split / delayed shipment)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "required",
+            "commerceIndicator": "internet",
+            "reason": "3",
+            "scenario": "mit_reauthorization_visa",
+            "pendingConfirmation": [
+              "C17"
+            ],
+            "source": "cred:2284-2381; af:24371"
+          },
+          "mastercard": {
+            "supported": false,
+            "scenario": "mit_reauthorization_mastercard",
+            "source": "cred:2309, 2554; af:24371",
+            "error": "reauthorization (reason 3) is not supported for Mastercard on Visa Platform Connect (cred:2309): charge a new unscheduled MIT (kind \"unscheduled\", reason 10) or ask the customer for a new CIT"
+          }
+        },
+        "noshow": {
+          "label": "no-show (reservation not used)",
+          "visa": {
+            "supported": true,
+            "storedCredentialUsed": "optional (sent true: VB charges a TMS token)",
+            "commerceIndicator": "internet",
+            "reason": "4",
+            "scenario": "mit_noshow_visa",
+            "pendingConfirmation": [
+              "C17"
+            ],
+            "source": "cred:3659-3780; af:24372"
+          },
+          "mastercard": {
+            "supported": true,
+            "storedCredentialUsed": "optional (sent true: VB charges a TMS token)",
+            "commerceIndicator": "internet",
+            "reason": "4",
+            "scenario": "mit_noshow_mastercard",
+            "pendingConfirmation": [
+              "C17"
+            ],
+            "source": "cred:3659-3780; af:24372"
+          }
+        },
+        "incremental": {
+          "label": "incremental authorization - use the incremental authorization service (PATCH /pts/v2/payments/{id}), not a new MIT",
+          "visa": {
+            "supported": false,
+            "commerceIndicator": "internet",
+            "reason": "5",
+            "scenario": "mit_incremental_visa",
+            "pendingConfirmation": [
+              "C9",
+              "C17"
+            ],
+            "source": "cred:1600-1718; af:24373; pay:465-482",
+            "error": "incremental MIT (Visa reason 5) is disabled until Victoriabank confirms C9: use incrementalAuthorization(paymentId, {reference, additionalAmount}) (PATCH /pts/v2/payments/{id}) on the pre-authorization"
+          },
+          "mastercard": {
+            "supported": false,
+            "scenario": "mit_incremental_mastercard",
+            "pendingConfirmation": [
+              "C9"
+            ],
+            "source": "cred:1621, 1664-1668; pay:3822-3902",
+            "error": "Mastercard incremental: use incrementalAuthorization(paymentId, {reference, additionalAmount}) (PATCH /pts/v2/payments/{id}); reason 5 is Visa/Discover only"
+          }
+        },
+        "partial_shipment": {
+          "label": "partial shipment (Mastercard reason 6) - not implemented",
+          "visa": {
+            "supported": false,
+            "error": "partial shipment (reason 6) is not a Visa value (af:24374)"
+          },
+          "mastercard": {
+            "supported": false,
+            "reason": "6",
+            "pendingConfirmation": [
+              "C18"
+            ],
+            "source": "af:24374",
+            "error": "partial shipment (Mastercard reason 6) is not implemented: no CTV section documents it (C18, to be confirmed by CyberSource)"
+          }
+        }
+      },
+      "citAgreement": {
+        "label": "the first PAID customer-initiated payment (with 3-D Secure) that establishes the agreement; its NTID is the previousTransactionId of every MIT of that agreement",
+        "common": {
+          "required": {
+            "processingInformation.authorizationOptions.initiator.type": "customer",
+            "processingInformation.authorizationOptions.initiator.credentialStoredOnFile": true,
+            "3-D Secure": "CONSUMER_AUTHENTICATION / VALIDATE_CONSUMER_AUTHENTICATION or CAVV / UCAF (R4)"
+          },
+          "forbidden": [
+            "processingInformation.authorizationOptions.initiator.storedCredentialUsed (C4: not combined with credentialStoredOnFile)",
+            "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+            "totalAmount 0.00 (R6)"
+          ],
+          "commerceIndicator": "set by payer authentication (C12)",
+          "sources": "cred:207-228, 321-324, 5864-5934, 8398-8475, 7315-7393, 4423-4489, 9492-9561"
+        },
+        "recurring": {
+          "visa": {
+            "firstRecurringPayment": true,
+            "reason": null,
+            "scenario": "cit_agreement_recurring_visa",
+            "pendingConfirmation": [
+              "C4"
+            ]
+          },
+          "mastercard": {
+            "firstRecurringPayment": true,
+            "reason": "7",
+            "scenario": "cit_agreement_subscription_mastercard",
+            "pendingConfirmation": [
+              "C4",
+              "C12"
+            ]
+          }
+        },
+        "recurring_variable": {
+          "visa": {
+            "firstRecurringPayment": true,
+            "reason": null,
+            "scenario": "cit_agreement_recurring_visa",
+            "pendingConfirmation": [
+              "C4"
+            ]
+          },
+          "mastercard": {
+            "firstRecurringPayment": true,
+            "reason": "8",
+            "scenario": "cit_agreement_standingorder_mastercard",
+            "pendingConfirmation": [
+              "C4",
+              "C12"
+            ]
+          }
+        },
+        "installment": {
+          "visa": {
+            "firstRecurringPayment": false,
+            "reason": null,
+            "scenario": "cit_agreement_installment_visa",
+            "pendingConfirmation": [
+              "C4",
+              "C8"
+            ]
+          },
+          "mastercard": {
+            "firstRecurringPayment": false,
+            "reason": "9",
+            "scenario": "cit_agreement_installment_mastercard",
+            "pendingConfirmation": [
+              "C4",
+              "C8"
+            ]
+          }
+        },
+        "unscheduled": {
+          "visa": {
+            "firstRecurringPayment": false,
+            "reason": null,
+            "scenario": "cit_agreement_unscheduled",
+            "pendingConfirmation": [
+              "C4"
+            ]
+          },
+          "mastercard": {
+            "firstRecurringPayment": false,
+            "reason": null,
+            "scenario": "cit_agreement_unscheduled",
+            "pendingConfirmation": [
+              "C4"
+            ]
+          }
+        }
+      },
+      "accountVerification": {
+        "forbidden": [
+          "processingInformation.recurringOptions",
+          "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction",
+          "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+          "consumerAuthenticationInformation",
+          "installmentInformation",
+          "commerceIndicator recurring / install"
+        ],
+        "why": "Visa Platform Connect: a 0.00 authorization is never combined with 3-D Secure, recurring or installment indicators (pay:2959, R6); the agreement is set on the first paid CIT"
+      },
+      "pendingConfirmations": {
+        "C1": "[CLOSED 2026-11-05] Visa recurring/UCOF MIT: no reason code. History: kit's documentation-based default was no reason; a merchant pilot review once asked for reason 7; a 2026-10-26 correspondence then suggested 7=UCOF/1=recurring, brand unspecified - three conflicting answers. RESOLVED 2026-11-05: CyberSource support, in writing, on a live declined Visa transaction (reason=7, reason_code 211, auth_response 82, 'Negative CAM, dCVV, iCVV, or CVV results'): for Visa, reason is not required for recurring or unscheduled COF; previousTransactionId alone is enough, and it must reference a prior successful VISA transaction (M3 already enforces NTID-belongs-to-the-right-agreement). No enforced value changed - the kit already sent no reason for Visa. Open: the live retest result (does the corrected authorization succeed) is not yet known - append once reported.",
+        "C4": "agreement CIT: credentialStoredOnFile true without an explicit storedCredentialUsed (TMS sets it for a token) - CyberSource / bank in TEST",
+        "C5": "NTID source for recurring / installment MIT: the paid agreement CIT (with 3-D Secure) vs the 0.00 Account Verification (AV cannot carry 3DS on VPC, pay:2959; storing a credential asks for 3DS, cred:321) - Victoriabank decision",
+        "C7": "[CLOSED 2026-11-05] Mastercard UCOF MIT: reason 10. History: required-field list said 10, one example omitted it, a 2026-10-26 correspondence suggested 7 for unscheduled/irregular MIT (brand unspecified) - conflicting with the tested value 10. RESOLVED 2026-11-05: same CyberSource correspondence as C1 explicitly states reason=10 is required for Mastercard (and Amex/Discover, not in this kit's network matrix - see NOTA-INTERNA) Unscheduled COF. Matches the value already live-tested and enforced; no change.",
+        "C8": "installment MIT: Mastercard 9, Visa none - CyberSource. Note (2026-11-05): the C1/C7 correspondence only confirmed reason-free Visa for \"recurring\" and \"unscheduled COF\", not installment by name - treat as supportive but not conclusive for C8; still needs its own explicit confirmation.",
+        "C9": "incremental authorization service (PATCH) availability / eligible MCCs; Visa MIT reason 5 disabled until then - bank",
+        "C10": "account top-up treated as UCOF (Visa none, Mastercard 10) - CyberSource",
+        "C12": "Mastercard initial subscription CIT: commerceIndicator left to payer authentication - CyberSource",
+        "C13": "tokenizedCard.transactionType 3 on MIT (yes) and on CIT (not sent) - CyberSource",
+        "C17": "commerceIndicator of industry-practice MIT (reasons 1-5): internet - CyberSource",
+        "C18": "Mastercard partial shipment reason 6: not implemented - CyberSource"
+      }
+    }
+  },
+  "global": [
+    {
+      "path": "clientReferenceInformation.code",
+      "rule": "exists",
+      "id": "R10"
+    },
+    {
+      "path": "clientReferenceInformation.code",
+      "rule": "maxLen",
+      "value": 50,
+      "id": "R10"
+    },
+    {
+      "path": "paymentInformation.card.number",
+      "rule": "absent",
+      "id": "R1",
+      "why": "PAN must never be sent by the merchant server"
+    },
+    {
+      "path": "paymentInformation.card.securityCode",
+      "rule": "absent",
+      "id": "R1"
+    },
+    {
+      "path": "orderInformation.billTo.address1",
+      "rule": "maxLen",
+      "value": 60,
+      "id": "data"
+    },
+    {
+      "path": "orderInformation.billTo.address2",
+      "rule": "maxLen",
+      "value": 60,
+      "id": "data"
+    },
+    {
+      "path": "orderInformation.billTo.locality",
+      "rule": "maxLen",
+      "value": 50,
+      "id": "data"
+    },
+    {
+      "path": "orderInformation.billTo.postalCode",
+      "rule": "maxLen",
+      "value": 10,
+      "id": "data"
+    },
+    {
+      "path": "orderInformation.billTo",
+      "rule": "asciiValues",
+      "id": "data",
+      "why": "Visa Platform Connect replaces non-ASCII characters"
+    },
+    {
+      "path": "orderInformation.amountDetails.totalAmount",
+      "rule": "pattern",
+      "value": "^\\d{1,12}\\.\\d{2}$",
+      "id": "data"
+    },
+    {
+      "path": "clientReferenceInformation.transactionId",
+      "rule": "pattern",
+      "value": "^[A-Za-z0-9]{1,30}$",
+      "id": "R10",
+      "why": "merchant transaction ID of the authorization (timeout reversal, POST /pts/v2/reversals): unique for 180 days, at most 30 characters"
+    }
+  ],
+  "scenarios": {
+    "microform_session": {
+      "endpoint": "POST /microform/v2/sessions",
+      "rules": [
+        {
+          "path": "clientVersion",
+          "rule": "equals",
+          "value": "v2",
+          "id": "R1"
+        },
+        {
+          "path": "targetOrigins[]",
+          "rule": "allMatch",
+          "value": "^(https://[^*/]+|http://(localhost|127\\.0\\.0\\.1)(:\\d+)?)$",
+          "id": "R1",
+          "why": "https://host[:port]; http only for localhost during development"
+        },
+        {
+          "path": "allowedCardNetworks[]",
+          "rule": "contains",
+          "value": "VISA",
+          "id": "R1"
+        },
+        {
+          "path": "allowedPaymentTypes[]",
+          "rule": "contains",
+          "value": "CARD",
+          "id": "R1"
+        }
+      ]
+    },
+    "account_verification": {
+      "endpoint": "POST /pts/v2/payments",
+      "rules": [
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "equals",
+          "value": "0.00",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "contains",
+          "value": "TOKEN_CREATE",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "notContains",
+          "value": "CONSUMER_AUTHENTICATION",
+          "id": "R6"
+        },
+        {
+          "path": "processingInformation.actionTokenTypes[] | paymentInformation.customer.id",
+          "rule": "anyOf",
+          "id": "R2",
+          "anyOf": [
+            {
+              "path": "processingInformation.actionTokenTypes[]",
+              "rule": "contains",
+              "value": "customer"
+            },
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "new customer: create the Customer token; returning customer: add the card under the existing Customer token"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "equals",
+          "value": true,
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "oneOf",
+          "value": [
+            "internet"
+          ],
+          "id": "R6"
+        },
+        {
+          "path": "processingInformation.capture",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R6"
+        },
+        {
+          "path": "tokenInformation.transientTokenJwt",
+          "rule": "exists",
+          "id": "R1"
+        },
+        {
+          "path": "processingInformation.actionTokenTypes[]",
+          "rule": "contains",
+          "value": "paymentInstrument",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "customer",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.recurringOptions",
+          "rule": "absent",
+          "id": "R6",
+          "why": "no recurring indicator on a 0.00 authorization (VPC, pay:2959): the agreement is set on the first paid CIT"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction",
+          "rule": "absent",
+          "id": "R6",
+          "why": "no MIT data (reason / previousTransactionId) on the Account Verification"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+          "rule": "absent",
+          "id": "R6",
+          "why": "the Account Verification STORES the credential (credentialStoredOnFile), it does not use one"
+        },
+        {
+          "path": "consumerAuthenticationInformation",
+          "rule": "absent",
+          "id": "R6",
+          "why": "no 3-D Secure on a 0.00 authorization (VPC) - standard flow; the alternate confirmed flow is scenario account_verification_3ds_combined"
+        },
+        {
+          "path": "installmentInformation",
+          "rule": "absent",
+          "id": "R6",
+          "why": "no installment data on a 0.00 authorization (VPC)"
+        }
+      ]
+    },
+    "account_verification_3ds_combined": {
+      "endpoint": "POST /pts/v2/payments",
+      "why": "alternate Account Verification flow confirmed by CyberSource support (policy.accountVerification3dsCombined): 3-D Secure already completed via /risk/v1/authentication-setups + /risk/v1/authentications, its result attached to the 0.00 + TOKEN_CREATE authorization. Everything that account_verification forbids for an unrelated reason (recurring/MIT/installment indicators) stays forbidden here too; only the 3-D Secure prohibition and the commerceIndicator are different.",
+      "rules": [
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "equals",
+          "value": "0.00",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "contains",
+          "value": "TOKEN_CREATE",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "notContains",
+          "value": "CONSUMER_AUTHENTICATION",
+          "id": "R6",
+          "why": "the inline enrollment action belongs to scenario cit_3ds_combined on a paid CIT, not here"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "notContains",
+          "value": "VALIDATE_CONSUMER_AUTHENTICATION",
+          "id": "R6"
+        },
+        {
+          "path": "processingInformation.actionTokenTypes[] | paymentInformation.customer.id",
+          "rule": "anyOf",
+          "id": "R2",
+          "anyOf": [
+            {
+              "path": "processingInformation.actionTokenTypes[]",
+              "rule": "contains",
+              "value": "customer"
+            },
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "new customer: create the Customer token; returning customer: add the card under the existing Customer token"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "equals",
+          "value": true,
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "oneOf",
+          "value": [
+            "vbv"
+          ],
+          "id": "R6",
+          "why": "confirmed value for the combined flow (Visa); do not use \"internet\" here and do not assume a Mastercard equivalent (policy.accountVerification3dsCombined.mastercardCommerceIndicator)"
+        },
+        {
+          "path": "processingInformation.capture",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R6"
+        },
+        {
+          "path": "tokenInformation.transientTokenJwt",
+          "rule": "exists",
+          "id": "R1"
+        },
+        {
+          "path": "processingInformation.actionTokenTypes[]",
+          "rule": "contains",
+          "value": "paymentInstrument",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "customer",
+          "id": "R2"
+        },
+        {
+          "path": "processingInformation.recurringOptions",
+          "rule": "absent",
+          "id": "R6",
+          "why": "unchanged: no recurring indicator on a 0.00 authorization (VPC, pay:2959): the agreement is set on the first paid CIT"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction",
+          "rule": "absent",
+          "id": "R6",
+          "why": "unchanged: no MIT data (reason / previousTransactionId) on the Account Verification"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+          "rule": "absent",
+          "id": "R6",
+          "why": "unchanged: the Account Verification STORES the credential (credentialStoredOnFile), it does not use one"
+        },
+        {
+          "path": "installmentInformation",
+          "rule": "absent",
+          "id": "R6",
+          "why": "unchanged: no installment data on a 0.00 authorization (VPC)"
+        },
+        {
+          "path": "consumerAuthenticationInformation.cavv",
+          "rule": "exists",
+          "id": "R4",
+          "why": "result of the prior POST /risk/v1/authentications (confirmed test: 03-zero-amount-token-creation.json)"
+        },
+        {
+          "path": "consumerAuthenticationInformation.eciRaw",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.xid",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.directoryServerTransactionId",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.paSpecificationVersion",
+          "rule": "exists",
+          "id": "R4"
+        }
+      ]
+    },
+    "cit_3ds_combined": {
+      "endpoint": "POST /pts/v2/payments",
+      "rules": [
+        {
+          "path": "paymentInformation.customer.id | paymentInformation.paymentInstrument.id",
+          "rule": "anyOf",
+          "id": "R3",
+          "anyOf": [
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            },
+            {
+              "path": "paymentInformation.paymentInstrument.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "TMS token: Customer (default card) or the payment instrument of the card to charge"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "contains",
+          "value": "CONSUMER_AUTHENTICATION",
+          "id": "R4"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "customer",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.referenceId",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.returnUrl",
+          "rule": "pattern",
+          "value": "^(https://|http://(localhost|127\\.0\\.0\\.1)(:\\d+)?/)",
+          "id": "R4",
+          "why": "https; http only for localhost during development"
+        },
+        {
+          "path": "consumerAuthenticationInformation.deviceChannel",
+          "rule": "oneOf",
+          "value": [
+            "Browser",
+            "BROWSER"
+          ],
+          "id": "R4",
+          "why": "API field reference: SDK | Browser | 3RI (both spellings appear in the official examples)"
+        },
+        {
+          "path": "deviceInformation.ipAddress",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpAcceptContent",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpBrowserLanguage",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpBrowserJavaEnabled",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpBrowserJavaScriptEnabled",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpBrowserColorDepth",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpBrowserScreenHeight",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpBrowserScreenWidth",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.httpBrowserTimeDifference",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "deviceInformation.userAgentBrowserValue",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data",
+          "why": "a financial authorization is never 0.00 (only Account Verification is)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "absent",
+          "id": "R5",
+          "why": "previousTransactionId is a MIT field: a customer-initiated payment never carries it"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "equals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "equals",
+              "value": true
+            }
+          ],
+          "why": "payment with the TMS token: storedCredentialUsed true; only the CIT that establishes an agreement carries credentialStoredOnFile true instead (cit_agreement_*)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "notEquals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "notEquals",
+              "value": true
+            }
+          ],
+          "why": "not both on one request: credentialStoredOnFile (stores / establishes the agreement) and storedCredentialUsed (uses it) (C4)"
+        }
+      ]
+    },
+    "cit_validate": {
+      "endpoint": "POST /pts/v2/payments",
+      "rules": [
+        {
+          "path": "paymentInformation.customer.id | paymentInformation.paymentInstrument.id",
+          "rule": "anyOf",
+          "id": "R3",
+          "anyOf": [
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            },
+            {
+              "path": "paymentInformation.paymentInstrument.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "TMS token: Customer (default card) or the payment instrument of the card to charge"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "contains",
+          "value": "VALIDATE_CONSUMER_AUTHENTICATION",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.authenticationTransactionId",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data",
+          "why": "a financial authorization is never 0.00 (only Account Verification is)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "customer",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "absent",
+          "id": "R5",
+          "why": "previousTransactionId is a MIT field: a customer-initiated payment never carries it"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "equals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "equals",
+              "value": true
+            }
+          ],
+          "why": "payment with the TMS token: storedCredentialUsed true; only the CIT that establishes an agreement carries credentialStoredOnFile true instead (cit_agreement_*)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "notEquals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "notEquals",
+              "value": true
+            }
+          ],
+          "why": "not both on one request: credentialStoredOnFile (stores / establishes the agreement) and storedCredentialUsed (uses it) (C4)"
+        }
+      ]
+    },
+    "cit_3ds_separate_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "rules": [
+        {
+          "path": "paymentInformation.customer.id | paymentInformation.paymentInstrument.id",
+          "rule": "anyOf",
+          "id": "R3",
+          "anyOf": [
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            },
+            {
+              "path": "paymentInformation.paymentInstrument.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "TMS token: Customer (default card) or the payment instrument of the card to charge"
+        },
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "oneOf",
+          "value": [
+            "vbv",
+            "vbv_attempted"
+          ],
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.cavv",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.eciRaw",
+          "rule": "oneOf",
+          "value": [
+            "05",
+            "06"
+          ],
+          "id": "R4"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data",
+          "why": "a financial authorization is never 0.00 (only Account Verification is)"
+        },
+        {
+          "path": "consumerAuthenticationInformation.eciRaw",
+          "rule": "equals",
+          "value": "05",
+          "id": "R4",
+          "whenNot": "threeDs.acceptAttempted",
+          "why": "policy.threeDs.acceptAttempted = false: only a fully authenticated result (ECI 05)"
+        },
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "vbv",
+          "id": "R4",
+          "whenNot": "threeDs.acceptAttempted"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "customer",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "absent",
+          "id": "R5",
+          "why": "previousTransactionId is a MIT field: a customer-initiated payment never carries it"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "equals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "equals",
+              "value": true
+            }
+          ],
+          "why": "payment with the TMS token: storedCredentialUsed true; only the CIT that establishes an agreement carries credentialStoredOnFile true instead (cit_agreement_*)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "notEquals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "notEquals",
+              "value": true
+            }
+          ],
+          "why": "not both on one request: credentialStoredOnFile (stores / establishes the agreement) and storedCredentialUsed (uses it) (C4)"
+        }
+      ]
+    },
+    "cit_3ds_separate_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "rules": [
+        {
+          "path": "paymentInformation.customer.id | paymentInformation.paymentInstrument.id",
+          "rule": "anyOf",
+          "id": "R3",
+          "anyOf": [
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            },
+            {
+              "path": "paymentInformation.paymentInstrument.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "TMS token: Customer (default card) or the payment instrument of the card to charge"
+        },
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "spa",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.ucafAuthenticationData",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.ucafCollectionIndicator",
+          "rule": "oneOf",
+          "value": [
+            "1",
+            "2"
+          ],
+          "id": "R4",
+          "why": "copy the ucafCollectionIndicator returned by payer authentication: 2 authenticated, 1 attempted (never force 2)"
+        },
+        {
+          "path": "consumerAuthenticationInformation.ucafCollectionIndicator",
+          "rule": "equals",
+          "value": "2",
+          "id": "R4",
+          "whenNot": "threeDs.acceptAttempted",
+          "why": "policy.threeDs.acceptAttempted = false: attempted authentication (1) is not accepted"
+        },
+        {
+          "path": "consumerAuthenticationInformation.eciRaw",
+          "rule": "oneOf",
+          "value": [
+            "02",
+            "01"
+          ],
+          "id": "R4",
+          "why": "Mastercard: 02 authenticated, 01 attempted; 00/06/07 are not authenticated"
+        },
+        {
+          "path": "consumerAuthenticationInformation.eciRaw",
+          "rule": "equals",
+          "value": "02",
+          "id": "R4",
+          "whenNot": "threeDs.acceptAttempted"
+        },
+        {
+          "path": "consumerAuthenticationInformation.paSpecificationVersion",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "consumerAuthenticationInformation.directoryServerTransactionId",
+          "rule": "exists",
+          "id": "R4"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data",
+          "why": "a financial authorization is never 0.00 (only Account Verification is)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "customer",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "absent",
+          "id": "R5",
+          "why": "previousTransactionId is a MIT field: a customer-initiated payment never carries it"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "equals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "equals",
+              "value": true
+            }
+          ],
+          "why": "payment with the TMS token: storedCredentialUsed true; only the CIT that establishes an agreement carries credentialStoredOnFile true instead (cit_agreement_*)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed | processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "anyOf",
+          "id": "R5",
+          "anyOf": [
+            {
+              "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+              "rule": "notEquals",
+              "value": true
+            },
+            {
+              "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+              "rule": "notEquals",
+              "value": true
+            }
+          ],
+          "why": "not both on one request: credentialStoredOnFile (stores / establishes the agreement) and storedCredentialUsed (uses it) (C4)"
+        }
+      ]
+    },
+    "mit_recurring_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "recurring",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "absent",
+          "id": "R5",
+          "why": "Visa on VPC: reason only for industry practice (1-5); recurring / installment / UCOF without reason (af:24383-24389; C1)"
+        }
+      ]
+    },
+    "mit_recurring_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "note": "kept for compatibility (simulator, PHP SDK 1.1): accepts 7 or 8",
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "recurring",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "oneOf",
+          "value": [
+            "7",
+            "8"
+          ],
+          "id": "R5",
+          "why": "Mastercard recurring: 7 = subscription (fixed amount), 8 = standing order (variable amount); exact value: mit_subscription_mastercard / mit_standingorder_mastercard"
+        }
+      ]
+    },
+    "mit_subscription_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "recurring",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "7",
+          "id": "R5",
+          "why": "Mastercard subscription, fixed amount (cred:8834-8918)"
+        }
+      ]
+    },
+    "mit_standingorder_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "recurring",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "8",
+          "id": "R5",
+          "why": "Mastercard standing order, variable amount (cred:7752-7836); 7 is for a fixed amount"
+        }
+      ]
+    },
+    "mit_installment_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C8"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "install",
+          "id": "R5",
+          "why": "installments are not recurring (cred:5204-5262)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "absent",
+          "id": "R5",
+          "why": "Visa on VPC: reason only for industry practice (1-5); recurring / installment / UCOF without reason (af:24383-24389; C1)"
+        }
+      ]
+    },
+    "mit_installment_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C8"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "install",
+          "id": "R5",
+          "why": "installments are not recurring (cred:5204-5262)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "9",
+          "id": "R5",
+          "why": "Mastercard installment (af:24377)"
+        }
+      ]
+    },
+    "mit_unscheduled_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "absent",
+          "id": "R5",
+          "why": "Visa on VPC: reason only for industry practice (1-5); recurring / installment / UCOF without reason (af:24383-24389; C1)"
+        }
+      ]
+    },
+    "mit_unscheduled_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "10",
+          "id": "R5",
+          "why": "Mastercard unscheduled credential on file (cred:10214-10218)"
+        }
+      ]
+    },
+    "mit_resubmission_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C17"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "1",
+          "id": "R5",
+          "why": "resubmission = reason 1 (cred:2979-3081)"
+        }
+      ]
+    },
+    "mit_resubmission_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C17"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "1",
+          "id": "R5",
+          "why": "resubmission = reason 1 (cred:2979-3081)"
+        }
+      ]
+    },
+    "mit_delayed_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C17"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "2",
+          "id": "R5",
+          "why": "delayed = reason 2 (cred:899-1052)"
+        }
+      ]
+    },
+    "mit_delayed_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C17"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "2",
+          "id": "R5",
+          "why": "delayed = reason 2 (cred:899-1052)"
+        }
+      ]
+    },
+    "mit_noshow_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C17"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "4",
+          "id": "R5",
+          "why": "noshow = reason 4 (cred:3659-3780)"
+        }
+      ]
+    },
+    "mit_noshow_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C17"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "4",
+          "id": "R5",
+          "why": "noshow = reason 4 (cred:3659-3780)"
+        }
+      ]
+    },
+    "mit_reauthorization_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C17"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "3",
+          "id": "R5",
+          "why": "reauthorization = reason 3, Visa only (cred:2284-2381)"
+        }
+      ]
+    },
+    "mit_reauthorization_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "unsupported": true,
+      "rules": [
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "notEquals",
+          "value": "3",
+          "id": "R5",
+          "why": "reauthorization (reason 3) is not supported for Mastercard on Visa Platform Connect (cred:2309): charge a new unscheduled MIT (reason 10) or a CIT"
+        }
+      ]
+    },
+    "mit_incremental_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "pendingConfirmation": [
+        "C9",
+        "C17"
+      ],
+      "note": "the SDK does not send it until C9 is confirmed: use incremental_authorization (PATCH)",
+      "rules": [
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "equals",
+          "value": "internet",
+          "id": "R5",
+          "why": "industry-practice MIT: commerceIndicator internet (C17, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "5",
+          "id": "R5",
+          "why": "incremental = reason 5, Visa (cred:1600-1718)"
+        }
+      ]
+    },
+    "mit_incremental_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "mit",
+      "unsupported": true,
+      "rules": [
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "notEquals",
+          "value": "5",
+          "id": "R5",
+          "why": "Mastercard incremental: use the incremental authorization service PATCH /pts/v2/payments/{id}; reason 5 is Visa / Discover only (cred:1664-1668, C9)"
+        }
+      ]
+    },
+    "mit": {
+      "abstract": true,
+      "rules": [
+        {
+          "path": "paymentInformation.customer.id | paymentInformation.paymentInstrument.id",
+          "rule": "anyOf",
+          "id": "R3",
+          "anyOf": [
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            },
+            {
+              "path": "paymentInformation.paymentInstrument.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "TMS token: Customer (default card) or the payment instrument of the card to charge"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "merchant",
+          "id": "R5",
+          "why": "merchant-initiated: without it the request is processed as a customer-initiated payment without 3-D Secure"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+          "rule": "equals",
+          "value": true,
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "exists",
+          "id": "R5",
+          "why": "NTID of the transaction that established the agreement (processorInformation.transactionId / networkTransactionId), stored per agreement (cred:263)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "pattern",
+          "value": "^\\d{15}$",
+          "id": "R5",
+          "why": "Visa / Mastercard NTID = 15 digits (af:24426-24428); not the 22-digit request id"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R5",
+          "why": "credentialStoredOnFile marks the transaction that STORES the credential (AV / agreement CIT), never a MIT"
+        },
+        {
+          "path": "processingInformation.recurringOptions.firstRecurringPayment",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R5",
+          "why": "firstRecurringPayment belongs to the agreement CIT, not to a MIT"
+        },
+        {
+          "path": "consumerAuthenticationInformation",
+          "rule": "absent",
+          "id": "R5",
+          "why": "a MIT has no 3-D Secure: never copy CAVV / UCAF / ECI from the CIT (pa:188-192)"
+        },
+        {
+          "path": "processingInformation.commerceIndicator",
+          "rule": "pattern",
+          "value": "^(?!(vbv|vbv_attempted|vbv_failure|spa|spa_failure)$)",
+          "id": "R5",
+          "why": "3-D Secure commerce indicators are for customer-initiated payments only"
+        },
+        {
+          "path": "paymentInformation.tokenizedCard.transactionType",
+          "rule": "equals",
+          "value": "3",
+          "id": "R5",
+          "why": "stored credential on VPC (C13)"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "notContains",
+          "value": "CONSUMER_AUTHENTICATION",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "notContains",
+          "value": "VALIDATE_CONSUMER_AUTHENTICATION",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.actionList[]",
+          "rule": "notContains",
+          "value": "TOKEN_CREATE",
+          "id": "R5",
+          "why": "a MIT charges an existing token"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data",
+          "why": "a financial authorization is never 0.00 (only Account Verification is)"
+        }
+      ]
+    },
+    "cit_agreement": {
+      "abstract": true,
+      "rules": [
+        {
+          "path": "paymentInformation.customer.id | paymentInformation.paymentInstrument.id",
+          "rule": "anyOf",
+          "id": "R3",
+          "anyOf": [
+            {
+              "path": "paymentInformation.customer.id",
+              "rule": "exists"
+            },
+            {
+              "path": "paymentInformation.paymentInstrument.id",
+              "rule": "exists"
+            }
+          ],
+          "why": "TMS token: Customer (default card) or the payment instrument of the card to charge"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.type",
+          "rule": "equals",
+          "value": "customer",
+          "id": "R5"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "equals",
+          "value": true,
+          "id": "R5",
+          "why": "the CIT that establishes the agreement stores the credential for the later MIT (cred:207-228)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.storedCredentialUsed",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R5",
+          "why": "agreement CIT: credentialStoredOnFile true without storedCredentialUsed (C4, to be confirmed)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "absent",
+          "id": "R5",
+          "why": "previousTransactionId is a MIT field"
+        },
+        {
+          "path": "processingInformation.actionList[] | consumerAuthenticationInformation.cavv | consumerAuthenticationInformation.ucafAuthenticationData",
+          "rule": "anyOf",
+          "id": "R4",
+          "anyOf": [
+            {
+              "path": "processingInformation.actionList[]",
+              "rule": "contains",
+              "value": "CONSUMER_AUTHENTICATION"
+            },
+            {
+              "path": "processingInformation.actionList[]",
+              "rule": "contains",
+              "value": "VALIDATE_CONSUMER_AUTHENTICATION"
+            },
+            {
+              "path": "consumerAuthenticationInformation.cavv",
+              "rule": "exists"
+            },
+            {
+              "path": "consumerAuthenticationInformation.ucafAuthenticationData",
+              "rule": "exists"
+            }
+          ],
+          "why": "the agreement CIT is authenticated with 3-D Secure (R4; cred:321, 324)"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "R6",
+          "why": "the agreement is set on the first PAID CIT; the 0.00 Account Verification never carries agreement indicators (pay:2959)"
+        }
+      ]
+    },
+    "cit_agreement_recurring_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "cit_agreement",
+      "combineWith": [
+        "cit_3ds_combined",
+        "cit_validate",
+        "cit_3ds_separate_visa",
+        "cit_3ds_separate_mastercard"
+      ],
+      "pendingConfirmation": [
+        "C4"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.recurringOptions.firstRecurringPayment",
+          "rule": "equals",
+          "value": true,
+          "id": "R5",
+          "why": "first payment of a recurring agreement (cred:5930-5934, af:26878-26898)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "absent",
+          "id": "R5",
+          "why": "Visa: no reason on the agreement CIT"
+        }
+      ]
+    },
+    "cit_agreement_subscription_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "cit_agreement",
+      "combineWith": [
+        "cit_3ds_combined",
+        "cit_validate",
+        "cit_3ds_separate_visa",
+        "cit_3ds_separate_mastercard"
+      ],
+      "pendingConfirmation": [
+        "C4",
+        "C12"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.recurringOptions.firstRecurringPayment",
+          "rule": "equals",
+          "value": true,
+          "id": "R5",
+          "why": "first payment of a recurring agreement (cred:5930-5934, af:26878-26898)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "7",
+          "id": "R5",
+          "why": "Mastercard subscription (fixed amount): reason 7 on the CIT that establishes it (cred:8455-8457)"
+        }
+      ]
+    },
+    "cit_agreement_standingorder_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "cit_agreement",
+      "combineWith": [
+        "cit_3ds_combined",
+        "cit_validate",
+        "cit_3ds_separate_visa",
+        "cit_3ds_separate_mastercard"
+      ],
+      "pendingConfirmation": [
+        "C4",
+        "C12"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.recurringOptions.firstRecurringPayment",
+          "rule": "equals",
+          "value": true,
+          "id": "R5",
+          "why": "first payment of a recurring agreement (cred:5930-5934, af:26878-26898)"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "8",
+          "id": "R5",
+          "why": "Mastercard standing order (variable amount): reason 8 on the CIT that establishes it (cred:7315-7374)"
+        }
+      ]
+    },
+    "cit_agreement_installment_visa": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "cit_agreement",
+      "combineWith": [
+        "cit_3ds_combined",
+        "cit_validate",
+        "cit_3ds_separate_visa",
+        "cit_3ds_separate_mastercard"
+      ],
+      "pendingConfirmation": [
+        "C4",
+        "C8"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.recurringOptions.firstRecurringPayment",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R5",
+          "why": "firstRecurringPayment marks a RECURRING agreement only"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "absent",
+          "id": "R5",
+          "why": "Visa installment: no reason"
+        }
+      ]
+    },
+    "cit_agreement_installment_mastercard": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "cit_agreement",
+      "combineWith": [
+        "cit_3ds_combined",
+        "cit_validate",
+        "cit_3ds_separate_visa",
+        "cit_3ds_separate_mastercard"
+      ],
+      "pendingConfirmation": [
+        "C4",
+        "C8"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.recurringOptions.firstRecurringPayment",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R5",
+          "why": "firstRecurringPayment marks a RECURRING agreement only"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "equals",
+          "value": "9",
+          "id": "R5",
+          "why": "Mastercard installment: reason 9 on the CIT that establishes it (cred:4480-4489)"
+        }
+      ]
+    },
+    "cit_agreement_unscheduled": {
+      "endpoint": "POST /pts/v2/payments",
+      "extends": "cit_agreement",
+      "combineWith": [
+        "cit_3ds_combined",
+        "cit_validate",
+        "cit_3ds_separate_visa",
+        "cit_3ds_separate_mastercard"
+      ],
+      "pendingConfirmation": [
+        "C4"
+      ],
+      "rules": [
+        {
+          "path": "processingInformation.recurringOptions.firstRecurringPayment",
+          "rule": "notEquals",
+          "value": true,
+          "id": "R5",
+          "why": "firstRecurringPayment marks a RECURRING agreement only"
+        },
+        {
+          "path": "processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "absent",
+          "id": "R5",
+          "why": "unscheduled (UCOF) agreement: no reason on the CIT"
+        }
+      ]
+    },
+    "uc_session_account_verification": {
+      "endpoint": "POST /uc/v1/sessions",
+      "rules": [
+        {
+          "path": "data.orderInformation.amountDetails.totalAmount",
+          "rule": "equals",
+          "value": "0.00",
+          "id": "R2"
+        },
+        {
+          "path": "completeMandate.type",
+          "rule": "equals",
+          "value": "AUTH",
+          "id": "R2"
+        },
+        {
+          "path": "completeMandate.consumerAuthentication",
+          "rule": "equals",
+          "value": "NONE",
+          "id": "R6"
+        },
+        {
+          "path": "completeMandate.tms.tokenCreate",
+          "rule": "equals",
+          "value": true,
+          "id": "R2"
+        },
+        {
+          "path": "targetOrigins[]",
+          "rule": "allMatch",
+          "value": "^(https://[^*/]+|http://(localhost|127\\.0\\.0\\.1)(:\\d+)?)$",
+          "id": "R12",
+          "why": "https://host[:port]; http only for localhost during development"
+        },
+        {
+          "path": "allowedPaymentTypes[]",
+          "rule": "contains",
+          "value": "PANENTRY",
+          "id": "R12"
+        },
+        {
+          "path": "data.processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "equals",
+          "value": true,
+          "id": "R2",
+          "why": "the 0.00 verification stores the credential"
+        },
+        {
+          "path": "data.processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction",
+          "rule": "absent",
+          "id": "R6",
+          "why": "no MIT / agreement reason on the 0.00 verification"
+        }
+      ]
+    },
+    "uc_session_pay_with_token": {
+      "endpoint": "POST /uc/v1/sessions",
+      "rules": [
+        {
+          "path": "allowedPaymentTypes[]",
+          "rule": "contains",
+          "value": "TMS_TOKEN",
+          "id": "R12"
+        },
+        {
+          "path": "paymentConfigurations.TMS_TOKEN.customer",
+          "rule": "exists",
+          "id": "R3"
+        },
+        {
+          "path": "completeMandate.consumerAuthentication",
+          "rule": "equals",
+          "value": "3DS",
+          "id": "R4"
+        },
+        {
+          "path": "completeMandate.type",
+          "rule": "oneOf",
+          "value": [
+            "AUTH",
+            "CAPTURE"
+          ],
+          "id": "R12"
+        },
+        {
+          "path": "targetOrigins[]",
+          "rule": "allMatch",
+          "value": "^(https://[^*/]+|http://(localhost|127\\.0\\.0\\.1)(:\\d+)?)$",
+          "id": "R12",
+          "why": "https://host[:port]; http only for localhost during development"
+        }
+      ]
+    },
+    "uc_session_pay_with_token_agreement": {
+      "endpoint": "POST /uc/v1/sessions",
+      "extends": "uc_session_pay_with_token",
+      "pendingConfirmation": [
+        "C4",
+        "C12"
+      ],
+      "rules": [
+        {
+          "path": "data.processingInformation.authorizationOptions.initiator.credentialStoredOnFile",
+          "rule": "equals",
+          "value": true,
+          "id": "R5",
+          "why": "the UC payment that establishes the agreement stores the credential (uc:4990-5006)"
+        },
+        {
+          "path": "data.processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.reason",
+          "rule": "pattern",
+          "value": "^(7|8|9)$",
+          "id": "R5",
+          "why": "Mastercard agreement: 7 subscription, 8 standing order, 9 installment; Visa / UCOF: no reason"
+        },
+        {
+          "path": "data.processingInformation.authorizationOptions.initiator.merchantInitiatedTransaction.previousTransactionId",
+          "rule": "absent",
+          "id": "R5"
+        }
+      ]
+    },
+    "uc_session_direct": {
+      "endpoint": "POST /uc/v1/sessions",
+      "note": "Unified Checkout direct payment (bank scenario A): one session, amount > 0, card (PANENTRY) or Apple Pay / Google Pay, 3-D Secure, createCheckout({ autoProcessing: true }); nothing is stored (no Account Verification, no TMS token). completeMandate.type AUTH (captured on shipment) or CAPTURE (sale: released with a void of the payment, POST /pts/v2/payments/{id}/voids, never a reversal).",
+      "rules": [
+        {
+          "path": "completeMandate",
+          "rule": "exists",
+          "id": "R12",
+          "why": "Victoriabank: createCheckout({ autoProcessing: true }) with a completeMandate"
+        },
+        {
+          "path": "data.orderInformation.amountDetails.totalAmount",
+          "rule": "exists",
+          "id": "data"
+        },
+        {
+          "path": "data.orderInformation.amountDetails.totalAmount",
+          "rule": "pattern",
+          "value": "^\\d{1,12}\\.\\d{2}$",
+          "id": "data",
+          "why": "amount with exactly 2 decimals"
+        },
+        {
+          "path": "data.orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "R2",
+          "why": "a 0.00 session is an Account Verification (uc_session_account_verification), not a payment"
+        },
+        {
+          "path": "completeMandate.type",
+          "rule": "oneOf",
+          "value": [
+            "AUTH",
+            "CAPTURE"
+          ],
+          "id": "R12",
+          "why": "AUTH: captured on shipment; CAPTURE: sale, released with voidPayment (not a reversal)"
+        },
+        {
+          "path": "completeMandate.consumerAuthentication",
+          "rule": "equals",
+          "value": "3DS",
+          "id": "R4"
+        },
+        {
+          "path": "completeMandate.tms",
+          "rule": "absent",
+          "id": "R2",
+          "why": "a direct payment stores nothing: a card / wallet is saved only through a 0.00 Account Verification session, then paid with TMS_TOKEN"
+        },
+        {
+          "path": "allowedPaymentTypes[]",
+          "rule": "allMatch",
+          "value": "^(PANENTRY|APPLEPAY|GOOGLEPAY)$",
+          "id": "R12",
+          "why": "direct payment methods: card entry, Apple Pay, Google Pay"
+        },
+        {
+          "path": "allowedPaymentTypes[]",
+          "rule": "notContains",
+          "value": "TMS_TOKEN",
+          "id": "R3",
+          "why": "paying with a saved card is uc_session_pay_with_token"
+        },
+        {
+          "path": "paymentConfigurations.TMS_TOKEN",
+          "rule": "absent",
+          "id": "R3",
+          "why": "no TMS token in a direct-payment session"
+        },
+        {
+          "path": "data.processingInformation.authorizationOptions.initiator",
+          "rule": "absent",
+          "id": "R2",
+          "why": "nothing stored, no agreement: no stored-credential indicators (credentialStoredOnFile, merchantInitiatedTransaction)"
+        },
+        {
+          "path": "targetOrigins[]",
+          "rule": "allMatch",
+          "value": "^(https://[^*/]+|http://(localhost|127\\.0\\.0\\.1)(:\\d+)?)$",
+          "id": "R12",
+          "why": "https://host[:port]; http only for localhost during development"
+        }
+      ]
+    },
+    "follow_on": {
+      "endpoint": "POST /pts/v2/{payments|captures|refunds}/{id}/{captures|reversals|refunds|voids}",
+      "rules": [
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "exists",
+          "id": "R10"
+        },
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "maxLen",
+          "value": 50,
+          "id": "R10"
+        },
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "pattern",
+          "value": "^[A-Za-z0-9-]+$",
+          "id": "R10",
+          "why": "letters, digits and '-' (reference scheme)"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "pattern",
+          "value": "^\\d{1,12}\\.\\d{2}$",
+          "id": "data",
+          "why": "amount with exactly 2 decimals"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data",
+          "why": "a capture, reversal or refund of 0.00 is never sent"
+        },
+        {
+          "path": "reversalInformation.amountDetails.totalAmount",
+          "rule": "pattern",
+          "value": "^\\d{1,12}\\.\\d{2}$",
+          "id": "data",
+          "why": "amount with exactly 2 decimals"
+        },
+        {
+          "path": "reversalInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data",
+          "why": "a capture, reversal or refund of 0.00 is never sent"
+        }
+      ]
+    },
+    "payer_auth_setup": {
+      "endpoint": "POST /risk/v1/authentication-setups",
+      "rules": [
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "exists",
+          "id": "R10"
+        },
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "maxLen",
+          "value": 50,
+          "id": "R10"
+        },
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "pattern",
+          "value": "^[A-Za-z0-9-]+$",
+          "id": "R10",
+          "why": "letters, digits and '-' (reference scheme)"
+        },
+        {
+          "path": "paymentInformation.customer.customerId",
+          "rule": "exists",
+          "id": "R3",
+          "why": "3-D Secure setup with the TMS Customer token"
+        },
+        {
+          "path": "paymentInformation.card.number",
+          "rule": "absent",
+          "id": "R1"
+        }
+      ]
+    },
+    "search": {
+      "endpoint": "POST /tss/v2/searches",
+      "rules": [
+        {
+          "path": "query",
+          "rule": "pattern",
+          "value": "^clientReferenceInformation\\.code:[A-Za-z0-9-]{1,50} ",
+          "id": "R10"
+        }
+      ]
+    },
+    "timeout_reversal": {
+      "endpoint": "POST /pts/v2/reversals",
+      "rules": [
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "exists",
+          "id": "R10"
+        },
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "pattern",
+          "value": "^[A-Za-z0-9-]{1,50}$",
+          "id": "R10"
+        },
+        {
+          "path": "clientReferenceInformation.transactionId",
+          "rule": "exists",
+          "id": "R10",
+          "why": "the merchant transaction ID sent in the original authorization"
+        },
+        {
+          "path": "clientReferenceInformation.transactionId",
+          "rule": "pattern",
+          "value": "^[A-Za-z0-9]{1,30}$",
+          "id": "R10"
+        },
+        {
+          "path": "reversalInformation.amountDetails.totalAmount",
+          "rule": "pattern",
+          "value": "^\\d{1,12}\\.\\d{2}$",
+          "id": "data"
+        },
+        {
+          "path": "reversalInformation.amountDetails.totalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data"
+        },
+        {
+          "path": "reversalInformation.amountDetails.currency",
+          "rule": "exists",
+          "id": "data"
+        }
+      ]
+    },
+    "incremental_authorization": {
+      "endpoint": "PATCH /pts/v2/payments/{id}",
+      "pendingConfirmation": [
+        "C9"
+      ],
+      "rules": [
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "exists",
+          "id": "R10"
+        },
+        {
+          "path": "clientReferenceInformation.code",
+          "rule": "pattern",
+          "value": "^[A-Za-z0-9-]{1,50}$",
+          "id": "R10",
+          "why": "letters, digits and '-' (reference scheme)"
+        },
+        {
+          "path": "orderInformation.amountDetails.additionalAmount",
+          "rule": "exists",
+          "id": "data",
+          "why": "the amount ADDED to the pre-authorization (pay:3854-3884)"
+        },
+        {
+          "path": "orderInformation.amountDetails.additionalAmount",
+          "rule": "pattern",
+          "value": "^\\d{1,12}\\.\\d{2}$",
+          "id": "data"
+        },
+        {
+          "path": "orderInformation.amountDetails.additionalAmount",
+          "rule": "notEquals",
+          "value": "0.00",
+          "id": "data"
+        },
+        {
+          "path": "orderInformation.amountDetails.currency",
+          "rule": "exists",
+          "id": "data",
+          "why": "same currency as the pre-authorization"
+        },
+        {
+          "path": "orderInformation.amountDetails.totalAmount",
+          "rule": "absent",
+          "id": "data",
+          "why": "send additionalAmount (the increment), not a new total"
+        },
+        {
+          "path": "paymentInformation",
+          "rule": "absent",
+          "id": "R5",
+          "why": "the incremental authorization inherits card and token from the original authorization"
+        },
+        {
+          "path": "consumerAuthenticationInformation",
+          "rule": "absent",
+          "id": "R5",
+          "why": "no customer present: no 3-D Secure"
+        },
+        {
+          "path": "clientReferenceInformation.transactionId",
+          "rule": "pattern",
+          "value": "^[A-Za-z0-9]{1,30}$",
+          "id": "R10"
+        }
+      ]
+    },
+    "tms_update_payment_instrument": {
+      "endpoint": "PATCH /tms/v2/customers/{customerId}/payment-instruments/{paymentInstrumentId}",
+      "rules": [
+        {
+          "path": "card.number",
+          "rule": "absent",
+          "id": "R1",
+          "why": "the PAN never passes through the merchant server: a new card number = new Microform / UC capture + Account Verification"
+        },
+        {
+          "path": "card.securityCode",
+          "rule": "absent",
+          "id": "R1"
+        },
+        {
+          "path": "card.expirationMonth | card.expirationYear | billTo | default",
+          "rule": "anyOf",
+          "id": "data",
+          "anyOf": [
+            {
+              "path": "card.expirationMonth",
+              "rule": "exists"
+            },
+            {
+              "path": "card.expirationYear",
+              "rule": "exists"
+            },
+            {
+              "path": "billTo",
+              "rule": "exists"
+            },
+            {
+              "path": "default",
+              "rule": "exists"
+            }
+          ],
+          "why": "something to update: expiry, billing address or default flag (tms:6926-6957)"
+        },
+        {
+          "path": "card.expirationMonth",
+          "rule": "pattern",
+          "value": "^(0[1-9]|1[0-2])$",
+          "id": "data"
+        },
+        {
+          "path": "card.expirationYear",
+          "rule": "pattern",
+          "value": "^20\\d{2}$",
+          "id": "data"
+        },
+        {
+          "path": "billTo",
+          "rule": "asciiValues",
+          "id": "data",
+          "why": "Visa Platform Connect replaces non-ASCII characters"
+        },
+        {
+          "path": "billTo.address1",
+          "rule": "maxLen",
+          "value": 60,
+          "id": "data"
+        },
+        {
+          "path": "billTo.address2",
+          "rule": "maxLen",
+          "value": 60,
+          "id": "data"
+        },
+        {
+          "path": "billTo.locality",
+          "rule": "maxLen",
+          "value": 50,
+          "id": "data"
+        },
+        {
+          "path": "billTo.postalCode",
+          "rule": "maxLen",
+          "value": 10,
+          "id": "data"
+        }
+      ]
+    }
+  }
+}

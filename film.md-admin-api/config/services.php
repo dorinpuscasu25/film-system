@@ -116,6 +116,71 @@ return [
         'timeout' => (int) env('PAY_FILMOTECA_TIMEOUT', 60),
     ],
 
+    // Which top-up methods the web offers. Card still goes through pay.filmoteca.md until
+    // the CyberSource integration replaces it; switch it off while that channel is down.
+    'payments' => [
+        'card_enabled' => (bool) env('PAYMENTS_CARD_ENABLED', true),
+        // Who processes card top-ups: 'cybersource' (Victoriabank, direct) or 'pay_filmoteca' (legacy).
+        'card_provider' => env('PAYMENTS_CARD_PROVIDER', 'pay_filmoteca'),
+    ],
+
+    // Victoriabank card acquiring through CyberSource: Unified Checkout embedded in our page
+    // (bank scenario A — direct payment, nothing stored). Guide: VB-CyberSource-Ghid-Integrare v1.2,
+    // SDK: packages/victoriabank-cybersource-sdk. Keys come from Business Center → Key Management.
+    'cybersource' => [
+        'enabled' => (bool) env('CYBERSOURCE_ENABLED', false),
+        // 'test' (apitest.cybersource.com) or 'production' (api.cybersource.com).
+        'environment' => env('CYBERSOURCE_ENVIRONMENT', 'test'),
+        // Override only for the Victoriabank simulator, e.g. http://127.0.0.1:8770.
+        'base_url' => env('CYBERSOURCE_BASE_URL'),
+        'merchant_id' => env('CYBERSOURCE_MERCHANT_ID'),
+        // REST – Shared Secret key (JWT v2). HTTP Signature is not accepted for new integrations (R8).
+        'key_id' => env('CYBERSOURCE_KEY_ID'),
+        'shared_secret' => env('CYBERSOURCE_SHARED_SECRET'),
+        // Every origin that loads the card form: https, host and port, no path (R13 / §5.4).
+        'target_origins' => array_values(array_filter(array_map(
+            fn (string $origin): string => rtrim(trim($origin), '/'),
+            explode(',', (string) env('CYBERSOURCE_TARGET_ORIGINS', '')),
+        ))),
+        // false (bank's recommended default): AUTH, captured by us right after the confirmation,
+        // before the wallet is credited; a payment without full 3DS is reversed. true: sale (CAPTURE),
+        // released with a void instead.
+        'capture' => (bool) env('CYBERSOURCE_CAPTURE', false),
+        // PANENTRY, plus APPLEPAY / GOOGLEPAY once the bank enables them on the MID.
+        'payment_types' => array_values(array_filter(array_map('trim', explode(',', (string) env('CYBERSOURCE_PAYMENT_TYPES', 'PANENTRY'))))),
+        // Accept 3-D Secure "attempted" (ECI 06 Visa / 01 Mastercard)? null = the bank's rule file policy.
+        'accept_attempted_3ds' => env('CYBERSOURCE_ACCEPT_ATTEMPTED_3DS') === null ? null : (bool) env('CYBERSOURCE_ACCEPT_ATTEMPTED_3DS'),
+        // Webhook subscription digital-signature key (v-c-signature).
+        'webhook_key_id' => env('CYBERSOURCE_WEBHOOK_KEY_ID'),
+        'webhook_key' => env('CYBERSOURCE_WEBHOOK_KEY'),
+        // Private key (PEM) of the "REST – API Response MLE" key, to decrypt payment webhooks.
+        'webhook_mle_private_key_path' => env('CYBERSOURCE_WEBHOOK_MLE_PRIVATE_KEY_PATH'),
+        'webhook_mle_private_key_passphrase' => env('CYBERSOURCE_WEBHOOK_MLE_PRIVATE_KEY_PASSPHRASE'),
+        // Longer than CyberSource's own processing window (§11.3).
+        'timeout' => (int) env('CYBERSOURCE_TIMEOUT', 65),
+    ],
+
+    // Victoriabank Business IPS API — MIA instant payments (BNM) by QR code.
+    // Docs: VictoriaBank-Business-IPS-Integration-API v2.1.3; plan in docs/victoriabank-payments-integration-plan.md.
+    'mia' => [
+        'enabled' => (bool) env('MIA_ENABLED', false),
+        'base_url' => env('MIA_BASE_URL', 'https://test-ipspj.victoriabank.md'),
+        'username' => env('MIA_USERNAME'),
+        'password' => env('MIA_PASSWORD'),
+        // Account the QR payments are credited to.
+        'iban' => env('MIA_IBAN'),
+        // Name shown in the payer's banking app (≤ 25 chars, letters/digits/spaces).
+        'dba' => env('MIA_DBA', 'Filmoteca'),
+        'qr_ttl_minutes' => (int) env('MIA_QR_TTL_MINUTES', 15),
+        'timeout' => (int) env('MIA_TIMEOUT', 30),
+        // Certificates (PEM paths) that may sign POST /api/signals. Configure the next one here
+        // alongside the current one during rotation; the bundled VBCA.crt expires on 3 July 2027.
+        'signal_certificates' => array_values(array_filter(array_map('trim', explode(
+            ',',
+            (string) (env('MIA_SIGNAL_CERTIFICATES') ?: resource_path('victoriabank/VBCA.crt')),
+        )))),
+    ],
+
     // Apple In-App Purchase (StoreKit 2, iOS credit packs). See docs/ios-in-app-purchase-audit.md.
     // Everything below is safe to leave unset for local `.storekit`-file development — only the
     // Sandbox/Production paths need real values, and those require the Paid Applications

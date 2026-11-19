@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCardIcon, Edit3Icon, HistoryIcon, Loader2Icon, MapPinIcon, XIcon } from 'lucide-react';
+import { CreditCardIcon, Edit3Icon, HistoryIcon, Loader2Icon, MapPinIcon, QrCodeIcon, XIcon } from 'lucide-react';
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import { useWallet } from '../contexts/WalletContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchPublicPlatformSettings } from '../lib/session';
-import type { StorefrontAccessLocation, StorefrontBillingAddressPayload } from '../lib/session';
+import { cancelStorefrontWalletTopUp, fetchPublicPlatformSettings, fetchStorefrontTopUpMethods } from '../lib/session';
+import type {
+  StorefrontAccessLocation,
+  StorefrontBillingAddressPayload,
+  StorefrontTopUpMethod,
+  StorefrontTopUpPayload,
+} from '../lib/session';
 import { AccessLocationStep } from './AccessLocationStep';
+import { CardCheckout } from './CardCheckout';
+import { MiaQrPayment } from './MiaQrPayment';
 import {
   BillingAddressFields,
   emptyBillingAddress,
@@ -37,7 +44,7 @@ interface WalletModalProps {
 }
 
 export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps) {
-  const { balance, currency, addFunds, paymentPhone, billingAddress } = useWallet();
+  const { balance, currency, addFunds, paymentPhone, billingAddress, refreshWallet } = useWallet();
   const { t, currentLanguage } = useLanguage();
   const { user, activeProfile } = useAuth();
   const isKidsProfile = Boolean(activeProfile?.isKids);
@@ -55,11 +62,19 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAccessLocationStepOpen, setIsAccessLocationStepOpen] = useState(false);
   const [accessLocation, setAccessLocation] = useState<StorefrontAccessLocation | null>(null);
+  const [availableMethods, setAvailableMethods] = useState<Record<StorefrontTopUpMethod, boolean>>({ card: true, mia: false });
+  const [method, setMethod] = useState<StorefrontTopUpMethod>('card');
+  const [miaTopUp, setMiaTopUp] = useState<StorefrontTopUpPayload | null>(null);
+  const [cardTopUp, setCardTopUp] = useState<StorefrontTopUpPayload | null>(null);
+  // Only the legacy pay.filmoteca.md card checkout asks for a phone number.
+  const [cardRequiresPhone, setCardRequiresPhone] = useState(true);
+  const isCard = method === 'card';
+  const needsPhone = isCard && cardRequiresPhone;
 
   const quickAmounts = [200, 300, 400, 500];
   const amountValue = Number(amount);
   const isBillingAddressValid = hasCompleteBillingAddress(billingDraft);
-  const canSubmit = !isSubmitting && amountValue >= 20 && amountValue <= 20000 && acceptedTerms && isBillingAddressValid;
+  const canSubmit = !isSubmitting && availableMethods[method] && amountValue >= 20 && amountValue <= 20000 && acceptedTerms && isBillingAddressValid;
   const normalizedPhone = normalizePhoneNumber(phone, selectedCountry);
   const phoneError = phoneTouched && !normalizedPhone ? t('wallet.phone_invalid') : null;
   const countryOptions = useMemo(() => {
@@ -113,6 +128,25 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
     setErrorMessage(null);
     setIsAccessLocationStepOpen(false);
     setAccessLocation(null);
+    setMiaTopUp(null);
+    setCardTopUp(null);
+
+    fetchStorefrontTopUpMethods()
+      .then((response) => {
+        const enabled = { card: false, mia: false } as Record<StorefrontTopUpMethod, boolean>;
+        response.methods.forEach((item) => {
+          enabled[item.id] = item.enabled;
+          if (item.id === 'card') {
+            setCardRequiresPhone(item.requires_phone !== false);
+          }
+        });
+        setAvailableMethods(enabled);
+        setMethod(response.default ?? 'card');
+      })
+      .catch(() => {
+        setAvailableMethods({ card: true, mia: false });
+        setMethod('card');
+      });
 
     fetchPublicPlatformSettings(currentLanguage.code)
       .then((settings) => {
@@ -129,11 +163,13 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       return;
     }
 
-    setPhoneTouched(true);
+    if (needsPhone) {
+      setPhoneTouched(true);
 
-    if (!normalizedPhone) {
-      setErrorMessage(t('wallet.phone_invalid'));
-      return;
+      if (!normalizedPhone) {
+        setErrorMessage(t('wallet.phone_invalid'));
+        return;
+      }
     }
 
     if (!isBillingAddressValid) {
@@ -149,7 +185,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
   };
 
   const startPayment = async () => {
-    if (!accessLocation || !normalizedPhone) {
+    if (!accessLocation || (needsPhone && !normalizedPhone)) {
       return;
     }
 
@@ -158,10 +194,27 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
 
     try {
       const topUp = await addFunds(amountValue, {
-        phone: normalizedPhone,
+        method,
+        phone: needsPhone ? normalizedPhone ?? undefined : undefined,
         billingAddress: normalizeBillingAddress(billingDraft),
         accessLocation,
       });
+
+      if (method === 'mia') {
+        // The QR is paid from the bank app; this modal waits for the bank's confirmation.
+        setMiaTopUp(topUp);
+        setIsAccessLocationStepOpen(false);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (topUp.card_session) {
+        // Victoriabank card form, embedded in this modal (no redirect).
+        setCardTopUp(topUp);
+        setIsAccessLocationStepOpen(false);
+        setIsSubmitting(false);
+        return;
+      }
 
       if (!topUp.payment_url) {
         throw new Error(t('wallet.provider_missing_url'));
@@ -179,6 +232,14 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
       setIsAccessLocationStepOpen(false);
       setIsSubmitting(false);
     }
+  };
+
+  const handleClose = () => {
+    // A QR left open could still be paid later; cancel it at the bank when the customer leaves.
+    if (miaTopUp && (miaTopUp.status === 'processing' || miaTopUp.status === 'pending')) {
+      void cancelStorefrontWalletTopUp(miaTopUp.id).catch(() => undefined);
+    }
+    onClose();
   };
 
   function updatePhone(value: string) {
@@ -217,7 +278,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
             opacity: 0
           }}
           className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={onClose} />
+          onClick={handleClose} />
         
 
           <motion.div
@@ -239,7 +300,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
           className="glass-panel relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6 shadow-2xl">
           
             <button
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
             
               <XIcon className="w-6 h-6" />
@@ -270,16 +331,66 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
               </span>
             </div>
 
+            {cardTopUp ? (
+              <CardCheckout
+                topUp={cardTopUp}
+                onPaid={() => {
+                  void refreshWallet();
+                }}
+                onRetry={() => setCardTopUp(null)}
+              />
+            ) : miaTopUp ? (
+              <MiaQrPayment
+                topUp={miaTopUp}
+                onPaid={() => {
+                  void refreshWallet();
+                }}
+                onRetry={() => setMiaTopUp(null)}
+              />
+            ) : (
             <div className="rounded-2xl border border-white/10 bg-surfaceHover/60 p-5 text-left">
               <div className="mb-5 flex items-center space-x-3">
                 <div className="rounded-full bg-white/10 p-2">
-                  <CreditCardIcon className="w-5 h-5 text-white" />
+                  {isCard ? <CreditCardIcon className="w-5 h-5 text-white" /> : <QrCodeIcon className="w-5 h-5 text-white" />}
                 </div>
                 <div>
                   <h3 className="text-white font-semibold">{t('wallet.top_up')}</h3>
-                  <p className="text-sm text-gray-400">{t('wallet.redirect_notice')}</p>
+                  <p className="text-sm text-gray-400">
+                    {isCard ? (cardRequiresPhone ? t('wallet.redirect_notice') : t('wallet.card_notice')) : t('wallet.mia_notice')}
+                  </p>
                 </div>
               </div>
+
+              {availableMethods.card && availableMethods.mia ? (
+                <div className="mb-4 grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('wallet.method')}>
+                  {(['card', 'mia'] as StorefrontTopUpMethod[]).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={method === option}
+                      onClick={() => {
+                        setMethod(option);
+                        setErrorMessage(null);
+                      }}
+                      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                        method === option
+                          ? 'border-white bg-white text-background'
+                          : 'border-white/10 bg-black/20 text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {option === 'card' ? <CreditCardIcon className="h-4 w-4" /> : <QrCodeIcon className="h-4 w-4" />}
+                      {option === 'card' ? t('wallet.method_card') : t('wallet.method_mia')}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {!availableMethods.card && !availableMethods.mia ? (
+                <p className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                  {t('wallet.methods_unavailable')}
+                </p>
+              ) : null}
 
               <div className="mb-4 grid grid-cols-4 gap-2">
                 {quickAmounts.map((value) => (
@@ -310,6 +421,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                 />
               </label>
 
+              {needsPhone ? (
               <label className="mb-5 block">
                 <span className="mb-2 block text-sm text-gray-400">{t('wallet.phone')}</span>
                 <div className={`flex rounded-lg border bg-surface transition focus-within:border-accent ${
@@ -345,6 +457,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                   <span className="mt-2 block text-sm text-red-200">{phoneError}</span>
                 ) : null}
               </label>
+              ) : null}
 
               <div className="mb-5 rounded-xl border border-white/10 bg-black/20 p-4">
                 <div className="mb-4 flex items-start justify-between gap-4">
@@ -422,7 +535,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                 className="flex w-full items-center justify-center rounded-xl bg-accent px-5 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? <Loader2Icon className="mr-2 h-5 w-5 animate-spin" /> : null}
-                {t('wallet.continue_payment')}
+                {isCard ? t('wallet.continue_payment') : t('wallet.mia_generate_code')}
               </button>
               <button
                 type="button"
@@ -436,6 +549,7 @@ export function WalletModal({ isOpen, onClose, returnContext }: WalletModalProps
                 {t('wallet.view_transactions')}
               </button>
             </div>
+            )}
               </>
             )}
           </motion.div>

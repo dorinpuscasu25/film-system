@@ -55,6 +55,7 @@
       "all_genres": "Все жанры"
     },
     "table": {
+      "movie_id": "MovieID",
       "title": "Название",
       "type": "Тип",
       "flags": "Метки",
@@ -94,7 +95,7 @@
       "preview": "Предпросмотр фильма",
       "delete": "Удалить фильм"
     },
-    "search_placeholder": "Поиск по названию, slug, жанру или стране..."
+    "search_placeholder": "Поиск по MovieID, названию, slug, жанру или стране..."
   },
   "ads": {
     "title": "Рекламные кампании",

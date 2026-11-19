@@ -130,7 +130,7 @@ struct HomeView: View {
                     Text(slide?.title ?? content.title).font(.system(size: 39, weight: .black, design: .serif)).lineLimit(2).shadow(color: .black.opacity(0.6), radius: 10)
                         .contentTransition(.opacity)
                     HStack(spacing: 8) {
-                        if let rating = content.imdbRating, rating > 0 {
+                        if let rating = content.imdbRating, rating > 0, !AppConfiguration.hidesRatingsForScreenshots {
                             Label { Text(rating, format: .number.precision(.fractionLength(1))) } icon: { Image(systemName: "star.fill") }
                                 .font(.caption.weight(.heavy)).foregroundStyle(.black)
                                 .padding(.horizontal, 8).padding(.vertical, 4)

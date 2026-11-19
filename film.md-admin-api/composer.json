@@ -21,7 +21,8 @@
         "meilisearch/meilisearch-php": "^1.16",
         "nyholm/psr7": "^1.0",
         "spatie/laravel-translatable": "^6.13",
-        "symfony/http-client": "^7.4"
+        "symfony/http-client": "^7.4",
+        "victoriabank/cybersource-sdk": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
@@ -107,5 +108,10 @@
             "php-http/discovery": true
         }
     },
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "repositories": [{
+        "name": "victoriabank-cybersource",
+        "type": "path",
+        "url": "packages/victoriabank-cybersource-sdk"
+    }]
 }

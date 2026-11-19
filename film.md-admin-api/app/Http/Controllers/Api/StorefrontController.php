@@ -17,7 +17,8 @@ use App\Services\BunnyPlaylistResolver;
 use App\Services\BunnyTokenService;
 use App\Services\IpGeoLocationService;
 use App\Services\ParentalControlService;
-use App\Services\PayFilmotecaPaymentService;
+use App\Services\Payments\TopUpPaymentGateway;
+use App\Services\Payments\TopUpSettlementService;
 use App\Services\PlaybackAccessService;
 use App\Services\StorefrontPurchaseService;
 use App\Services\WalletService;
@@ -39,7 +40,7 @@ class StorefrontController extends ApiController
         protected BunnyTokenService $bunnyToken,
         protected BunnyPlaylistResolver $playlistResolver,
         protected IpGeoLocationService $geoLocation,
-        protected PayFilmotecaPaymentService $payments,
+        protected TopUpPaymentGateway $payments,
         protected ParentalControlService $parentalControls,
     ) {}
 
@@ -151,7 +152,8 @@ class StorefrontController extends ApiController
             'status' => $topUp->status,
             'meta' => [
                 'payment_top_up_id' => $topUp->uuid,
-                'provider' => 'pay.filmoteca.md',
+                'provider' => TopUpSettlementService::providerLabel($topUp->provider),
+                'payment_method' => $topUp->payment_method,
                 'provider_order_id' => $topUp->provider_order_id,
                 'provider_status' => $topUp->provider_status,
                 'payment_url' => $topUp->provider_payment_url,

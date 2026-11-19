@@ -56,6 +56,19 @@ class ContentApiTest extends TestCase
         }
     }
 
+    public function test_admin_content_list_exposes_and_searches_accounting_movie_id(): void
+    {
+        Content::query()->where('slug', 'carbon')->firstOrFail()->forceFill(['movie_id' => 'F0003'])->save();
+
+        $response = $this->getJson('/api/v1/admin/content?search='.urlencode('f0003'), [
+            'Authorization' => 'Bearer '.$this->token,
+        ])->assertOk();
+
+        $items = collect($response->json('items'));
+        $this->assertSame(['carbon'], $items->pluck('slug')->all());
+        $this->assertSame('F0003', $items->first()['movie_id']);
+    }
+
     public function test_admin_role_can_list_all_content_even_with_scoped_role(): void
     {
         $adminRole = Role::query()->where('name', 'Admin')->firstOrFail();

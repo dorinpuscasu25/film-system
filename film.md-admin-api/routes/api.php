@@ -44,6 +44,8 @@ use App\Http\Controllers\Api\Auth\DeviceAuthController;
 use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\BunnyWebhookController;
 use App\Http\Controllers\Api\ContentReviewController;
+use App\Http\Controllers\Api\CyberSourceWebhookController;
+use App\Http\Controllers\Api\MiaSignalController;
 use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\PayFilmotecaCallbackController;
 use App\Http\Controllers\Api\PublicCatalogController;
@@ -122,6 +124,10 @@ Route::prefix('v1')->group(function (): void {
         ->name('playback.beacon');
     Route::post('playback/beacon-batch', [AdsController::class, 'event'])->middleware('throttle:240,1');
     Route::any('payments/pay-filmoteca/callback', PayFilmotecaCallbackController::class)->middleware('throttle:120,1');
+    // Victoriabank MIA signals; same handler as /api/signals below, in case the bank lets us choose the path.
+    Route::post('payments/mia/signals', MiaSignalController::class)->middleware('throttle:240,1');
+    // CyberSource (Victoriabank cards) webhooks — v-c-signature checked in CyberSourcePaymentService.
+    Route::post('webhooks/cybersource', CyberSourceWebhookController::class)->middleware('throttle:240,1');
     // App Store Server Notifications V2 — authenticity comes from Apple's JWS signature
     // (verified in AppleIapService), not a shared secret, so no extra auth middleware here.
     Route::prefix('webhooks/apple')->middleware('throttle:240,1')->group(function (): void {
@@ -168,9 +174,12 @@ Route::prefix('v1')->group(function (): void {
             // Coupons
             Route::post('coupons/preview', [StorefrontCouponController::class, 'preview'])->middleware(['permission:content.purchase', 'throttle:30,1']);
 
+            Route::get('wallet/top-up-methods', [StorefrontWalletTopUpController::class, 'methods'])->middleware('permission:wallet.top_up');
             Route::get('wallet/top-ups/latest', [StorefrontWalletTopUpController::class, 'latest'])->middleware('permission:wallet.top_up');
             Route::post('wallet/top-ups', [StorefrontWalletTopUpController::class, 'store'])->middleware(['permission:wallet.top_up', 'throttle:20,1']);
             Route::get('wallet/top-ups/{topUp}', [StorefrontWalletTopUpController::class, 'show'])->middleware('permission:wallet.top_up');
+            Route::post('wallet/top-ups/{topUp}/cancel', [StorefrontWalletTopUpController::class, 'cancel'])->middleware(['permission:wallet.top_up', 'throttle:20,1']);
+            Route::post('wallet/top-ups/{topUp}/card-result', [StorefrontWalletTopUpController::class, 'cardResult'])->middleware(['permission:wallet.top_up', 'throttle:30,1']);
             // iOS-only: StoreKit credit pack redemption. Web/Android/TV keep using wallet/top-ups above.
             Route::get('wallet/apple-iap/packs', [StorefrontAppleIapController::class, 'packs']);
             Route::post('wallet/apple-iap/redeem', [StorefrontAppleIapController::class, 'redeem'])->middleware(['permission:wallet.top_up', 'throttle:20,1']);
@@ -353,3 +362,7 @@ Route::prefix('v1')->group(function (): void {
         });
     });
 });
+
+// Victoriabank MIA posts payment / expiration signals to https://<host>/api/signals —
+// a fixed path outside v1. Authenticity comes from the RS256 JWT signed with VBCA.crt.
+Route::post('signals', MiaSignalController::class)->middleware('throttle:240,1');

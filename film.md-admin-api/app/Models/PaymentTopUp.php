@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'uuid',
     'user_id',
     'wallet_id',
+    'provider',
+    'payment_method',
+    'provider_reference',
     'billing_address_id',
     'subscriber_id',
     'amount',
@@ -21,6 +24,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'provider_checkout_id',
     'provider_rrn',
     'provider_payment_url',
+    'qr_header_uuid',
+    'qr_extension_uuid',
+    'qr_as_text',
+    'qr_expires_at',
+    'last_checked_at',
     'provider_status',
     'description',
     'billing_address',
@@ -33,12 +41,28 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PaymentTopUp extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_REDIRECT_CREATED = 'redirect_created';
+
     public const STATUS_PROCESSING = 'processing';
+
     public const STATUS_PAID = 'paid';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_CANCELED = 'canceled';
+
     public const STATUS_REFUNDED = 'refunded';
+
+    public const PROVIDER_PAY_FILMOTECA = 'pay_filmoteca';
+
+    public const PROVIDER_MIA = 'mia';
+
+    public const PROVIDER_CYBERSOURCE = 'cybersource';
+
+    public const METHOD_CARD = 'card';
+
+    public const METHOD_MIA = 'mia';
 
     public function getRouteKeyName(): string
     {
@@ -85,6 +109,8 @@ class PaymentTopUp extends Model
             'raw_callback' => 'array',
             'raw_details' => 'array',
             'credited_at' => 'datetime',
+            'qr_expires_at' => 'datetime',
+            'last_checked_at' => 'datetime',
         ];
     }
 }

@@ -17,7 +17,7 @@ use App\Services\FundingLedgerBackfill;
 use App\Services\ImdbRatingService;
 use App\Services\MediaUploadService;
 use App\Services\MediaUrlMigrationService;
-use App\Services\PayFilmotecaPaymentService;
+use App\Services\Payments\TopUpPaymentGateway;
 use App\Services\RightsReportingService;
 use App\Services\StorefrontCacheService;
 use Illuminate\Foundation\Inspiring;
@@ -244,21 +244,13 @@ Artisan::command('ad-events:prune {--days=7}', function () {
     return self::SUCCESS;
 })->purpose('Prune raw ad_events older than N days (default 7)');
 
-Artisan::command('payments:poll-topups {--limit=50}', function (PayFilmotecaPaymentService $payments) {
-    $stats = $payments->pollPendingTopUps((int) $this->option('limit'));
-
-    $this->info(sprintf(
-        'Payment top-ups checked: %d, paid: %d, failed: %d, canceled: %d, refunded: %d, still processing: %d.',
-        $stats['checked'],
-        $stats['paid'],
-        $stats['failed'],
-        $stats['canceled'],
-        $stats['refunded'],
-        $stats['processing'],
-    ));
+Artisan::command('payments:poll-topups {--limit=50}', function (TopUpPaymentGateway $payments) {
+    foreach ($payments->pollPendingTopUps((int) $this->option('limit')) as $provider => $stats) {
+        $this->info($provider.': '.collect($stats)->map(fn (int $count, string $key): string => "{$key} {$count}")->implode(', ').'.');
+    }
 
     return self::SUCCESS;
-})->purpose('Poll pay.filmoteca.md payment details and settle pending wallet top-ups');
+})->purpose('Settle pending wallet top-ups (pay.filmoteca.md, Victoriabank MIA) whose notification never arrived');
 
 Artisan::command('backups:run {--component=* : database, analytics, redis, media (default: the ones enabled in admin)}', function (BackupManager $manager, BackupRunner $runner) {
     try {

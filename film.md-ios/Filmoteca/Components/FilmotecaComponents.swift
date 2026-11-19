@@ -108,7 +108,7 @@ private struct PosterMetaLine: View {
             showsYear ? content.releaseYear.map(String.init) : nil,
             showsGenre ? content.genres.first(where: { !$0.contains("\\") }) : nil,
         ].compactMap { $0 }
-        let rating = content.imdbRating.flatMap { $0 > 0 ? $0 : nil }
+        let rating = AppConfiguration.hidesRatingsForScreenshots ? nil : content.imdbRating.flatMap { $0 > 0 ? $0 : nil }
 
         return HStack(spacing: 5) {
             if content.isNew { PosterBadge(title: app.tr("NOU"), fill: AnyShapeStyle(FilmotecaTheme.brandGradient), compact: true) }

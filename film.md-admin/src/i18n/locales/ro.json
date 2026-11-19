@@ -55,6 +55,7 @@
       "all_genres": "Toate genurile"
     },
     "table": {
+      "movie_id": "MovieID",
       "title": "Titlu",
       "type": "Tip",
       "flags": "Etichete",
@@ -94,7 +95,7 @@
       "preview": "Previzualizează filmul",
       "delete": "Șterge filmul"
     },
-    "search_placeholder": "Caută după titlu, slug, gen sau țară..."
+    "search_placeholder": "Caută după MovieID, titlu, slug, gen sau țară..."
   },
   "ads": {
     "title": "Campanii publicitare",

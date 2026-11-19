@@ -145,8 +145,20 @@ export function ContentCatalog() {
 
   const columns = [
     {
+      key: "movie_id",
+      header: t("movies.table.movie_id"),
+      sortValue: (item: ContentRow) => item.movie_id?.trim() || null,
+      render: (item: ContentRow) =>
+        item.movie_id?.trim() ? (
+          <span className="whitespace-nowrap font-mono text-sm font-medium">{item.movie_id.trim()}</span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
+    },
+    {
       key: "title",
       header: t("movies.table.title"),
+      sortValue: (item: ContentRow) => item.localized_title,
       render: (item: ContentRow) => (
         <div className="flex items-center gap-3">
           <img
@@ -186,6 +198,7 @@ export function ContentCatalog() {
     {
       key: "release_year",
       header: t("movies.table.year"),
+      sortValue: (item: ContentRow) => item.release_year ?? null,
       render: (item: ContentRow) => item.release_year ?? "N/A",
     },
     {

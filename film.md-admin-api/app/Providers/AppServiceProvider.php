@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Payments\CyberSource\CyberSourceSdkFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Support\Facades\Date;
@@ -18,7 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // One SDK factory per process so tests can swap the CyberSource transport.
+        $this->app->singleton(CyberSourceSdkFactory::class);
     }
 
     /**

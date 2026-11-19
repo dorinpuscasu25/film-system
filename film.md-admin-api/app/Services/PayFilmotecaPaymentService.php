@@ -6,11 +6,11 @@ use App\Models\PaymentRefund;
 use App\Models\PaymentTopUp;
 use App\Models\User;
 use App\Models\Wallet;
-use App\Models\WalletTransaction;
+use App\Services\Payments\TopUpPaymentProvider;
+use App\Services\Payments\TopUpSettlementService;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -21,7 +21,7 @@ use libphonenumber\PhoneNumberUtil;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
-class PayFilmotecaPaymentService
+class PayFilmotecaPaymentService implements TopUpPaymentProvider
 {
     public function __construct(
         protected WalletService $wallets,
@@ -409,6 +409,7 @@ class PayFilmotecaPaymentService
         ];
 
         PaymentTopUp::query()
+            ->where('provider', PaymentTopUp::PROVIDER_PAY_FILMOTECA)
             ->whereIn('status', [
                 PaymentTopUp::STATUS_PENDING,
                 PaymentTopUp::STATUS_REDIRECT_CREATED,
@@ -793,79 +794,12 @@ class PayFilmotecaPaymentService
                 ],
             ])->save();
 
-            return DB::transaction(function () use ($refund, $rawResponse): PaymentRefund {
-                $lockedRefund = PaymentRefund::query()
-                    ->whereKey($refund->id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                $lockedTopUp = PaymentTopUp::query()
-                    ->whereKey($lockedRefund->payment_top_up_id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                $wallet = Wallet::query()
-                    ->whereKey($lockedRefund->wallet_id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                $maxRefundable = $this->refundableAmount($lockedTopUp);
-                if ((float) $lockedRefund->amount > $maxRefundable) {
-                    $lockedRefund->forceFill([
-                        'status' => PaymentRefund::STATUS_FAILED,
-                        'provider_status' => 'local_refund_limit_exceeded',
-                        'raw_response' => $rawResponse,
-                        'processed_at' => now(),
-                    ])->save();
-
-                    throw ValidationException::withMessages([
-                        'amount' => [sprintf('Suma maximă disponibilă pentru refund este %.2f %s.', $maxRefundable, $lockedRefund->currency)],
-                    ]);
-                }
-
-                $transaction = $this->wallets->debitOwnCredit(
-                    $wallet,
-                    (float) $lockedRefund->amount,
-                    WalletTransaction::TYPE_REFUND,
-                    'Pay.Filmoteca card refund',
-                    [
-                        'payment_refund_id' => $lockedRefund->uuid,
-                        'payment_top_up_id' => $lockedTopUp->uuid,
-                        'provider' => 'pay.filmoteca.md',
-                        'provider_order_id' => $lockedRefund->provider_order_id,
-                        'provider_checkout_id' => $lockedRefund->provider_checkout_id,
-                        'provider_rrn' => $lockedRefund->provider_rrn,
-                        'refund_reason' => $lockedRefund->reason,
-                    ],
-                    $lockedRefund,
-                );
-
-                $lockedRefund->forceFill([
-                    'wallet_transaction_id' => $transaction->id,
-                    'status' => PaymentRefund::STATUS_SUCCEEDED,
-                    'provider_status' => $this->extractStatus(is_array($rawResponse['json'] ?? null) ? $rawResponse['json'] : $rawResponse),
-                    'raw_response' => $rawResponse,
-                    'processed_at' => now(),
-                ])->save();
-
-                $refundedAmount = $this->refundedAmount($lockedTopUp->fresh());
-                if ($refundedAmount >= round((float) $lockedTopUp->amount, 2)) {
-                    $lockedTopUp->forceFill([
-                        'status' => PaymentTopUp::STATUS_REFUNDED,
-                    ])->save();
-                }
-
-                Log::channel('payments')->info('PayFilmoteca refund request completed', [
-                    'payment_refund_uuid' => $lockedRefund->uuid,
-                    'top_up_uuid' => $lockedTopUp->uuid,
-                    'wallet_transaction_id' => $transaction->id,
-                    'amount' => $lockedRefund->amount,
-                    'currency' => $lockedRefund->currency,
-                    'provider_checkout_id' => $lockedRefund->provider_checkout_id,
-                ]);
-
-                return $lockedRefund->fresh();
-            });
+            return $this->settlement()->settleRefund(
+                $refund,
+                $rawResponse,
+                $this->extractStatus(is_array($rawResponse['json'] ?? null) ? $rawResponse['json'] : $rawResponse),
+                'Pay.Filmoteca card refund',
+            );
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (\Throwable $exception) {
@@ -894,30 +828,17 @@ class PayFilmotecaPaymentService
 
     public function refundedAmount(PaymentTopUp $topUp): float
     {
-        return round((float) $topUp->refunds()
-            ->where('status', PaymentRefund::STATUS_SUCCEEDED)
-            ->sum('amount'), 2);
+        return $this->settlement()->refundedAmount($topUp);
     }
 
     public function refundableAmount(PaymentTopUp $topUp): float
     {
-        $topUp->loadMissing('wallet');
-        $alreadyRefunded = $this->refundedAmount($topUp);
-        $remainingTopUpAmount = max(0, round((float) $topUp->amount - $alreadyRefunded, 2));
-        $ownBalance = $this->ownCreditBalance($topUp->wallet);
-
-        return round(min($remainingTopUpAmount, $ownBalance), 2);
+        return $this->settlement()->refundableAmount($topUp);
     }
 
     public function ownCreditBalance(?Wallet $wallet): float
     {
-        if ($wallet === null) {
-            return 0.0;
-        }
-
-        $meta = $wallet->meta ?? [];
-
-        return round((float) ($meta['own_credit_balance'] ?? $wallet->balance_amount ?? 0), 2);
+        return $this->settlement()->ownCreditBalance($wallet);
     }
 
     /**
@@ -956,79 +877,13 @@ class PayFilmotecaPaymentService
 
     protected function creditWallet(PaymentTopUp $topUp, array $details, ?string $providerStatus): void
     {
-        DB::transaction(function () use ($topUp, $details, $providerStatus): void {
-            $lockedTopUp = PaymentTopUp::query()
-                ->whereKey($topUp->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        $this->settlement()->creditWallet($topUp, $details, $providerStatus);
+    }
 
-            if ($lockedTopUp->credited_at !== null) {
-                Log::channel('payments')->info('PayFilmoteca wallet credit skipped because top-up was already credited', [
-                    'top_up_uuid' => $lockedTopUp->uuid,
-                    'wallet_id' => $lockedTopUp->wallet_id,
-                    'credited_at' => $lockedTopUp->credited_at?->toIso8601String(),
-                    'status' => $lockedTopUp->status,
-                ]);
-
-                return;
-            }
-
-            $wallet = Wallet::query()
-                ->whereKey($lockedTopUp->wallet_id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            Log::channel('payments')->info('PayFilmoteca wallet credit starting', [
-                'top_up_uuid' => $lockedTopUp->uuid,
-                'wallet_id' => $wallet->id,
-                'user_id' => $lockedTopUp->user_id,
-                'amount' => $lockedTopUp->amount,
-                'currency' => $lockedTopUp->currency,
-                'provider_order_id' => $lockedTopUp->provider_order_id,
-                'provider_status' => $providerStatus,
-            ]);
-
-            $credit = $this->wallets->credit(
-                $wallet,
-                (float) $lockedTopUp->amount,
-                WalletTransaction::TYPE_TOP_UP,
-                'Wallet top-up via pay.filmoteca.md',
-                [
-                    'payment_top_up_id' => $lockedTopUp->uuid,
-                    'provider' => 'pay.filmoteca.md',
-                    'provider_order_id' => $lockedTopUp->provider_order_id,
-                    'provider_checkout_id' => $lockedTopUp->provider_checkout_id,
-                    'provider_rrn' => $lockedTopUp->provider_rrn,
-                    'provider_status' => $providerStatus,
-                    'details' => $details,
-                ],
-                $lockedTopUp,
-            );
-            if ($lockedTopUp->access_location !== null) {
-                $credit->forceFill(['access_location' => $lockedTopUp->access_location])->save();
-            }
-
-            $lockedTopUp->forceFill([
-                'status' => PaymentTopUp::STATUS_PAID,
-                'provider_status' => $providerStatus,
-                'raw_details' => $details,
-                'credited_at' => now(),
-            ])->save();
-
-            Log::channel('payments')->info('PayFilmoteca wallet credit completed', [
-                'top_up_uuid' => $lockedTopUp->uuid,
-                'wallet_id' => $wallet->id,
-                'user_id' => $lockedTopUp->user_id,
-                'amount' => $lockedTopUp->amount,
-                'currency' => $lockedTopUp->currency,
-                'provider_order_id' => $lockedTopUp->provider_order_id,
-                'provider_checkout_id' => $lockedTopUp->provider_checkout_id,
-                'provider_rrn' => $lockedTopUp->provider_rrn,
-                'provider_status' => $providerStatus,
-                'new_status' => $lockedTopUp->status,
-                'credited_at' => $lockedTopUp->credited_at?->toIso8601String(),
-            ]);
-        });
+    // Resolved lazily so the constructor signature (and the tests that subclass it) stay unchanged.
+    protected function settlement(): TopUpSettlementService
+    {
+        return app(TopUpSettlementService::class);
     }
 
     protected function ensureSubscriber(string $subscriberId): void

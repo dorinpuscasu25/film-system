@@ -10,7 +10,7 @@ import {
   unfavoriteStorefrontContent,
   updateStorefrontBillingAddress,
 } from "../lib/session";
-import type { StorefrontAccessLocation, StorefrontBillingAddressPayload, StorefrontTopUpPayload } from "../lib/session";
+import type { StorefrontAccessLocation, StorefrontBillingAddressPayload, StorefrontTopUpMethod, StorefrontTopUpPayload } from "../lib/session";
 import { formatCompactDuration } from "../lib/time";
 
 interface WalletContextType {
@@ -24,7 +24,7 @@ interface WalletContextType {
   isLoading: boolean;
   addFunds: (
     amount: number,
-    options: { phone?: string; billingAddress: StorefrontBillingAddressPayload; accessLocation?: StorefrontAccessLocation | null },
+    options: { method?: StorefrontTopUpMethod; phone?: string; billingAddress: StorefrontBillingAddressPayload; accessLocation?: StorefrontAccessLocation | null },
   ) => Promise<StorefrontTopUpPayload>;
   saveBillingAddress: (address: StorefrontBillingAddressPayload) => Promise<StorefrontBillingAddressPayload>;
   purchaseAccess: (offerId: string, options?: { accessLocation?: StorefrontAccessLocation | null }) => Promise<void>;
@@ -148,13 +148,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const addFunds = async (
     amount: number,
-    options: { phone?: string; billingAddress: StorefrontBillingAddressPayload; accessLocation?: StorefrontAccessLocation | null },
+    options: { method?: StorefrontTopUpMethod; phone?: string; billingAddress: StorefrontBillingAddressPayload; accessLocation?: StorefrontAccessLocation | null },
   ) => {
     if (activeProfile?.isKids) {
       throw new Error(t("wallet.kids_restricted"));
     }
 
     const response = await createStorefrontWalletTopUp({
+      method: options.method ?? "card",
       amount,
       currency,
       account_profile_id: activeProfile?.id ?? null,
@@ -164,7 +165,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       access_location: options.accessLocation ?? null,
     });
 
-    setPaymentPhone(options.phone ?? null);
+    if (options.phone) {
+      setPaymentPhone(options.phone);
+    }
 
     if (response.top_up.billing_address) {
       setBillingAddress({
